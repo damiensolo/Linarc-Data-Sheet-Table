@@ -1,0 +1,111 @@
+import React, { useMemo } from 'react';
+import { useProject } from '../../context/ProjectContext';
+import { PlusIcon, DownloadIcon, CalculatorIcon } from '../common/Icons';
+
+const formatValue = (val: number) => 
+    Math.abs(val).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+const AppHeader: React.FC = () => {
+    const { activeViewMode, activeView } = useProject();
+    
+    const title = activeViewMode === 'dashboard' ? 'Budget Dashboard' : 'Budget';
+    
+    // Aggregate budget metadata from root-level items
+    const budgetTotals = useMemo(() => {
+        const data = activeView.spreadsheetData;
+        if (!data || data.length === 0) return { total: 0, distributed: 0, unallocated: 0 };
+        
+        return data.reduce((acc, curr) => {
+            const rowBudget = curr.totalBudget || 0;
+            const rowRemaining = curr.remainingContract || 0;
+            return {
+                distributed: acc.distributed + rowBudget,
+                unallocated: acc.unallocated + rowRemaining,
+                total: acc.total + (rowBudget + rowRemaining)
+            };
+        }, { total: 0, distributed: 0, unallocated: 0 });
+    }, [activeView.spreadsheetData]);
+
+    const { total, distributed, unallocated } = budgetTotals;
+
+    const isSpreadsheetView = activeViewMode === 'spreadsheet' || activeViewMode === 'spreadsheetV2';
+    const isReadyToLock = isSpreadsheetView && unallocated === 0;
+    const showCreateButton = !isSpreadsheetView && activeViewMode !== 'dashboard';
+
+    // Status colors based on unallocated amount - used only for the status pill
+    const statusClasses = unallocated === 0 
+        ? 'bg-green-50 text-green-700 border-green-200 shadow-[0_1px_2px_rgba(34,197,94,0.1)]' 
+        : unallocated < 0
+        ? 'bg-red-50 text-red-700 border-red-200 shadow-[0_1px_2px_rgba(239,68,68,0.1)]'
+        : 'bg-amber-50 text-amber-700 border-amber-200 shadow-[0_1px_2px_rgba(245,158,11,0.1)]';
+
+    return (
+        <header className="flex-shrink-0 border-b border-gray-200 bg-white">
+            <div className="flex items-center justify-between px-4 py-3">
+                <div className="flex items-center gap-6">
+                    <h1 className="text-xl font-bold text-gray-900">{title}</h1>
+                    
+                    {isSpreadsheetView && (
+                        <div className="flex items-center gap-5">
+                            {/* Standard text strings for secondary metadata */}
+                            <div className="flex items-center gap-5">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Total</span>
+                                    <span className="font-bold text-gray-900 font-mono text-sm tracking-tight">${formatValue(total)}</span>
+                                </div>
+                                
+                                <span className="w-px h-4 bg-gray-200"></span>
+                                
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Distributed</span>
+                                    <span className="font-bold text-gray-900 font-mono text-sm tracking-tight">${formatValue(distributed)}</span>
+                                </div>
+                            </div>
+
+                            {/* Prominent Status Pill for critical metadata */}
+                            <div className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full text-[10px] font-bold border transition-all duration-300 ${statusClasses}`}>
+                                <span className="opacity-70 uppercase tracking-widest">
+                                    {unallocated < 0 ? 'Over Allocated' : unallocated === 0 ? 'Balanced' : 'Unallocated'}
+                                </span>
+                                <span className="font-mono text-sm tracking-tighter">
+                                    ${formatValue(unallocated)}
+                                    {unallocated < 0 && ' over'}
+                                </span>
+                            </div>
+                        </div>
+                    )}
+                </div>
+                
+                <div className="flex items-center gap-2">
+                    <button className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 shadow-sm transition-colors">
+                        <DownloadIcon className="w-4 h-4" />
+                        <span>Download</span>
+                    </button>
+
+                    {isSpreadsheetView && (
+                        <button 
+                            disabled={!isReadyToLock}
+                            className={`flex items-center gap-1.5 px-4 py-2 text-sm font-bold rounded-md shadow-sm transition-all duration-300 transform active:scale-95 ${
+                                isReadyToLock 
+                                ? 'bg-green-600 hover:bg-green-700 text-white cursor-pointer ring-2 ring-green-500 ring-offset-2' 
+                                : 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200 opacity-60'
+                            }`}
+                        >
+                            <CalculatorIcon className="w-4 h-4" />
+                            <span>Lock Budget</span>
+                        </button>
+                    )}
+
+                    {showCreateButton && (
+                        <button className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-zinc-800 rounded-md hover:bg-zinc-700 shadow-sm transition-colors">
+                            <PlusIcon className="w-4 h-4" />
+                            <span>Create</span>
+                        </button>
+                    )}
+                </div>
+            </div>
+        </header>
+    );
+};
+
+export default AppHeader;

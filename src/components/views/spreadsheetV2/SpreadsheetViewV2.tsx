@@ -1,0 +1,496 @@
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { BudgetLineItem, BudgetLineItemStyle, SpreadsheetColumn } from '../../../types';
+import { useProject } from '../../../context/ProjectContext';
+import SpreadsheetToolbar from '../spreadsheet/components/SpreadsheetToolbar';
+import SpreadsheetHeader from '../spreadsheet/components/SpreadsheetHeader';
+import SpreadsheetRowV2 from './components/SpreadsheetRowV2';
+import { ContextMenu, ContextMenuItem } from '../../common/ui/ContextMenu';
+import { ScissorsIcon, CopyIcon, ClipboardIcon, TrashIcon, PlusIcon } from '../../common/Icons';
+
+const formatCurrency = (amount: number | null | undefined) => {
+  if (amount === null || amount === undefined) return '';
+  return amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
+export type SpreadsheetRowType = 'parent' | 'child' | 'summary';
+
+interface FlattenedRow {
+    item: BudgetLineItem;
+    level: number;
+    type: SpreadsheetRowType;
+    parentId?: string;
+}
+
+const SpreadsheetViewV2: React.FC = () => {
+  const { activeView, updateView, searchTerm, handleSort } = useProject();
+  
+  const rawBudgetData = useMemo(() => activeView.spreadsheetData || [], [activeView.spreadsheetData]);
+  const columns = useMemo(() => activeView.spreadsheetColumns || [], [activeView.spreadsheetColumns]);
+  const displayDensity = activeView.displayDensity;
+
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set(
+      rawBudgetData.filter(item => item.isExpanded).map(item => item.id)
+  ));
+
+  const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
+  const [focusedCell, setFocusedCell] = useState<{ rowId: string; colId: string; type: SpreadsheetRowType } | null>(null);
+  const [editingCell, setEditingCell] = useState<{ rowId: string; colId: string; initialValue?: string } | null>(null);
+  const [scrollState, setScrollState] = useState({ isAtStart: true, isAtEnd: false, isScrolledTop: false });
+  const containerRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const toolbarCheckboxRef = useRef<HTMLInputElement>(null);
+  const [resizingColumnId, setResizingColumnId] = useState<string | null>(null);
+  const activeResizerId = useRef<string | null>(null);
+
+  const [contextMenu, setContextMenu] = useState<{
+      visible: boolean;
+      position: { x: number; y: number };
+      type: 'row' | 'column' | 'cell';
+      targetId: string;
+      secondaryId?: string;
+  } | null>(null);
+
+  // Flatten logic
+  const visibleData = useMemo(() => {
+    const flattened: FlattenedRow[] = [];
+    
+    const recurse = (items: BudgetLineItem[], level: number, parentId?: string) => {
+        items.forEach(item => {
+            const hasChildren = !!item.children && item.children.length > 0;
+            const isExpanded = expandedIds.has(item.id);
+            const matchesSearch = !searchTerm || 
+                Object.values(item).some(v => v !== null && String(v).toLowerCase().includes(searchTerm.toLowerCase()));
+            
+            const isVisible = matchesSearch || (hasChildren && item.children?.some(c => Object.values(c).some(v => v !== null && String(v).toLowerCase().includes(searchTerm.toLowerCase()))));
+
+            if (isVisible) {
+                flattened.push({ item, level, type: parentId ? 'child' : 'parent', parentId });
+                
+                if (hasChildren && isExpanded) {
+                    recurse(item.children!, level + 1, item.id);
+                    flattened.push({ 
+                        item, 
+                        level: level + 1, 
+                        type: 'summary',
+                        parentId: item.id
+                    });
+                }
+            }
+        });
+    };
+    
+    recurse(rawBudgetData, 0);
+    return flattened;
+  }, [rawBudgetData, expandedIds, searchTerm]);
+
+  // Selection Logic
+  const selectableRows = useMemo(() => visibleData.filter(d => d.type !== 'summary'), [visibleData]);
+  const isAllSelected = selectableRows.length > 0 && selectableRows.every(d => selectedRowIds.has(d.item.id));
+  const isSomeSelected = !isAllSelected && selectableRows.some(d => selectedRowIds.has(d.item.id));
+
+  useEffect(() => {
+    if (!editingCell && containerRef.current) {
+        containerRef.current.focus({ preventScroll: true });
+    }
+  }, [editingCell]);
+
+  useEffect(() => {
+    if (toolbarCheckboxRef.current) toolbarCheckboxRef.current.indeterminate = isSomeSelected;
+  }, [isSomeSelected]);
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    const handleScroll = () => {
+        if (container) {
+            setScrollState({ 
+                isAtStart: container.scrollLeft <= 2, 
+                isAtEnd: container.scrollLeft + container.clientWidth >= container.scrollWidth - 2,
+                isScrolledTop: container.scrollTop > 0
+            });
+        }
+    };
+    container?.addEventListener('scroll', handleScroll);
+    setTimeout(handleScroll, 100); 
+    return () => container?.removeEventListener('scroll', handleScroll);
+  }, [visibleData, columns]);
+
+  const handleToggleAll = () => {
+    if (isAllSelected) setSelectedRowIds(new Set());
+    else setSelectedRowIds(new Set(selectableRows.map(d => d.item.id)));
+  };
+
+  const handleToggleRow = (id: string) => {
+    setSelectedRowIds(prev => {
+        const newSet = new Set(prev);
+        if (newSet.has(id)) newSet.delete(id);
+        else newSet.add(id);
+        return newSet;
+    });
+  };
+
+  const handleToggleExpand = (id: string) => {
+      setExpandedIds(prev => {
+          const newSet = new Set(prev);
+          if (newSet.has(id)) newSet.delete(id);
+          else newSet.add(id);
+          return newSet;
+      });
+  };
+
+  const handleRowHeaderClick = (id: string, multiSelect: boolean) => {
+    setFocusedCell(null);
+    setSelectedRowIds(prev => {
+      const newSet = multiSelect ? new Set(prev) : new Set<string>();
+      if (prev.has(id) && multiSelect) newSet.delete(id);
+      else newSet.add(id);
+      return newSet;
+    });
+  };
+
+  const handleCellClick = (rowId: string, colId: string, type: SpreadsheetRowType) => {
+      setFocusedCell({ rowId, colId, type });
+      setSelectedRowIds(new Set()); 
+      containerRef.current?.focus();
+  };
+
+  const moveFocus = useCallback((currentRowId: string, currentColId: string, currentType: SpreadsheetRowType, direction: 'up' | 'down' | 'left' | 'right') => {
+      const rowIndex = visibleData.findIndex(d => d.item.id === currentRowId && d.type === currentType);
+      const colIndex = columns.findIndex(c => c.id === currentColId);
+      if (rowIndex === -1 || colIndex === -1) return;
+
+      let nextRowIndex = rowIndex;
+      let nextColIndex = colIndex;
+
+      switch (direction) {
+          case 'up': nextRowIndex = Math.max(0, rowIndex - 1); break;
+          case 'down': nextRowIndex = Math.min(visibleData.length - 1, rowIndex + 1); break;
+          case 'left': nextColIndex = Math.max(0, colIndex - 1); break;
+          case 'right': nextColIndex = Math.min(columns.length - 1, colIndex + 1); break;
+      }
+
+      const nextRow = visibleData[nextRowIndex];
+      setFocusedCell({ rowId: nextRow.item.id, colId: columns[nextColIndex].id, type: nextRow.type });
+  }, [visibleData, columns]);
+
+  const handleUpdateCellValue = (rowId: string, colId: string, value: any, direction?: 'up' | 'down' | 'left' | 'right') => {
+      const costComponents = ['labor', 'material', 'equipment', 'subcontractor', 'others', 'overhead', 'profit'];
+      
+      const updateRecursively = (items: BudgetLineItem[]): BudgetLineItem[] => {
+          return items.map(item => {
+              // If this is the parent or a parent containing the child being edited
+              const isTargetRow = item.id === rowId;
+              const hasTargetChild = item.children?.some(c => c.id === rowId);
+
+              if (isTargetRow) {
+                  // Direct update of parent fields or child fields (if child edited)
+                  if (costComponents.includes(colId)) {
+                      const oldValue = parseFloat(String((item as any)[colId] || 0).replace(/,/g, ''));
+                      const newValue = value === null || value === '' ? 0 : parseFloat(String(value).replace(/,/g, ''));
+                      const diff = newValue - oldValue;
+                      
+                      // If it's a root parent being edited directly
+                      const updatedItem = { 
+                          ...item, 
+                          [colId]: newValue,
+                          totalBudget: (item.totalBudget || 0) + diff,
+                          remainingContract: (item.remainingContract || 0) - diff
+                      };
+                      return updatedItem;
+                  }
+                  return { ...item, [colId]: value };
+              }
+
+              if (hasTargetChild && costComponents.includes(colId)) {
+                  // Handle child update within this parent
+                  const updatedChildren = item.children!.map(child => {
+                      if (child.id === rowId) {
+                          const oldValue = parseFloat(String((child as any)[colId] || 0).replace(/,/g, ''));
+                          const newValue = value === null || value === '' ? 0 : parseFloat(String(value).replace(/,/g, ''));
+                          const diff = newValue - oldValue;
+
+                          return { 
+                              ...child, 
+                              [colId]: newValue,
+                              totalBudget: (child.totalBudget || 0) + diff,
+                              // Child row's remainingContract is ignored in logic
+                              diffForParent: diff 
+                          };
+                      }
+                      return child;
+                  });
+
+                  const totalDiff = updatedChildren.reduce((sum, c) => sum + ((c as any).diffForParent || 0), 0);
+                  
+                  // Clean up temporary field
+                  updatedChildren.forEach(c => delete (c as any).diffForParent);
+
+                  return {
+                      ...item,
+                      children: updatedChildren,
+                      remainingContract: (item.remainingContract || 0) - totalDiff
+                  };
+              }
+
+              if (item.children) {
+                  return { ...item, children: updateRecursively(item.children) };
+              }
+              return item;
+          });
+      };
+      
+      updateView({ spreadsheetData: updateRecursively(rawBudgetData) });
+
+      if (direction && focusedCell) {
+          moveFocus(rowId, colId, focusedCell.type, direction);
+      }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+      if (editingCell) return; 
+      if (!focusedCell) return;
+
+      const rowIndex = visibleData.findIndex(d => d.item.id === focusedCell.rowId && d.type === focusedCell.type);
+      const colIndex = columns.findIndex(c => c.id === focusedCell.colId);
+      if (rowIndex === -1 || colIndex === -1) return;
+
+      const move = (rDir: number, cDir: number) => {
+          e.preventDefault();
+          let nextRowIndex = rowIndex + rDir;
+          let nextColIndex = colIndex + cDir;
+
+          if (e.key === 'Tab') {
+              if (!e.shiftKey) {
+                  if (nextColIndex >= columns.length) {
+                      nextColIndex = 0;
+                      nextRowIndex++;
+                  }
+              } else {
+                  if (nextColIndex < 0) {
+                      nextColIndex = columns.length - 1;
+                      nextRowIndex--;
+                  }
+              }
+          }
+
+          nextRowIndex = Math.max(0, Math.min(visibleData.length - 1, nextRowIndex));
+          nextColIndex = Math.max(0, Math.min(columns.length - 1, nextColIndex));
+
+          const nextRow = visibleData[nextRowIndex];
+          setFocusedCell({ rowId: nextRow.item.id, colId: columns[nextColIndex].id, type: nextRow.type });
+      };
+
+      switch (e.key) {
+          case 'ArrowUp': move(-1, 0); break;
+          case 'ArrowDown': move(1, 0); break;
+          case 'ArrowLeft': move(0, -1); break;
+          case 'ArrowRight': move(0, 1); break;
+          case 'Tab': move(0, e.shiftKey ? -1 : 1); break;
+          case 'Enter': 
+              e.preventDefault();
+              const col = columns[colIndex];
+              const row = visibleData[rowIndex];
+              if (row.type !== 'summary' && col.editable) {
+                  setEditingCell({ rowId: row.item.id, colId: col.id });
+              }
+              break;
+          case 'Delete':
+          case 'Backspace':
+              const targetRow = visibleData[rowIndex];
+              if (targetRow.type !== 'summary' && columns[colIndex].editable) {
+                handleUpdateCellValue(targetRow.item.id, columns[colIndex].id, columns[colIndex].align === 'right' ? null : '');
+              }
+              break;
+          default:
+              if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                  const targetRow = visibleData[rowIndex];
+                  if (targetRow.type !== 'summary' && columns[colIndex].editable) {
+                      setEditingCell({ rowId: targetRow.item.id, colId: columns[colIndex].id, initialValue: e.key });
+                  }
+              }
+              break;
+      }
+  };
+
+  const handleContextMenu = useCallback((e: React.MouseEvent, type: 'row' | 'column' | 'cell', targetId: string, secondaryId?: string) => {
+      e.preventDefault();
+      if (type === 'row' && !selectedRowIds.has(targetId)) handleRowHeaderClick(targetId, false);
+      else if (type === 'cell' && secondaryId) handleCellClick(targetId, secondaryId, 'child'); 
+      setContextMenu({ visible: true, position: { x: e.clientX, y: e.clientY }, type, targetId, secondaryId });
+  }, [selectedRowIds]);
+
+  const handleBulkStyleUpdate = (newStyle: Partial<BudgetLineItemStyle>, targetIds?: Set<string>) => {
+    const idsToUpdate = targetIds || selectedRowIds;
+    const updateRecursive = (items: BudgetLineItem[]): BudgetLineItem[] => items.map(item => {
+        let newItem = item;
+        if (idsToUpdate.has(item.id)) {
+            const mergedStyle = { ...(item.style || {}), ...newStyle };
+            Object.keys(newStyle).forEach(key => {
+                if ((newStyle as any)[key] === undefined) delete (mergedStyle as any)[key];
+            });
+            newItem = { ...item, style: mergedStyle };
+        }
+        if (newItem.children) newItem = { ...newItem, children: updateRecursive(newItem.children) };
+        return newItem;
+    });
+    updateView({ spreadsheetData: updateRecursive(rawBudgetData) });
+  };
+
+  const getContextMenuItems = (): ContextMenuItem[] => {
+      if (!contextMenu) return [];
+      return [
+          { label: 'Add Sub-row', icon: <PlusIcon className="w-4 h-4"/>, onClick: () => {} },
+          { separator: true } as any,
+          { label: 'Cut', icon: <ScissorsIcon className="w-4 h-4"/>, shortcut: 'Ctrl+X', onClick: () => {} },
+          { label: 'Copy', icon: <CopyIcon className="w-4 h-4"/>, shortcut: 'Ctrl+C', onClick: () => {} },
+          { label: 'Paste', icon: <ClipboardIcon className="w-4 h-4"/>, shortcut: 'Ctrl+V', onClick: () => {} },
+          { separator: true } as any,
+          { label: 'Delete Row', icon: <TrashIcon className="w-4 h-4 text-red-500"/>, danger: true, onClick: () => {} },
+      ];
+  };
+
+  const handleResize = (columnId: string, newWidth: number) => {
+    updateView({ spreadsheetColumns: columns.map(c => c.id === columnId ? { ...c, width: Math.max(newWidth, 60) } : c) });
+  };
+
+  const onMouseDown = (columnId: string) => (e: React.MouseEvent) => {
+    e.stopPropagation(); e.preventDefault();
+    activeResizerId.current = columnId; setResizingColumnId(columnId);
+    
+    const col = columns.find(c => c.id === columnId);
+    if (!col) return;
+    
+    const startX = e.clientX; 
+    const startWidth = col.width;
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      if (activeResizerId.current === columnId) {
+          handleResize(columnId, startWidth + (moveEvent.clientX - startX));
+      }
+    };
+    const onMouseUp = () => {
+      activeResizerId.current = null; setResizingColumnId(null);
+      window.removeEventListener('mousemove', onMouseMove); window.removeEventListener('mouseup', onMouseUp);
+      document.body.classList.remove('grabbing');
+    };
+    window.addEventListener('mousemove', onMouseMove); window.addEventListener('mouseup', onMouseUp);
+    document.body.classList.add('grabbing');
+  };
+
+  const handleColumnMove = (fromId: string, toId: string, position: 'left' | 'right') => {
+      const newCols = [...columns];
+      const sIndex = newCols.findIndex(c => c.id === fromId);
+      let tIndex = newCols.findIndex(c => c.id === toId);
+      if (sIndex === -1 || tIndex === -1) return;
+      if (position === 'right') tIndex++;
+      if (sIndex < tIndex) tIndex--;
+      const [moved] = newCols.splice(sIndex, 1);
+      newCols.splice(tIndex, 0, moved);
+      updateView({ spreadsheetColumns: newCols });
+  };
+
+  // Aggregated totals
+  const totals = useMemo(() => {
+    const sumRecursive = (items: BudgetLineItem[]) => items.reduce((acc, item) => ({
+      remainingContract: acc.remainingContract + (item.remainingContract || 0),
+      effortHours: acc.effortHours + (item.effortHours || 0),
+      totalBudget: acc.totalBudget + (item.totalBudget || 0),
+      labor: acc.labor + (item.labor || 0),
+      equipment: acc.equipment + (item.equipment || 0),
+      subcontractor: acc.subcontractor + (item.subcontractor || 0),
+      material: acc.material + (item.material || 0),
+      others: acc.others + (item.others || 0),
+      overhead: acc.overhead + (item.overhead || 0),
+      profit: acc.profit + (item.profit || 0),
+    }), { remainingContract: 0, effortHours: 0, totalBudget: 0, labor: 0, equipment: 0, subcontractor: 0, material: 0, others: 0, overhead: 0, profit: 0 });
+    
+    return sumRecursive(rawBudgetData);
+  }, [rawBudgetData]);
+
+  return (
+    <div 
+        ref={containerRef}
+        className="flex flex-col h-full p-4 outline-none focus:ring-0 overflow-hidden" 
+        onKeyDown={handleKeyDown} 
+        tabIndex={0}
+    >
+        <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden relative flex flex-col focus:outline-none max-h-full min-h-0">
+            <SpreadsheetToolbar
+                isAllSelected={isAllSelected}
+                handleToggleAll={handleToggleAll}
+                toolbarCheckboxRef={toolbarCheckboxRef}
+                hasRowSelection={selectedRowIds.size > 0}
+                selectedCount={selectedRowIds.size}
+                onStyleUpdate={(style) => handleBulkStyleUpdate(style)}
+            />
+            <div className="overflow-auto relative select-none focus:outline-none min-h-0" ref={scrollContainerRef}>
+            <table className="border-collapse min-w-full table-fixed" style={{ fontSize: activeView.fontSize }}>
+                <SpreadsheetHeader
+                    columns={columns} focusedCell={focusedCell} resizingColumnId={resizingColumnId}
+                    isScrolled={!scrollState.isAtStart} isAtEnd={scrollState.isAtEnd}
+                    isVerticalScrolled={scrollState.isScrolledTop}
+                    fontSize={activeView.fontSize} displayDensity={displayDensity}
+                    sort={activeView.sort} onSort={handleSort} onColumnMove={handleColumnMove}
+                    onMouseDown={onMouseDown} onContextMenu={(e, id) => handleContextMenu(e, 'column', id)}
+                />
+                <tbody>
+                {visibleData.map(({ item, level, type }) => (
+                    <SpreadsheetRowV2
+                        key={`${item.id}-${type}`} 
+                        row={item} 
+                        level={level} 
+                        columns={columns} 
+                        isSelected={selectedRowIds.has(item.id)}
+                        isExpanded={expandedIds.has(item.id)} 
+                        onToggleExpand={() => handleToggleExpand(item.id)}
+                        focusedCell={focusedCell} 
+                        editingCell={editingCell}
+                        onStopEdit={() => setEditingCell(null)}
+                        isScrolled={!scrollState.isAtStart} 
+                        isAtEnd={scrollState.isAtEnd}
+                        fontSize={activeView.fontSize} 
+                        displayDensity={displayDensity}
+                        rowType={type}
+                        onRowHeaderClick={handleRowHeaderClick} 
+                        onToggleRow={handleToggleRow}
+                        onCellClick={(r, c) => handleCellClick(r, c, type)}
+                        onStartEdit={(rowId, colId) => setEditingCell({ rowId, colId })}
+                        onUpdateCell={handleUpdateCellValue}
+                        onContextMenu={handleContextMenu}
+                    />
+                ))}
+                </tbody>
+                <tfoot className="bg-gray-100 text-gray-900 border-t-2 border-gray-300 sticky bottom-0 z-30 font-bold shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+                    <tr className="h-9">
+                        <td className={`sticky left-0 z-40 w-14 border-r border-gray-300 p-0 text-center bg-gray-100 ${!scrollState.isAtStart ? 'shadow-[4px_0_8px_-4px_rgba(0,0,0,0.3)]' : ''}`}>
+                            <div className="flex items-center justify-center h-full font-bold" style={{ fontSize: activeView.fontSize }}>Total</div>
+                        </td>
+                        {columns.map((col) => {
+                             const totalVal = totals[col.id as keyof typeof totals];
+                             let footerColorClass = '';
+                             
+                             if (col.id === 'remainingContract') {
+                                 const val = totalVal as number;
+                                 if (val < 0) footerColorClass = 'text-red-600';
+                                 else if (val === 0) footerColorClass = 'text-green-600';
+                             }
+
+                             return (
+                                <td key={col.id} className={`bg-gray-100 border-r border-gray-300 px-2 whitespace-nowrap ${col.align === 'right' ? 'text-right' : 'text-left'} ${footerColorClass}`}>
+                                    {col.isTotal ? (col.id === 'effortHours' ? totalVal : formatCurrency(totalVal as number)) : ''}
+                                </td>
+                             );
+                        })}
+                        <td className={`sticky right-0 z-40 border-l border-gray-200 bg-gray-100 w-20 ${!scrollState.isAtEnd ? 'shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.3)]' : ''}`}></td>
+                    </tr>
+                </tfoot>
+            </table>
+            </div>
+        </div>
+        {contextMenu && contextMenu.visible && (
+            <ContextMenu position={contextMenu.position} items={getContextMenuItems()} onClose={() => setContextMenu(null)} />
+        )}
+    </div>
+  );
+};
+
+export default SpreadsheetViewV2;
