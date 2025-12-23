@@ -330,8 +330,8 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ onSelectionChange }) => {
     const [isMenuVisible, setMenuVisible] = useState(false);
-    const [activeCategoryKey, setActiveCategoryKey] = useState<StandardCategoryKey>('documentation');
-    const [activeSubcategoryKey, setActiveSubcategoryKey] = useState<string>('document');
+    const [activeCategoryKey, setActiveCategoryKey] = useState<StandardCategoryKey>('finance');
+    const [activeSubcategoryKey, setActiveSubcategoryKey] = useState<string>('contract');
     const [selectedProject, setSelectedProject] = useState<Project>(projects[0]);
     
     const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
@@ -461,7 +461,7 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange }) => {
                 </div>
 
                 {/* Bottom Row for Project Details */}
-                <div className="text-xs text-gray-400 flex items-center">
+                <div className="text-sm text-gray-400 flex items-center">
                     <div className="w-[68px] shrink-0 text-center">
                         <span className="font-semibold text-white">
                             {categoryAbbreviations[activeCategoryKey]}

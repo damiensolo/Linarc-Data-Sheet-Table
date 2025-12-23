@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { View, ViewMode } from '../../types';
@@ -10,8 +9,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../com
 const modes: { id: ViewMode; label: string; icon: React.FC<React.SVGProps<SVGSVGElement>> }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: DashboardIcon },
   { id: 'table', label: 'Table', icon: TableIcon },
-  { id: 'spreadsheet', label: 'Spreadsheet', icon: SpreadsheetIcon },
-  { id: 'spreadsheetV2', label: 'Sheet V2', icon: SpreadsheetIcon },
+  { id: 'spreadsheetV2', label: 'Spreadsheet', icon: SpreadsheetIcon },
   { id: 'board', label: 'Board', icon: BoardIcon },
   { id: 'gantt', label: 'Gantt', icon: GanttIcon },
   { id: 'lookahead', label: 'Lookahead', icon: LookaheadIcon },

@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useMemo, useCallback, useContext, SetStateAction, ReactNode } from 'react';
 import { MOCK_TASKS, MOCK_BUDGET_DATA } from '../data';
 import { Task, View, FilterRule, Priority, ColumnId, Status, DisplayDensity, Column, ViewMode } from '../types';
@@ -99,7 +98,7 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [views, setViews] = useState<View[]>([]);
   const [activeViewId, setActiveViewId] = useState<string | null>(null);
   const [defaultViewId, setDefaultViewId] = useState<string>('');
-  const [activeViewMode, setActiveViewMode] = useState<ViewMode>('table');
+  const [activeViewMode, setActiveViewMode] = useState<ViewMode>('spreadsheetV2');
   const [transientView, setTransientView] = useState<View | null>(null);
   
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<number>>(new Set());
