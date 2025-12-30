@@ -65,6 +65,7 @@ const SpreadsheetRowV2: React.FC<SpreadsheetRowV2Props> = ({
 }) => {
     const isRowFocused = focusedCell?.rowId === row.id && focusedCell?.type === rowType;
     const customStyle = row.style || {};
+    const customBorder = customStyle.borderColor;
     const rowHeightClass = getRowHeightClass(displayDensity);
     
     const [isLinked, setIsLinked] = useState(false);
@@ -90,7 +91,7 @@ const SpreadsheetRowV2: React.FC<SpreadsheetRowV2Props> = ({
         }), { remainingContract: 0, effortHours: 0, totalBudget: 0, labor: 0, material: 0, equipment: 0, subcontractor: 0, others: 0, overhead: 0, profit: 0 });
     }, [row, rowType]);
 
-    // Allocation status logic - using solid colors to fix transparency defect
+    // Allocation status logic
     const remaining = row.remainingContract ?? 0;
     const statusColors = useMemo(() => {
         if (rowType !== 'parent') return '';
@@ -180,7 +181,7 @@ const SpreadsheetRowV2: React.FC<SpreadsheetRowV2Props> = ({
 
     return (
         <tr className={rowClasses} style={rowStyle}>
-            {/* Locked Column 1: Match header dimensions strictly */}
+            {/* Locked Column 1 */}
             <td 
                 onClick={() => rowType !== 'summary' && onToggleRow(row.id)}
                 onContextMenu={(e) => rowType !== 'summary' && onContextMenu(e, 'row', row.id)}
@@ -204,6 +205,12 @@ const SpreadsheetRowV2: React.FC<SpreadsheetRowV2Props> = ({
                         </>
                     )}
                 </div>
+                {customBorder && rowType !== 'summary' && (
+                    <>
+                        <div className="absolute top-0 left-0 right-0 h-px z-40 pointer-events-none" style={{ backgroundColor: customBorder }} />
+                        <div className="absolute bottom-0 left-0 right-0 h-px z-40 pointer-events-none" style={{ backgroundColor: customBorder }} />
+                    </>
+                )}
             </td>
 
             {columns.map((col) => {
@@ -220,7 +227,6 @@ const SpreadsheetRowV2: React.FC<SpreadsheetRowV2Props> = ({
                         content = col.id === 'effortHours' ? val : formatCurrency(val);
                     }
                 } else if (rowType === 'parent') {
-                    // Strictly only show name and remaining contract for parents
                     if (col.id === 'name') {
                         content = row.name;
                     } else if (col.id === 'remainingContract') {
@@ -228,11 +234,11 @@ const SpreadsheetRowV2: React.FC<SpreadsheetRowV2Props> = ({
                         if (remaining < 0) cellColorClass = 'text-red-600 font-bold';
                         else if (remaining === 0) cellColorClass = 'text-green-600 font-bold';
                     } else {
-                        content = ''; // Empty for all other columns in parent rows
+                        content = ''; 
                     }
                 } else if (rowType === 'child') {
                     if (col.id === 'remainingContract') {
-                        content = ''; // Empty for child rows in remaining contract column
+                        content = ''; 
                     } else {
                         content = (row as any)[col.id];
                         if (['totalBudget', 'labor', 'material', 'equipment', 'subcontractor', 'others', 'overhead', 'profit'].includes(col.id)) {
@@ -243,7 +249,6 @@ const SpreadsheetRowV2: React.FC<SpreadsheetRowV2Props> = ({
                     }
                 }
 
-                // Check if this specific cell is editable based on row type
                 const isEditable = col.editable && (
                     (rowType === 'child' && col.id !== 'remainingContract') || 
                     (rowType === 'parent' && (col.id === 'name' || col.id === 'remainingContract'))
@@ -298,10 +303,17 @@ const SpreadsheetRowV2: React.FC<SpreadsheetRowV2Props> = ({
                         {isCellFocused && !isCurrentCellEditing && (
                             <div className="absolute inset-0 border-2 border-blue-600 z-20 pointer-events-none shadow-[inset_0_0_0_1px_rgba(37,99,235,0.3)]"></div>
                         )}
+                        {customBorder && rowType !== 'summary' && (
+                            <>
+                                <div className="absolute top-0 left-0 right-0 h-px z-20 pointer-events-none" style={{ backgroundColor: customBorder }} />
+                                <div className="absolute bottom-0 left-0 right-0 h-px z-20 pointer-events-none" style={{ backgroundColor: customBorder }} />
+                            </>
+                        )}
                     </td>
                 );
             })}
             
+            {/* Sticky Right Column */}
             <td className={`sticky right-0 z-30 w-20 px-2 border-l border-gray-200 transition-all duration-200 relative
                 ${stickyBgClass}
                 ${!isAtEnd ? 'before:content-[""] before:absolute before:top-0 before:bottom-0 before:-left-[6px] before:w-[6px] before:bg-gradient-to-l before:from-black/[0.12] before:to-transparent before:pointer-events-none' : ''}
@@ -325,6 +337,12 @@ const SpreadsheetRowV2: React.FC<SpreadsheetRowV2Props> = ({
                         </TooltipProvider>
                     )}
                 </div>
+                {customBorder && rowType !== 'summary' && (
+                    <>
+                        <div className="absolute top-0 left-0 right-0 h-px z-40 pointer-events-none" style={{ backgroundColor: customBorder }} />
+                        <div className="absolute bottom-0 left-0 right-0 h-px z-40 pointer-events-none" style={{ backgroundColor: customBorder }} />
+                    </>
+                )}
             </td>
         </tr>
     );
