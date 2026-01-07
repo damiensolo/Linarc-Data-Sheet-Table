@@ -2,15 +2,15 @@ import { Column, Status, Priority, ColumnId, FilterOperator, SpreadsheetColumn }
 
 export const getDefaultTableColumns = (): Column[] => [
   { id: 'details', label: '', width: '60px', visible: true, minWidth: 60 },
-  { id: 'name', label: 'Task Name', width: '300px', visible: true, minWidth: 200 },
-  { id: 'status', label: 'Status', width: '150px', visible: true, minWidth: 120 },
-  { id: 'assignee', label: 'Assignee', width: '150px', visible: true, minWidth: 120 },
-  { id: 'dates', label: 'Start Date', width: '140px', visible: true, minWidth: 100 },
+  { id: 'name', label: 'Subject', width: '350px', visible: true, minWidth: 200 },
+  { id: 'status', label: 'Status', width: '160px', visible: true, minWidth: 120 },
+  { id: 'assignee', label: 'Assigned To', width: '150px', visible: true, minWidth: 120 },
+  { id: 'dates', label: 'Due Date', width: '140px', visible: true, minWidth: 100 },
   { id: 'progress', label: 'Progress', width: '200px', visible: true, minWidth: 150 },
 ];
 
 export const FILTERABLE_COLUMNS: { id: ColumnId, label: string, type: 'text' | 'enum' }[] = [
-    { id: 'name', label: 'Task Name', type: 'text' },
+    { id: 'name', label: 'Subject', type: 'text' },
     { id: 'status', label: 'Status', type: 'enum' },
     { id: 'priority', label: 'Priority', type: 'enum' },
 ];
