@@ -35,15 +35,11 @@ const getRowHeight = (density: DisplayDensity) => {
   }
 };
 
-// --- Cell Content Components ---
-
 const SelectionCell: React.FC<{ task: Task, isSelected: boolean, onToggleRow: (id: number) => void, rowNum?: number, isScrolled: boolean, rowHeightClass: string, customBg?: string, customBorder?: string }> = ({ task, isSelected, onToggleRow, rowNum, isScrolled, rowHeightClass, customBg, customBorder }) => {
   const taskNameId = `task-name-${task.id}`;
-  
-  // Header remains dark blue for consistency
   const bgClass = isSelected ? 'bg-blue-600 text-white' : 'bg-white group-hover:bg-gray-50';
   
-  const cellClasses = `sticky left-0 z-40 ${rowHeightClass} px-2 w-14 text-center border-r border-gray-200 transition-shadow duration-200 cursor-pointer relative ${!customBorder ? 'border-b' : ''} ${bgClass} ${isScrolled ? 'shadow-[2px_0_5px_rgba(0,0,0,0.05)]' : ''}`;
+  const cellClasses = `sticky left-0 z-30 ${rowHeightClass} px-2 w-14 text-center border-r border-gray-200 transition-shadow duration-200 cursor-pointer relative ${!customBorder ? 'border-b' : ''} ${bgClass} ${isScrolled ? 'shadow-[2px_0_5px_rgba(0,0,0,0.05)]' : ''}`;
 
   return (
     <td className={cellClasses} onClick={() => onToggleRow(task.id)}>
@@ -148,7 +144,6 @@ const AssigneeCellContent: React.FC<{ task: Task }> = ({ task }) => (
 const DateCellContent: React.FC<{ task: Task, isEditing: boolean, onEdit: (cell: { taskId: number; column: string } | null) => void, onUpdateTask: TableRowProps['onUpdateTask'], textColor?: string }> = ({ task, isEditing, onEdit, onUpdateTask, textColor }) => {
     const handleDateChange = (date: Date | undefined) => {
         if (date) {
-             // Format Date back to DD/MM/YYYY for storage
              const day = String(date.getDate()).padStart(2, '0');
              const month = String(date.getMonth() + 1).padStart(2, '0');
              const year = date.getFullYear();
@@ -178,11 +173,8 @@ const TableRow: React.FC<TableRowProps> = ({ task, level, onToggle, rowNumberMap
   const isSelected = selectedTaskIds.has(task.id);
   const rowNum = rowNumberMap.get(task.id);
   const rowHeightClass = getRowHeight(displayDensity);
-  
-  // Mock local state for linked tasks
   const [isLinked, setIsLinked] = useState(false);
 
-  // Styles from the view object take precedence
   const viewStyle = taskStyles ? taskStyles[task.id] : undefined;
   const customBg = viewStyle?.backgroundColor;
   const customBorder = viewStyle?.borderColor;
@@ -192,7 +184,6 @@ const TableRow: React.FC<TableRowProps> = ({ task, level, onToggle, rowNumberMap
   if (customBg) rowStyle.backgroundColor = customBg;
   if (customText) rowStyle.color = customText;
   
-  // Determine row classes based on custom styles vs default selection styles
   let rowClasses = 'group';
   if (!customBg) {
      rowClasses += isSelected ? ' bg-blue-50 hover:bg-blue-100' : ' bg-white hover:bg-gray-50';
@@ -247,10 +238,9 @@ const TableRow: React.FC<TableRowProps> = ({ task, level, onToggle, rowNumberMap
             const isEditing = editingCell?.taskId === task.id && editingCell?.column === col.id;
             const isEditable = isColumnEditable(col.id);
             
-            let cellClasses = `${rowHeightClass} p-0 relative`; // Added relative
+            let cellClasses = `${rowHeightClass} p-0 relative`; 
             if (isEditable) cellClasses += ' cursor-pointer';
 
-            // Use border-b unless custom border is present, then we use absolute div
             if (!customBorder) {
                 cellClasses += ' border-b border-gray-200';
             }
@@ -293,8 +283,7 @@ const TableRow: React.FC<TableRowProps> = ({ task, level, onToggle, rowNumberMap
                 </td>
             )
         })}
-        {/* Action Column Sticky Right - Fixed selection background and refined icon styling */}
-        <td className={`sticky right-0 z-40 w-20 px-2 flex-shrink-0 border-l border-gray-200 transition-shadow duration-200 ${!customBorder ? 'border-b' : ''} ${customBg || (isSelected ? 'bg-blue-50 group-hover:bg-blue-100' : 'bg-white group-hover:bg-gray-50')}`}>
+        <td className={`sticky right-0 z-30 w-20 px-2 flex-shrink-0 border-l border-gray-200 transition-shadow duration-200 ${!customBorder ? 'border-b' : ''} ${customBg || (isSelected ? 'bg-blue-50 group-hover:bg-blue-100' : 'bg-white group-hover:bg-gray-50')}`}>
             <div className="flex items-center justify-center h-full relative z-20">
                 <TooltipProvider>
                     <Tooltip>
@@ -336,6 +325,7 @@ const TableRow: React.FC<TableRowProps> = ({ task, level, onToggle, rowNumberMap
             displayDensity={displayDensity}
             showGridLines={showGridLines}
             onShowDetails={onShowDetails}
+            /* Fix: Use activeDetailedTaskId instead of detailedTaskId which was not in scope. */
             activeDetailedTaskId={activeDetailedTaskId}
             taskStyles={taskStyles}
         />

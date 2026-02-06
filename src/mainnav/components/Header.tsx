@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import HoverMenu, { CategoryData, StandardCategoryData, MoreItem } from './HoverMenu';
+import { useProject } from '../../context/ProjectContext';
 
 // --- Icon Definitions ---
 
@@ -329,6 +330,7 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ onSelectionChange }) => {
+    const { activeViewMode } = useProject();
     const [isMenuVisible, setMenuVisible] = useState(false);
     const [activeCategoryKey, setActiveCategoryKey] = useState<StandardCategoryKey>('finance');
     const [activeSubcategoryKey, setActiveSubcategoryKey] = useState<string>('contract');
@@ -346,6 +348,26 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange }) => {
         fieldOps: 'text-amber-500',
         documentation: 'text-cyan-500',
     };
+
+    // Synchronize Top Nav with view modes
+    useEffect(() => {
+        if (activeViewMode === 'dashboard') {
+            setActiveCategoryKey('projectManagement');
+            setActiveSubcategoryKey('project');
+        } else if (activeViewMode === 'table' || activeViewMode === 'board') {
+            setActiveCategoryKey('documentation');
+            setActiveSubcategoryKey('rfi');
+        } else if (activeViewMode === 'spreadsheetV2' || activeViewMode === 'spreadsheet') {
+            setActiveCategoryKey('finance');
+            setActiveSubcategoryKey('contract');
+        } else if (activeViewMode === 'gantt') {
+            setActiveCategoryKey('projectManagement');
+            setActiveSubcategoryKey('schedule');
+        } else if (activeViewMode === 'lookahead') {
+            setActiveCategoryKey('projectManagement');
+            setActiveSubcategoryKey('planner');
+        }
+    }, [activeViewMode]);
 
     // FIX: Add type guard to safely access properties on `category`.
     const handleSelect = (categoryKey: string, subcategoryKey: string) => {

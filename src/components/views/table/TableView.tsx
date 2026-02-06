@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect, useCallback, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ColumnId, DisplayDensity, TaskStyle, Task } from '../../../types';
@@ -89,12 +88,10 @@ const TableView: React.FC<TableViewProps> = ({ isScrolled, density }) => {
     const selectedIds = Array.from(selectedTaskIds);
 
     for (const tId of selectedIds) {
-        // Explicitly cast to number to avoid 'unknown' index error
         const taskId = tId as number;
         const currentStyle = newStyles[taskId] || {};
         const mergedStyle = { ...currentStyle, ...newStyle };
         
-        // Clean up undefined values to allow "unsetting"
         if (newStyle.backgroundColor === undefined) delete mergedStyle.backgroundColor;
         if (newStyle.borderColor === undefined) delete mergedStyle.borderColor;
         if (newStyle.textColor === undefined) delete mergedStyle.textColor;
@@ -102,7 +99,7 @@ const TableView: React.FC<TableViewProps> = ({ isScrolled, density }) => {
         if (Object.keys(mergedStyle).length > 0) {
             newStyles[taskId] = mergedStyle;
         } else {
-            delete newStyles[taskId]; // Clean up empty style objects
+            delete newStyles[taskId];
         }
     }
     updateView({ taskStyles: newStyles });
@@ -211,8 +208,7 @@ const TableView: React.FC<TableViewProps> = ({ isScrolled, density }) => {
     <div className="flex flex-col h-full p-4">
         <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden relative flex flex-col flex-grow">
             
-            {/* Contextual Toolbar Row */}
-            <div className="flex items-center h-14 border-b border-gray-200 bg-white flex-shrink-0 transition-all z-40 relative pr-4">
+            <div className="flex items-center h-14 border-b border-gray-200 bg-white flex-shrink-0 transition-all z-50 relative pr-4">
                  <div className="w-14 flex items-center justify-center flex-shrink-0 border-r border-gray-200">
                      <input 
                         type="checkbox" 
@@ -335,9 +331,9 @@ const TableView: React.FC<TableViewProps> = ({ isScrolled, density }) => {
                     className="w-full table-fixed text-left text-gray-500 whitespace-nowrap border-collapse"
                     style={{ fontSize: activeView.fontSize }}
                 >
-                <thead className="uppercase bg-gray-50 sticky top-0 z-20">
+                <thead className={`uppercase bg-gray-50 sticky top-0 z-40 transition-shadow duration-200 ${isScrolled ? 'shadow-[0_4px_6px_-2px_rgba(0,0,0,0.1),0_2px_4px_-2px_rgba(0,0,0,0.05)]' : ''}`}>
                     <tr ref={headerRef}>
-                    <th scope="col" className={`sticky left-0 bg-gray-50 z-30 ${headerHeightClass} px-2 w-14 border-b border-gray-200 border-r border-gray-200 transition-shadow duration-200 ${isScrolled ? 'shadow-[2px_0_5px_rgba(0,0,0,0.05)]' : ''}`}>
+                    <th scope="col" className={`sticky left-0 bg-gray-50 z-50 ${headerHeightClass} px-2 w-14 border-r border-gray-200 transition-all duration-200 ${isScrolled ? 'shadow-[2px_0_5px_rgba(0,0,0,0.05)]' : ''}`} style={{ boxShadow: 'inset 0 -1px 0 #e5e7eb' }}>
                         <div className="flex items-center justify-center h-full font-semibold text-gray-500">
                             #
                         </div>
@@ -348,8 +344,8 @@ const TableView: React.FC<TableViewProps> = ({ isScrolled, density }) => {
                         <th 
                             key={col.id} 
                             scope="col" 
-                            className={`${headerHeightClass} px-6 font-semibold border-b border-gray-200 relative group cursor-pointer align-middle text-gray-700 ${showGridLines && !isLastVisibleColumn ? 'border-r border-gray-200' : ''}`}
-                            style={{ width: col.width, zIndex: 5 }}
+                            className={`${headerHeightClass} px-6 font-semibold relative group cursor-pointer align-middle text-gray-700 ${showGridLines && !isLastVisibleColumn ? 'border-r border-gray-200' : ''}`}
+                            style={{ width: col.width, zIndex: 30, boxShadow: 'inset 0 -1px 0 #e5e7eb' }}
                             onClick={() => {
                                 if (col.id === 'details') return;
                                 handleSort(col.id);
@@ -377,8 +373,7 @@ const TableView: React.FC<TableViewProps> = ({ isScrolled, density }) => {
                         </th>
                         );
                     })}
-                    {/* Action Column Sticky Header - Renamed to Actions */}
-                    <th scope="col" className={`sticky right-0 bg-gray-50 z-30 ${headerHeightClass} w-20 px-2 border-b border-gray-200 border-l border-gray-200 transition-shadow duration-200`}>
+                    <th scope="col" className={`sticky right-0 bg-gray-50 z-50 ${headerHeightClass} w-20 px-2 border-l border-gray-200 transition-all duration-200`} style={{ boxShadow: 'inset 0 -1px 0 #e5e7eb' }}>
                         <div className="flex items-center justify-center h-full font-semibold text-gray-700">
                             Actions
                         </div>

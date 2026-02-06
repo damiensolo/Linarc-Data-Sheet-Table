@@ -8,7 +8,16 @@ const formatValue = (val: number) =>
 const AppHeader: React.FC = () => {
     const { activeViewMode, activeView } = useProject();
     
-    const title = activeViewMode === 'dashboard' ? 'Budget Dashboard' : 'Budget';
+    // Dynamic title based on view mode
+    const getTitle = () => {
+        if (activeViewMode === 'dashboard') return 'Project Dashboard';
+        if (activeViewMode === 'table' || activeViewMode === 'board') return 'RFIs';
+        if (activeViewMode === 'gantt') return 'Schedule';
+        if (activeViewMode === 'lookahead') return 'Lookahead';
+        return 'Budget';
+    };
+
+    const title = getTitle();
     
     // Aggregate budget metadata from root-level items
     const budgetTotals = useMemo(() => {
