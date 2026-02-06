@@ -13,6 +13,9 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../
 import { useProject } from '../../../context/ProjectContext';
 import { DisplayDensity } from '../../../types';
 import ViewControls from '../../layout/ViewControls';
+import FieldsMenu from '../../layout/FieldsMenu';
+import { Popover } from '../../common/ui/Popover';
+import { SettingsIcon } from '../../common/Icons';
 
 const WeatherIcon: React.FC<{ icon: 'sun' | 'cloud' | 'rain' }> = ({ icon }) => {
     switch (icon) {
@@ -24,6 +27,7 @@ const WeatherIcon: React.FC<{ icon: 'sun' | 'cloud' | 'rain' }> = ({ icon }) => 
 };
 
 const DAY_WIDTH = 40;
+const NUMBERS_CHECKBOX_COLUMN_WIDTH = 56; // # column + checkbox, same as table w-14
 
 const getRowHeight = (density: DisplayDensity) => {
   switch (density) {
@@ -49,11 +53,12 @@ const LookaheadView: React.FC = () => {
     const { 
         activeView, setColumns
     } = useProject();
-    const { columns, displayDensity } = activeView;
+    const { columns, displayDensity, fontSize } = activeView;
 
     const [plannerTasks, setPlannerTasks] = useState<LookaheadTask[]>(PLANNER_TASKS);
     const [selectedTask, setSelectedTask] = useState<LookaheadTask | null>(null);
     const [selectedDay, setSelectedDay] = useState<{ task: LookaheadTask; date: Date } | null>(null);
+    const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string | number>>(new Set());
     const [isScrolled, setIsScrolled] = useState(false);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     
@@ -80,7 +85,32 @@ const LookaheadView: React.FC = () => {
     }, [columns]);
 
     const totalLeftPanelWidth = useMemo(() => visiblePanelColumns.reduce((sum, col) => sum + col.widthPx, 0), [visiblePanelColumns]);
+    const totalLeftWidth = NUMBERS_CHECKBOX_COLUMN_WIDTH + totalLeftPanelWidth;
     const rowHeight = getRowHeight(displayDensity);
+
+    // Row numbers for visible rows (respecting expansion, same order as renderTaskRows)
+    const rowNumberMap = useMemo(() => {
+        const map = new Map<string | number, number>();
+        let n = 0;
+        const visit = (tasks: LookaheadTask[]) => {
+            tasks.forEach(t => {
+                n += 1;
+                map.set(t.id, n);
+                if (t.isExpanded && t.children?.length) visit(t.children);
+            });
+        };
+        visit(plannerTasks);
+        return map;
+    }, [plannerTasks]);
+
+    const handleToggleRow = useCallback((taskId: string | number) => {
+        setSelectedTaskIds(prev => {
+            const next = new Set(prev);
+            if (next.has(taskId)) next.delete(taskId);
+            else next.add(taskId);
+            return next;
+        });
+    }, []);
 
     const handleMouseDown = useCallback((e: React.MouseEvent, columnId: string, currentWidth: number) => {
         e.preventDefault();
@@ -254,7 +284,7 @@ const LookaheadView: React.FC = () => {
                                 </button>
                             ) : <DocumentIcon className="w-4 h-4 text-gray-400"/>}
                         </div>
-                        <span className="truncate font-medium text-gray-800 text-sm" title={task.name}>{task.name}</span>
+                        <span className="truncate font-medium text-gray-800" style={{ fontSize: '1em' }} title={task.name}>{task.name}</span>
                     </div>
                 );
             case 'resource':
@@ -270,15 +300,32 @@ const LookaheadView: React.FC = () => {
     
     const renderTaskRows = (tasks: LookaheadTask[], level: number): React.ReactNode[] => {
         return tasks.flatMap(task => {
+            const isSelected = selectedTaskIds.has(task.id);
+            const rowNum = rowNumberMap.get(task.id);
             const row = (
-                <div key={task.id} className="flex border-b border-gray-200 first:border-t" style={{ height: `${rowHeight}px`}}>
-                    {/* Left Panel */}
-                    <div className={`sticky left-0 bg-white z-30 flex border-r-2 border-gray-200 transition-shadow ${isScrolled ? 'shadow-[2px_0_5px_rgba(0,0,0,0.05)]' : ''}`} style={{ width: `${totalLeftPanelWidth}px` }}>
+                <div key={task.id} className="flex border-b border-gray-200 first:border-t group" style={{ height: `${rowHeight}px`}}>
+                    {/* Left Panel: #/checkbox column + data columns */}
+                    <div className={`sticky left-0 z-30 flex border-r-2 border-gray-200 transition-shadow ${isScrolled ? 'shadow-[2px_0_5px_rgba(0,0,0,0.05)]' : ''}`} style={{ width: `${totalLeftWidth}px` }}>
+                        {/* Numbers + Checkbox column */}
+                        <div
+                            className={`flex-shrink-0 w-14 flex items-center justify-center border-r border-gray-200 cursor-pointer ${isSelected ? 'bg-blue-600 text-white' : 'bg-white group-hover:bg-gray-50'}`}
+                            onClick={() => handleToggleRow(task.id)}
+                        >
+                            <span className={isSelected ? 'hidden' : 'group-hover:hidden text-gray-500'} style={{ fontSize: '1em' }}>{rowNum}</span>
+                            <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => handleToggleRow(task.id)}
+                                onClick={(e) => e.stopPropagation()}
+                                className={`h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 ${isSelected ? 'block' : 'hidden group-hover:block'}`}
+                                aria-label={`Select task ${task.name}`}
+                            />
+                        </div>
                         {visiblePanelColumns.map((col, index) => (
                              <div 
                                 key={col.id} 
-                                className={`flex-shrink-0 flex items-center px-2 text-sm overflow-hidden relative ${index > 0 ? 'border-l border-gray-200' : ''} ${col.lookaheadType === 'id' && task.isCriticalPath ? 'bg-red-50' : ''} ${col.lookaheadType === 'id' ? 'justify-center' : ''}`}
-                                style={{ width: `${col.widthPx}px` }}
+                                className={`flex-shrink-0 flex items-center px-2 overflow-hidden relative ${index > 0 ? 'border-l border-gray-200' : ''} ${col.lookaheadType === 'id' && task.isCriticalPath ? 'bg-red-50' : ''} ${col.lookaheadType === 'id' ? 'justify-center' : ''} bg-white`}
+                                style={{ fontSize: '1em', width: `${col.widthPx}px` }}
                             >
                                 {renderCell(col.lookaheadType, task, level)}
                              </div>
@@ -307,20 +354,35 @@ const LookaheadView: React.FC = () => {
 
     return (
         <div className="flex h-full flex-col p-4 gap-4">
-            <ViewControls />
+            <div className="flex items-center gap-2">
+                <ViewControls />
+                <div className="ml-auto flex items-center">
+                    <Popover
+                        trigger={
+                            <button className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors" aria-label="View settings">
+                                <SettingsIcon className="w-4 h-4" />
+                            </button>
+                        }
+                        content={
+                            <FieldsMenu onClose={() => {}} disableClickOutside className="right-0 mt-2" />
+                        }
+                        align="end"
+                    />
+                </div>
+            </div>
             
-            <div className="flex-grow flex flex-col bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden relative">
+            <div className="flex-grow flex flex-col bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden relative" style={{ fontSize: `${fontSize}px` }}>
                 {/* Main Planner */}
                 <div className="flex-grow overflow-hidden relative flex">
                     <div ref={scrollContainerRef} className="flex-grow overflow-auto min-w-0">
-                        <div className="relative" style={{ minWidth: `${totalLeftPanelWidth + (totalDays * DAY_WIDTH) + DAY_WIDTH}px`}}>
+                        <div className="relative" style={{ minWidth: `${totalLeftWidth + (totalDays * DAY_WIDTH) + DAY_WIDTH}px`}}>
                             {/* Unified Background Grid */}
                             <div
                                 className="absolute top-0 left-0 w-full h-full pt-[80px] flex"
                                 style={{ zIndex: 0 }}
                                 aria-hidden="true"
                             >
-                                <div style={{ width: `${totalLeftPanelWidth}px` }} className="flex-shrink-0 sticky left-0 bg-white z-10"></div>
+                                <div style={{ width: `${totalLeftWidth}px` }} className="flex-shrink-0 sticky left-0 bg-white z-10"></div>
                                 <div
                                     className="flex-grow grid"
                                     style={{ gridTemplateColumns: `${DAY_WIDTH}px repeat(${totalDays}, ${DAY_WIDTH}px)` }}
@@ -338,9 +400,9 @@ const LookaheadView: React.FC = () => {
                             </div>
 
                             {/* Header */}
-                            <div className="sticky top-0 bg-gray-50 z-40 text-xs font-semibold text-gray-600 uppercase border-b border-t border-gray-200">
+                            <div className="sticky top-0 bg-gray-50 z-40 font-semibold text-gray-600 uppercase border-b border-t border-gray-200" style={{ fontSize: '0.875em' }}>
                                 <div className="flex border-b border-gray-200" style={{ height: '30px' }}>
-                                    <div className={`sticky left-0 bg-gray-50 flex border-r-2 border-gray-200 transition-shadow ${isScrolled ? 'shadow-[2px_0_5px_rgba(0,0,0,0.05)]' : ''}`} style={{ width: `${totalLeftPanelWidth}px` }}></div>
+                                    <div className={`sticky left-0 bg-gray-50 flex border-r-2 border-gray-200 transition-shadow ${isScrolled ? 'shadow-[2px_0_5px_rgba(0,0,0,0.05)]' : ''}`} style={{ width: `${totalLeftWidth}px` }} />
                                     <div className="flex-grow flex">
                                         {/* Padding Block */}
                                         <div className="flex-shrink-0 border-r border-gray-200 bg-gray-50/50" style={{ width: `${DAY_WIDTH}px` }}></div>
@@ -350,7 +412,10 @@ const LookaheadView: React.FC = () => {
                                     </div>
                                 </div>
                                  <div className="flex" style={{ height: '50px' }}>
-                                     <div className={`sticky left-0 bg-gray-50 flex border-r-2 border-gray-200 transition-shadow ${isScrolled ? 'shadow-[2px_0_5px_rgba(0,0,0,0.05)]' : ''}`} style={{ width: `${totalLeftPanelWidth}px` }}>
+                                     <div className={`sticky left-0 bg-gray-50 flex border-r-2 border-gray-200 transition-shadow ${isScrolled ? 'shadow-[2px_0_5px_rgba(0,0,0,0.05)]' : ''}`} style={{ width: `${totalLeftWidth}px` }}>
+                                        <div className="flex-shrink-0 w-14 flex items-end justify-center pb-1 border-r border-gray-200">
+                                            #
+                                        </div>
                                         {visiblePanelColumns.map((col, index) => (
                                             <div 
                                                 key={col.id} 
@@ -375,14 +440,14 @@ const LookaheadView: React.FC = () => {
                                             return (
                                                 <div key={i} className="flex flex-col items-center justify-between py-1 border-r border-gray-200">
                                                     <div className="flex items-center">
-                                                        <span className="text-[10px] text-gray-400 mr-0.5">{date.toLocaleString('default', { weekday: 'short' })[0]}</span>
+                                                        <span className="text-gray-400 mr-0.5" style={{ fontSize: '0.75em' }}>{date.toLocaleString('default', { weekday: 'short' })[0]}</span>
                                                         <span className="font-normal">{date.getDate()}</span>
                                                     </div>
                                                     <div className="h-7 flex flex-col items-center justify-center">
                                                         {forecast ? (
                                                             <div className="flex flex-col items-center" title={`${forecast.temp}°F`}>
                                                                 <WeatherIcon icon={forecast.icon} />
-                                                                <span className="text-[10px] font-medium text-gray-600">{forecast.temp}°</span>
+                                                                <span className="font-medium text-gray-600" style={{ fontSize: '0.75em' }}>{forecast.temp}°</span>
                                                             </div>
                                                         ) : <div style={{height: '28px'}}></div>}
                                                     </div>

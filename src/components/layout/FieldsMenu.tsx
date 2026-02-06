@@ -68,6 +68,7 @@ const FieldsMenu: React.FC<SettingsMenuProps> = ({ onClose, className, disableCl
   const isSpreadsheet = activeViewMode === 'spreadsheet';
   const isDashboard = activeViewMode === 'dashboard';
   const showFields = !isSpreadsheet && !isDashboard;
+  const showGridLinesOption = showFields && activeViewMode !== 'gantt' && activeViewMode !== 'lookahead';
 
 
   useEffect(() => {
@@ -169,8 +170,8 @@ const FieldsMenu: React.FC<SettingsMenuProps> = ({ onClose, className, disableCl
         </div>
       </div>
       
-      {/* Grid Lines Section - Hidden for some views */}
-      {showFields && (
+      {/* Grid Lines Section - Hidden for Gantt and Lookahead */}
+      {showGridLinesOption && (
         <div className="p-3 border-b border-gray-200">
             <div className="flex items-center justify-between">
                 <h4 className="text-sm font-medium text-gray-700">Show grid lines</h4>

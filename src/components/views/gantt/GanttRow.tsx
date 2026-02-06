@@ -12,9 +12,10 @@ interface GanttRowProps {
   dayWidth: number;
   taskListWidth: number;
   onPriorityChange: (taskId: number, priority: Priority) => void;
+  rowHeight?: number;
 }
 
-const GanttRow: React.FC<GanttRowProps> = ({ task, level, onToggle, projectStartDate, dayWidth, taskListWidth, onPriorityChange }) => {
+const GanttRow: React.FC<GanttRowProps> = ({ task, level, onToggle, projectStartDate, dayWidth, taskListWidth, onPriorityChange, rowHeight = 40 }) => {
   const hasChildren = task.children && task.children.length > 0;
   
   const taskStartDate = parseDate(task.startDate);
@@ -38,7 +39,7 @@ const GanttRow: React.FC<GanttRowProps> = ({ task, level, onToggle, projectStart
 
   return (
     <Fragment>
-      <div className="flex items-center border-b border-gray-200 h-10 hover:bg-gray-50/50 relative">
+      <div className="flex items-center border-b border-gray-200 hover:bg-gray-50/50 relative" style={{ height: rowHeight }}>
         <div className="flex-shrink-0 flex items-center px-2 border-r border-gray-200 h-full" style={{ width: `${taskListWidth}px`}}>
            <div className="flex items-center w-full" style={{ paddingLeft: `${level * 24}px` }}>
             <button
@@ -50,7 +51,7 @@ const GanttRow: React.FC<GanttRowProps> = ({ task, level, onToggle, projectStart
               ) : <span className="w-4 h-4"></span>}
             </button>
             <DocumentIcon className="w-4 h-4 mr-2 text-gray-400 flex-shrink-0"/>
-            <span className="text-sm text-gray-800 truncate mr-auto">{task.name}</span>
+            <span className="text-gray-800 truncate mr-auto" style={{ fontSize: '1em' }}>{task.name}</span>
             <div className="ml-2 flex-shrink-0 w-32">
               <PrioritySelector taskId={task.id} currentPriority={task.priority} onPriorityChange={onPriorityChange} />
             </div>
@@ -58,8 +59,8 @@ const GanttRow: React.FC<GanttRowProps> = ({ task, level, onToggle, projectStart
         </div>
         <div className="flex-1 h-full absolute" style={{left: `${taskListWidth}px`, right: 0}}>
             <div 
-                className={`absolute top-2 h-6 rounded-md ${getTaskColor(task.status)} flex items-center justify-between px-2 shadow-sm border`}
-                style={{ left: `${offset}px`, width: `${width}px` }}
+                className={`absolute rounded-md ${getTaskColor(task.status)} flex items-center justify-between px-2 shadow-sm border`}
+                style={{ left: `${offset}px`, width: `${width}px`, top: 4, height: rowHeight - 8 }}
                 title={`${task.name}: ${task.startDate} - ${task.dueDate}`}
             >
               <div className="flex items-center -space-x-2">
@@ -78,6 +79,7 @@ const GanttRow: React.FC<GanttRowProps> = ({ task, level, onToggle, projectStart
             dayWidth={dayWidth}
             taskListWidth={taskListWidth}
             onPriorityChange={onPriorityChange}
+            rowHeight={rowHeight}
         />
       ))}
     </Fragment>
