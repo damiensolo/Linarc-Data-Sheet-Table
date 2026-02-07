@@ -149,117 +149,120 @@ const ViewControls: React.FC = () => {
   const showSearchAndFilter = activeViewMode !== 'dashboard';
 
   return (
-    <div className="flex items-center gap-3">
-        {showSearchAndFilter && (
-            <>
-                {/* Search */}
-                <div className="relative">
-                    <SearchIcon className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 transition-opacity duration-200 ${isSearchFocused ? 'opacity-0' : 'opacity-100'}`} />
-                    <input 
-                        type="text" 
-                        placeholder={searchPlaceholder} 
-                        value={searchTerm}
-                        onChange={e => setSearchTerm(e.target.value)}
-                        onFocus={() => setIsSearchFocused(true)}
-                        onBlur={() => setIsSearchFocused(false)}
-                        className={`pr-3 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 w-48 shadow-sm transition-all duration-200 ${isSearchFocused ? 'pl-3' : 'pl-9'}`}
-                    />
-                </div>
+        <div className="flex items-center gap-3 relative z-10">
+            {showSearchAndFilter && (
+                <>
+                    {/* Search */}
+                    <div className="relative">
+                        <SearchIcon className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 transition-opacity duration-200 ${isSearchFocused ? 'opacity-0' : 'opacity-100'}`} />
+                        <input 
+                            type="text" 
+                            placeholder={searchPlaceholder} 
+                            value={searchTerm}
+                            onChange={e => setSearchTerm(e.target.value)}
+                            onFocus={() => setIsSearchFocused(true)}
+                            onBlur={() => setIsSearchFocused(false)}
+                            className={`pr-3 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 w-48 shadow-sm transition-all duration-200 ${isSearchFocused ? 'pl-3' : 'pl-9'}`}
+                        />
+                    </div>
 
-                {/* Filter */}
-                <div className="relative">
-                    <button onClick={() => setShowFilterMenu(p => !p)} className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 shadow-sm">
-                        <FilterIcon className="w-4 h-4" />
-                        <span>Filter</span>
-                        {activeView.filters.length > 0 && <span className="bg-blue-100 text-blue-700 text-xs font-bold px-1.5 py-0.5 rounded-full">{activeView.filters.length}</span>}
-                    </button>
-                    {showFilterMenu && <FilterMenu onClose={() => setShowFilterMenu(false)} />}
-                </div>
-
-                <div className="h-6 w-px bg-gray-300 mx-1"></div>
-            </>
-        )}
-
-        {/* View Controls */}
-        <div className="inline-flex items-center bg-gray-100 rounded-lg p-1 shadow-sm">
-            <nav className="flex items-center gap-1" onDragLeave={() => setDropIndex(null)}>
-                {views.map((view, index) => {
-                    const isActive = view.id === activeViewId;
-                    const isDropTarget = dropIndex === index;
-                    const isBeingDragged = draggedIndex === index;
-                    const modeIcon = modes.find(m => m.id === view.type)?.icon;
-                    const IconComponent = modeIcon || TableIcon;
-
-                    return (
-                        <div
-                        key={view.id}
-                        draggable
-                        onDragStart={(e) => handleDragStart(e, index)}
-                        onDragOver={(e) => handleDragOver(e, index)}
-                        onDrop={(e) => handleDrop(e, index)}
-                        onDragEnd={() => { setDraggedIndex(null); setDropIndex(null); }}
-                        className={`flex items-center rounded-md transition-all duration-150 ${ isBeingDragged ? 'opacity-50' : '' } ${ isDropTarget ? 'bg-gray-300' : '' } ${ isActive ? 'bg-white shadow-sm border border-gray-200' : 'hover:bg-gray-200'}`}
-                        >
-                        <button
-                            onClick={() => handleSelectView(view.id)}
-                            className={`pl-2 pr-3 py-1.5 text-sm font-medium text-gray-800 rounded-l-md flex items-center gap-1.5`}
-                        >
-                            <IconComponent className="w-4 h-4 text-gray-500" />
-                            {view.name}
+                    {/* Filter */}
+                    <div className="relative">
+                        <button onClick={() => setShowFilterMenu(p => !p)} className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 shadow-sm">
+                            <FilterIcon className="w-4 h-4" />
+                            <span>Filter</span>
+                            {activeView.filters.length > 0 && <span className="bg-blue-100 text-blue-700 text-xs font-bold px-1.5 py-0.5 rounded-full">{activeView.filters.length}</span>}
                         </button>
-                        <div className="pr-1">
+                        {showFilterMenu && <FilterMenu onClose={() => setShowFilterMenu(false)} />}
+                    </div>
+
+                    <div className="h-6 w-px bg-gray-300 mx-1"></div>
+                </>
+            )}
+
+            {/* Standard Views Container */}
+            <div className="inline-flex items-center bg-gray-100 rounded-lg p-1 shadow-sm relative z-0">
+                <div className="flex items-center">
+                    <TooltipProvider>
+                        {modes.map(({ id, label, icon: Icon }) => {
+                        const isActive = activeViewMode === id;
+                        return (
+                            <Tooltip key={id}>
+                                <TooltipTrigger>
+                                    <button
+                                        onClick={() => handleViewModeChange(id)}
+                                        className={`p-2 text-sm font-medium rounded-md transition-colors ${
+                                            isActive ? 'bg-white shadow-sm border border-gray-200 text-gray-800' : 'text-gray-500 hover:bg-gray-200 hover:text-gray-700'
+                                        }`}
+                                        aria-label={`Switch to ${label} view`}
+                                        aria-pressed={isActive}
+                                    >
+                                    <Icon className="w-5 h-5" />
+                                    </button>
+                                </TooltipTrigger>
+                                <TooltipContent>{label}</TooltipContent>
+                            </Tooltip>
+                        );
+                        })}
+                    </TooltipProvider>
+                </div>
+            </div>
+
+            {/* Custom Views Container */}
+            <div className="inline-flex items-center bg-gray-100 rounded-lg p-1 shadow-sm relative z-0">
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger>
+                            <button onClick={() => setModalState({ type: 'create' })} className="p-1.5 rounded-md text-gray-500 hover:bg-gray-200 hover:text-gray-800">
+                                <PlusIcon className="w-4 h-4" />
+                            </button>
+                        </TooltipTrigger>
+                        <TooltipContent>Create New View</TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+
+                {views.length > 0 && <div className="h-6 w-px bg-gray-300 mx-2"></div>}
+
+                <nav className="flex items-center gap-1" onDragLeave={() => setDropIndex(null)}>
+                    {views.map((view, index) => {
+                        const isActive = view.id === activeViewId;
+                        const isDropTarget = dropIndex === index;
+                        const isBeingDragged = draggedIndex === index;
+                        const modeIcon = modes.find(m => m.id === view.type)?.icon;
+                        const IconComponent = modeIcon || TableIcon;
+
+                        return (
+                            <div
+                            key={view.id}
+                            draggable
+                            onDragStart={(e) => handleDragStart(e, index)}
+                            onDragOver={(e) => handleDragOver(e, index)}
+                            onDrop={(e) => handleDrop(e, index)}
+                            onDragEnd={() => { setDraggedIndex(null); setDropIndex(null); }}
+                            className={`flex items-center rounded-md transition-all duration-150 ${ isBeingDragged ? 'opacity-50' : '' } ${ isDropTarget ? 'bg-gray-300' : '' } ${ isActive ? 'bg-white shadow-sm border border-gray-200' : 'hover:bg-gray-200'}`}
+                            >
+                            <button
+                                onClick={() => handleSelectView(view.id)}
+                                className={`pl-2 pr-3 py-1.5 text-sm font-medium text-gray-800 rounded-l-md flex items-center gap-1.5`}
+                            >
+                                <IconComponent className="w-4 h-4 text-gray-500" />
+                                {view.name}
+                            </button>
+                            <div className="pr-1">
                             <TabMenu 
                             view={view}
                             isDefault={view.id === defaultViewId}
                             onRename={() => setModalState({ type: 'rename', view })}
                             onDelete={() => handleDeleteView(view.id)}
                             onSetDefault={() => setDefaultViewId(view.id)}
-                            canDelete={view.id !== activeViewId}
+                            canDelete={true}
                             />
-                        </div>
-                        </div>
-                    );
-                })}
-            </nav>
-            
-            <TooltipProvider>
-                <Tooltip>
-                    <TooltipTrigger>
-                        <button onClick={() => setModalState({ type: 'create' })} className="ml-1 p-1.5 rounded-md text-gray-500 hover:bg-gray-200 hover:text-gray-800">
-                            <PlusIcon className="w-4 h-4" />
-                        </button>
-                    </TooltipTrigger>
-                    <TooltipContent>Create New View</TooltipContent>
-                </Tooltip>
-            </TooltipProvider>
-
-            <div className="h-6 w-px bg-gray-300 mx-2"></div>
-
-            <div className="flex items-center">
-                <TooltipProvider>
-                    {modes.map(({ id, label, icon: Icon }) => {
-                    const isActive = activeViewMode === id;
-                    return (
-                        <Tooltip key={id}>
-                            <TooltipTrigger>
-                                <button
-                                    onClick={() => handleViewModeChange(id)}
-                                    className={`p-2 text-sm font-medium rounded-md transition-colors ${
-                                        isActive ? 'bg-white shadow-sm border border-gray-200 text-gray-800' : 'text-gray-500 hover:bg-gray-200 hover:text-gray-700'
-                                    }`}
-                                    aria-label={`Switch to ${label} view`}
-                                    aria-pressed={isActive}
-                                >
-                                <Icon className="w-5 h-5" />
-                                </button>
-                            </TooltipTrigger>
-                            <TooltipContent>{label}</TooltipContent>
-                        </Tooltip>
-                    );
+                            </div>
+                            </div>
+                        );
                     })}
-                </TooltipProvider>
+                </nav>
             </div>
-        </div>
     </div>
   );
 };

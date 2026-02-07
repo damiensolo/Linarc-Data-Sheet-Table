@@ -45,7 +45,7 @@ const CreateViewModal: React.FC<CreateViewModalProps> = ({ initialName = '', onS
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-[100] flex items-center justify-center">
       <div ref={modalRef} className="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm">
         <h2 className="text-lg font-semibold text-gray-800 mb-4">{title}</h2>
         <input
@@ -55,7 +55,7 @@ const CreateViewModal: React.FC<CreateViewModalProps> = ({ initialName = '', onS
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSave()}
           placeholder="Enter view name"
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
         />
         <div className="mt-6 flex justify-end gap-3">
           <button
