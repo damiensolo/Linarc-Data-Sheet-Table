@@ -118,9 +118,10 @@ const ViewControls: React.FC = () => {
 
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
-  const [isSearchFocused, setIsSearchFocused] = useState(false);
+    const [isSearchFocused, setIsSearchFocused] = useState(false);
+    const filterButtonRef = useRef<HTMLButtonElement>(null);
 
-  const handleDragStart = (e: React.DragEvent, index: number) => {
+    const handleDragStart = (e: React.DragEvent, index: number) => {
     setDraggedIndex(index);
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', index.toString());
@@ -149,7 +150,7 @@ const ViewControls: React.FC = () => {
   const showSearchAndFilter = activeViewMode !== 'dashboard';
 
   return (
-        <div className="flex items-center gap-3 relative z-10">
+        <div className="flex items-center gap-3 relative z-[90]">
             {showSearchAndFilter && (
                 <>
                     {/* Search */}
@@ -168,12 +169,12 @@ const ViewControls: React.FC = () => {
 
                     {/* Filter */}
                     <div className="relative">
-                        <button onClick={() => setShowFilterMenu(p => !p)} className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 shadow-sm">
+                        <button ref={filterButtonRef} onClick={() => setShowFilterMenu(p => !p)} className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 shadow-sm">
                             <FilterIcon className="w-4 h-4" />
                             <span>Filter</span>
                             {activeView.filters.length > 0 && <span className="bg-blue-100 text-blue-700 text-xs font-bold px-1.5 py-0.5 rounded-full">{activeView.filters.length}</span>}
                         </button>
-                        {showFilterMenu && <FilterMenu onClose={() => setShowFilterMenu(false)} />}
+                        {showFilterMenu && <FilterMenu onClose={() => setShowFilterMenu(false)} triggerRef={filterButtonRef} />}
                     </div>
 
                     <div className="h-6 w-px bg-gray-300 mx-1"></div>

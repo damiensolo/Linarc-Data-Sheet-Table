@@ -49,7 +49,7 @@ const AppHeader: React.FC = () => {
         : 'bg-amber-50 text-amber-700 border-amber-200 shadow-[0_1px_2px_rgba(245,158,11,0.1)]';
 
     return (
-        <header className="flex-shrink-0 border-b border-gray-200 bg-white">
+        <header className="flex-shrink-0 border-b border-gray-200 bg-white relative z-[90]">
             <div className="flex items-center justify-between px-4 py-3">
                 <div className="flex items-center gap-6">
                     <h1 className="text-xl font-bold text-gray-900">{title}</h1>

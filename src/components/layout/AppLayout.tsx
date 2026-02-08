@@ -26,6 +26,7 @@ const AppLayout: React.FC = () => {
     const mainContentRef = useRef<HTMLDivElement>(null);
     const [isScrolled, setIsScrolled] = useState(false);
     const [bookmarksData, setBookmarksData] = useState<BookmarksData | null>(null);
+    const [headerVersion, setHeaderVersion] = useState<'v1' | 'v2'>('v2');
 
     useEffect(() => {
         const contentEl = mainContentRef.current;
@@ -47,15 +48,16 @@ const AppLayout: React.FC = () => {
             
             {/* Header v2: exposes bookmarks to Sidebar via onBookmarksDataChange */}
             <Header
-                version="v2"
+                version={headerVersion}
                 onSelectionChange={(title) => console.log('Navigated to:', title)}
                 onBookmarksDataChange={setBookmarksData}
+                onToggleVersion={() => setHeaderVersion(v => v === 'v1' ? 'v2' : 'v1')}
             />
             
             <div className="flex flex-1 overflow-hidden">
                 {/* New Sidebar v2 with bookmarks from Header */}
                 <Sidebar
-                    version="v2"
+                    version={headerVersion}
                     bookmarks={bookmarksData?.bookmarks ?? []}
                     onSelect={bookmarksData?.handleSelect}
                     onToggleBookmark={bookmarksData?.toggleBookmark}

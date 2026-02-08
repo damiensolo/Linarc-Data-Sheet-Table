@@ -13,6 +13,8 @@ export const FILTERABLE_COLUMNS: { id: ColumnId, label: string, type: 'text' | '
     { id: 'name', label: 'Subject', type: 'text' },
     { id: 'status', label: 'Status', type: 'enum' },
     { id: 'priority', label: 'Priority', type: 'enum' },
+    { id: 'assignee', label: 'Assignee', type: 'text' },
+    { id: 'dates', label: 'Due Date', type: 'text' },
 ];
 
 export const TEXT_OPERATORS: { id: FilterOperator, label: string }[] = [

@@ -377,6 +377,7 @@ interface HeaderProps {
         toggleBookmark: (categoryKey: string, itemKey: string) => void;
         handleSelect: (categoryKey: string, subcategoryKey: string) => void;
     }) => void;
+    onToggleVersion?: () => void;
 }
 
 // Bookmarks management with localStorage
@@ -449,11 +450,12 @@ const useBookmarks = () => {
     return { bookmarks, toggleBookmark, getBookmarkItems };
 };
 
-const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBookmarksDataChange }) => {
+const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBookmarksDataChange, onToggleVersion }) => {
     const [isMenuVisible, setMenuVisible] = useState(false);
     const [isBookmarksMenuVisible, setBookmarksMenuVisible] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isMobileProjectSelectorOpen, setIsMobileProjectSelectorOpen] = useState(false);
+    const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
     const [activeCategoryKey, setActiveCategoryKey] = useState<StandardCategoryKey>('documentation');
     const [activeSubcategoryKey, setActiveSubcategoryKey] = useState<string>('document');
@@ -462,6 +464,7 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
     const mobileProjectSelectorRef = useRef<HTMLDivElement>(null);
     const hoverMenuRef = useRef<HTMLDivElement>(null);
     const bookmarksMenuRef = useRef<HTMLDivElement>(null);
+    const profileMenuRef = useRef<HTMLDivElement>(null);
     const { bookmarks, toggleBookmark, getBookmarkItems } = useBookmarks();
 
     // Detect mobile device
@@ -538,19 +541,24 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
             if (bookmarksMenuRef.current && !bookmarksMenuRef.current.contains(event.target as Node)) {
                 setBookmarksMenuVisible(false);
             }
+            // Close profile menu when clicking outside
+            if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
+                setIsProfileMenuOpen(false);
+            }
         };
 
         const handleEscape = (event: KeyboardEvent) => {
             if (event.key === 'Escape') {
                 setIsMobileMenuOpen(false);
                 setIsMobileProjectSelectorOpen(false);
+                setIsProfileMenuOpen(false);
                 if (isMobile) {
                     setMenuVisible(false);
                 }
             }
         };
 
-        if (isMobileMenuOpen || isMobileProjectSelectorOpen) {
+        if (isMobileMenuOpen || isMobileProjectSelectorOpen || isProfileMenuOpen) {
             document.addEventListener('mousedown', handleClickOutside);
             document.addEventListener('keydown', handleEscape);
             if (isMobileMenuOpen) {
@@ -928,13 +936,49 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
                                 <BellIcon />
                             </button>
                         </Tooltip>
-                        <Tooltip content="User Profile" position="left" delay={400}>
-                            <div className="w-9 h-9 rounded-full bg-black border border-gray-600 flex items-center justify-center cursor-pointer hover:border-gray-500 transition-colors">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-white">
-                                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line>
-                                </svg>
-                            </div>
-                        </Tooltip>
+                        
+                        <div className="relative" ref={profileMenuRef}>
+                            <Tooltip content="User Profile" position="left" delay={400} disabled={isProfileMenuOpen}>
+                                <button 
+                                    onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+                                    className="w-9 h-9 rounded-full bg-black border border-gray-600 flex items-center justify-center cursor-pointer hover:border-gray-500 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-cyan-500"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-white">
+                                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line>
+                                    </svg>
+                                </button>
+                            </Tooltip>
+                            <AnimatePresence>
+                                {isProfileMenuOpen && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 5, scale: 0.95 }}
+                                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                                        exit={{ opacity: 0, y: 5, scale: 0.95 }}
+                                        transition={{ duration: 0.1 }}
+                                        className="absolute right-0 top-full mt-2 w-56 bg-[#2a2a2a] border border-gray-600 rounded-lg shadow-xl z-[100] overflow-hidden"
+                                    >
+                                        <div className="p-3 border-b border-gray-700">
+                                            <div className="text-sm font-medium text-white">User Profile</div>
+                                            <div className="text-xs text-gray-400">user@example.com</div>
+                                        </div>
+                                        <div className="p-1">
+                                            <button
+                                                onClick={() => {
+                                                    onToggleVersion?.();
+                                                    setIsProfileMenuOpen(false);
+                                                }}
+                                                className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:text-white hover:bg-gray-700 rounded-md transition-colors flex items-center gap-2"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                    <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+                                                </svg>
+                                                Switch to Header {version === 'v1' ? 'V2' : 'V1'}
+                                            </button>
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </div>
                     </div>
                 </div>
             </div>
