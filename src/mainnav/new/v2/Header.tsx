@@ -36,7 +36,7 @@ const MenuIconWrapper: React.FC<{ children: React.ReactNode; className?: string 
 
 // Base wrapper for large main category icons
 const MainIconWrapper: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className }) => (
-    <div className="relative w-[30.6px] h-[30.6px] flex items-center justify-center cursor-pointer z-50">
+    <div className="relative w-[30.6px] h-[30.6px] flex items-center justify-center cursor-pointer">
         <div className={`absolute w-[34px] h-[34px] rounded-md transform -rotate-6 shadow-lg ${className} opacity-80`}></div>
         <div className={`absolute w-[34px] h-[34px] rounded-md transform rotate-6 shadow-lg ${className} opacity-90`}></div>
         <div className={`absolute w-[30.6px] h-[30.6px] rounded-md flex items-center justify-center shadow-2xl ${className}`}>
@@ -88,6 +88,7 @@ const SpecbookIcon = () => <NavIconWrapper><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 
 
 // General Icons
 const ReportsIcon = () => <NavIconWrapper><path d="M3 3v18h18"></path><path d="m19 9-5 5-4-4-3 3"></path></NavIconWrapper>;
+const BookmarkNavIcon = () => <NavIconWrapper><path d="M19 21l-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></NavIconWrapper>;
 const SearchIcon = () => <NavIconWrapper><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></NavIconWrapper>;
 const ChatIcon = () => <NavIconWrapper><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path><line x1="15" y1="10" x2="15.01" y2="10"></line><line x1="11" y1="10" x2="11.01" y2="10"></line><line x1="7" y1="10" x2="7.01" y2="10"></line></NavIconWrapper>;
 const HelpIcon = () => <NavIconWrapper><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></NavIconWrapper>;
@@ -249,9 +250,9 @@ interface NavItemProps {
 }
 
 const NavItem: React.FC<NavItemProps> = ({ icon, label, isActive = false, activeColor = 'text-white', onClick }) => (
-    <a href="#" onClick={onClick} className={`flex flex-col items-center gap-2 transition-colors duration-200 pl-2 ${isActive ? activeColor : 'text-gray-300 hover:text-white'}`} style={{ width: '56px' }}>
+    <a href="#" onClick={onClick} className={`flex flex-col items-center gap-2 transition-colors duration-200 pl-2 ${isActive ? activeColor : 'text-gray-300 hover:text-white'}`}>
         {icon}
-        <span className={`text-[12.3px] ${isActive ? 'font-semibold' : 'font-medium'}`}>{label}</span>
+        <span className={`text-[12px] ${isActive ? 'font-semibold' : 'font-medium'}`}>{label}</span>
     </a>
 );
 
@@ -377,7 +378,6 @@ interface HeaderProps {
         toggleBookmark: (categoryKey: string, itemKey: string) => void;
         handleSelect: (categoryKey: string, subcategoryKey: string) => void;
     }) => void;
-    onToggleVersion?: () => void;
 }
 
 // Bookmarks management with localStorage
@@ -450,12 +450,11 @@ const useBookmarks = () => {
     return { bookmarks, toggleBookmark, getBookmarkItems };
 };
 
-const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBookmarksDataChange, onToggleVersion }) => {
+const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBookmarksDataChange }) => {
     const [isMenuVisible, setMenuVisible] = useState(false);
     const [isBookmarksMenuVisible, setBookmarksMenuVisible] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isMobileProjectSelectorOpen, setIsMobileProjectSelectorOpen] = useState(false);
-    const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
     const [activeCategoryKey, setActiveCategoryKey] = useState<StandardCategoryKey>('documentation');
     const [activeSubcategoryKey, setActiveSubcategoryKey] = useState<string>('document');
@@ -464,7 +463,6 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
     const mobileProjectSelectorRef = useRef<HTMLDivElement>(null);
     const hoverMenuRef = useRef<HTMLDivElement>(null);
     const bookmarksMenuRef = useRef<HTMLDivElement>(null);
-    const profileMenuRef = useRef<HTMLDivElement>(null);
     const { bookmarks, toggleBookmark, getBookmarkItems } = useBookmarks();
 
     // Detect mobile device
@@ -541,24 +539,19 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
             if (bookmarksMenuRef.current && !bookmarksMenuRef.current.contains(event.target as Node)) {
                 setBookmarksMenuVisible(false);
             }
-            // Close profile menu when clicking outside
-            if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
-                setIsProfileMenuOpen(false);
-            }
         };
 
         const handleEscape = (event: KeyboardEvent) => {
             if (event.key === 'Escape') {
                 setIsMobileMenuOpen(false);
                 setIsMobileProjectSelectorOpen(false);
-                setIsProfileMenuOpen(false);
                 if (isMobile) {
                     setMenuVisible(false);
                 }
             }
         };
 
-        if (isMobileMenuOpen || isMobileProjectSelectorOpen || isProfileMenuOpen) {
+        if (isMobileMenuOpen || isMobileProjectSelectorOpen) {
             document.addEventListener('mousedown', handleClickOutside);
             document.addEventListener('keydown', handleEscape);
             if (isMobileMenuOpen) {
@@ -593,16 +586,16 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
 
     // Version-specific styling
     const headerClasses = version === 'v1' 
-        ? "bg-[#1e1e1e] text-white font-['Lato'] shadow-lg min-h-[80px] md:h-[80px] border-b-[3px] border-gray-800"
-        : "bg-[#1a1a1a] text-white font-['Lato'] shadow-xl min-h-[80px] md:h-[80px] border-b-2 border-cyan-500/50";
+        ? "relative z-50 bg-[#1e1e1e] text-white font-['Lato'] shadow-lg h-[72px] border-b-[2px] border-gray-600"
+        : "relative z-50 bg-[#1a1a1a] text-white font-['Lato'] shadow-xl min-h-[72px] md:h-[72px] border-b-2 border-cyan-500/50";
     
     const hoverMenuClasses = version === 'v1'
-        ? "hover:bg-gray-800/50"
-        : "hover:bg-cyan-900/30";
+        ? "bg-black -ml-2 -mt-2 -mb-[10px] self-stretch flex flex-col justify-center items-center rounded-none border-b-2 border-gray-600"
+        : "hover:bg-zinc-900/30 px-2 py-2 rounded-md";
     
     const bookmarksMenuClasses = version === 'v1'
-        ? "hover:bg-gray-700/50"
-        : "hover:bg-cyan-900/30";
+        ? ""
+        : "hover:bg-zinc-900/30";
     
     const projectPanelClasses = version === 'v1'
         ? "bg-[#252525]/50 rounded-lg border border-gray-700/50"
@@ -612,16 +605,18 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
         ? "bg-[#1e1e1e]"
         : "bg-[#1a1a1a]";
 
+    const containerPaddingClasses = "pl-2 pr-2 md:pr-0 pt-3 pb-2";
+
     return (
         <header className={headerClasses}>
-            <div className="pl-2 pr-2 md:pr-0 pt-2 pb-2 flex items-center h-full">
+            <div className={`${containerPaddingClasses} flex items-center h-full`}>
                 {/* Left & Center Nav Items */}
-                <div className="flex items-center gap-x-4 md:gap-x-6 flex-1 min-w-0">
+                <div className="flex items-center gap-x-3 flex-1 min-w-0 h-full">
                     {/* Main Category Menu */}
                     <div 
                         ref={hoverMenuRef}
-                        className={`relative flex flex-col items-center gap-1 px-2 py-1 rounded-md ${hoverMenuClasses} transition-colors cursor-pointer group shrink-0`}
-                        style={{ width: '74px', paddingLeft: '15px' }}
+                        className={`relative flex flex-col items-center gap-1 ${hoverMenuClasses} transition-colors cursor-pointer group shrink-0`}
+                        style={{ width: '82px' }}
                         onMouseEnter={() => {
                             if (!isMobile) {
                                 setMenuVisible(true);
@@ -645,14 +640,14 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
                             <motion.div
                                 animate={{ rotate: isMenuVisible ? 180 : 0 }}
                                 transition={{ duration: 0.2 }}
-                                className={`absolute -bottom-1 ${chevronBgClasses} rounded-full p-0.5 z-[60]`}
-                                style={{ right: '-8px' }}
+                                className={`absolute -bottom-1 ${chevronBgClasses} rounded-full p-0.5`}
+                                style={{ right: '-14px' }}
                             >
-                                <ChevronDownIcon className="w-3 h-3 text-gray-400 group-hover:text-white transition-colors" style={{ marginLeft: '0px', marginRight: '0px' }} />
+                                <ChevronDownIcon className="w-4 h-4 text-gray-400 group-hover:text-white transition-colors" style={{ marginLeft: '0px', marginRight: '0px' }} />
                             </motion.div>
                         </div>
-                        <span className="text-[11px] font-medium text-white whitespace-nowrap">{categoryAbbreviations[activeCategoryKey]}</span>
-                        <div className="absolute top-full h-4 w-full" />
+                        <span className="text-[12px] font-bold text-white whitespace-nowrap">{categoryAbbreviations[activeCategoryKey]}</span>
+                        <div className="absolute top-full h-1 w-full" aria-hidden />
                         <AnimatePresence>
                             {isMenuVisible && 
                                 <HoverMenu 
@@ -661,6 +656,7 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
                                     onSelect={handleSelect}
                                     bookmarks={bookmarks}
                                     onToggleBookmark={toggleBookmark}
+                                    triggerRef={hoverMenuRef}
                                 />
                             }
                         </AnimatePresence>
@@ -669,17 +665,10 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
                     {version === 'v1' && (
                     <div 
                         ref={bookmarksMenuRef}
-                        className={`relative flex flex-col items-center gap-1 px-2 py-1 rounded-md ${bookmarksMenuClasses} transition-colors cursor-pointer group shrink-0`}
-                        onMouseEnter={() => {
-                            if (!isMobile) {
-                                setBookmarksMenuVisible(true);
-                                setMenuVisible(false);
-                            }
-                        }}
-                        onMouseLeave={() => !isMobile && setBookmarksMenuVisible(false)}
+                        className={`relative flex flex-col items-center gap-2 pl-[15px] pr-2 py-2 rounded-md ${bookmarksMenuClasses} transition-colors cursor-pointer group shrink-0`}
                         onClick={() => {
-                            if (isMobile) {
-                                setBookmarksMenuVisible(!isBookmarksMenuVisible);
+                            setBookmarksMenuVisible(!isBookmarksMenuVisible);
+                            if (!isBookmarksMenuVisible) {
                                 setMenuVisible(false);
                             }
                         }}
@@ -689,17 +678,16 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
                         aria-label="Bookmarks menu"
                     >
                         <div className="relative flex items-center justify-center">
-                            <BookmarksMainIcon />
+                            <BookmarkNavIcon />
                             <motion.div
                                 animate={{ rotate: isBookmarksMenuVisible ? 180 : 0 }}
                                 transition={{ duration: 0.2 }}
-                                className={`absolute -bottom-1 ${chevronBgClasses} rounded-full p-0.5`}
-                                style={{ right: '-12px' }}
+                                className={`absolute -bottom-1 -right-2 rounded-full p-0.5`}
                             >
-                                <ChevronDownIcon className="w-4 h-4 text-gray-400 group-hover:text-white transition-colors" style={{ marginLeft: '0px', marginRight: '0px' }} />
+                                <ChevronDownIcon className="w-[14px] h-[14px] text-gray-400 group-hover:text-white transition-colors flex flex-col gap-0 justify-center items-center p-0 -mx-[5px] -my-[9px]" />
                             </motion.div>
                         </div>
-                        <span className="text-[11px] font-medium text-white whitespace-nowrap">{categoryAbbreviations.bookmarks}</span>
+                        <span className="text-[12px] font-medium text-gray-300 group-hover:text-white whitespace-nowrap transition-colors">{categoryAbbreviations.bookmarks}</span>
                         <div className="absolute top-full h-4 w-full" />
                         <AnimatePresence>
                             {isBookmarksMenuVisible && 
@@ -707,13 +695,15 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
                                     bookmarks={bookmarkItems}
                                     onSelect={handleSelect}
                                     onToggleBookmark={toggleBookmark}
+                                    position="bottom"
+                                    triggerRef={bookmarksMenuRef}
                                 />
                             }
                         </AnimatePresence>
                     </div>
                     )}
                     <nav className="hidden md:block flex-1 min-w-0">
-                        <ul className="flex items-center gap-x-[28px]">
+                        <ul className="flex items-center gap-x-[42px]">
                             {navItems.map((item) => (
                                 <li key={item.key}>
                                     <NavItem 
@@ -769,7 +759,7 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
                                     animate={{ opacity: 1, y: 0, scale: 1 }}
                                     exit={{ opacity: 0, y: -10, scale: 0.95 }}
                                     transition={{ duration: 0.2, ease: "easeOut" }}
-                                    className="fixed right-2 top-[90px] w-[calc(100vw-1rem)] max-w-[320px] bg-[#2a2a2a] border border-gray-600 rounded-lg shadow-xl z-50 md:hidden max-h-[calc(100vh-110px)] overflow-y-auto"
+                                    className="fixed right-2 top-[82px] w-[calc(100vw-1rem)] max-w-[320px] bg-[#2a2a2a] border border-gray-600 rounded-lg shadow-xl z-50 md:hidden max-h-[calc(100vh-102px)] overflow-y-auto"
                                 >
                                     {/* Project Selection */}
                                     <div className="p-3 border-b border-gray-700">
@@ -936,49 +926,13 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
                                 <BellIcon />
                             </button>
                         </Tooltip>
-                        
-                        <div className="relative" ref={profileMenuRef}>
-                            <Tooltip content="User Profile" position="left" delay={400} disabled={isProfileMenuOpen}>
-                                <button 
-                                    onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-                                    className="w-9 h-9 rounded-full bg-black border border-gray-600 flex items-center justify-center cursor-pointer hover:border-gray-500 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-cyan-500"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-white">
-                                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line>
-                                    </svg>
-                                </button>
-                            </Tooltip>
-                            <AnimatePresence>
-                                {isProfileMenuOpen && (
-                                    <motion.div
-                                        initial={{ opacity: 0, y: 5, scale: 0.95 }}
-                                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                                        exit={{ opacity: 0, y: 5, scale: 0.95 }}
-                                        transition={{ duration: 0.1 }}
-                                        className="absolute right-0 top-full mt-2 w-56 bg-[#2a2a2a] border border-gray-600 rounded-lg shadow-xl z-[100] overflow-hidden"
-                                    >
-                                        <div className="p-3 border-b border-gray-700">
-                                            <div className="text-sm font-medium text-white">User Profile</div>
-                                            <div className="text-xs text-gray-400">user@example.com</div>
-                                        </div>
-                                        <div className="p-1">
-                                            <button
-                                                onClick={() => {
-                                                    onToggleVersion?.();
-                                                    setIsProfileMenuOpen(false);
-                                                }}
-                                                className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:text-white hover:bg-gray-700 rounded-md transition-colors flex items-center gap-2"
-                                            >
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                    <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
-                                                </svg>
-                                                Switch to Header {version === 'v1' ? 'V2' : 'V1'}
-                                            </button>
-                                        </div>
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
-                        </div>
+                        <Tooltip content="User Profile" position="left" delay={400}>
+                            <div className="w-9 h-9 rounded-full bg-black border border-gray-600 flex items-center justify-center cursor-pointer hover:border-gray-500 transition-colors">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-white">
+                                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line>
+                                </svg>
+                            </div>
+                        </Tooltip>
                     </div>
                 </div>
             </div>

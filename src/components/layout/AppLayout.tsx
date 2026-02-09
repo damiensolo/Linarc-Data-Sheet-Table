@@ -4,8 +4,8 @@ import AppHeader from './AppHeader';
 import MainContent from './MainContent';
 import ItemDetailsPanel from '../shared/ItemDetailsPanel';
 import CreateViewModal from '../shared/CreateViewModal';
-import Header from '../../mainnav/new/Header';
-import Sidebar from '../../mainnav/new/Sidebar';
+import Header from '../../mainnav/new/v2/Header';
+import Sidebar from '../../mainnav/new/v2/Sidebar';
 
 /** Bookmarks data passed from Header (v2) for Sidebar integration */
 type BookmarksData = {
@@ -26,7 +26,7 @@ const AppLayout: React.FC = () => {
     const mainContentRef = useRef<HTMLDivElement>(null);
     const [isScrolled, setIsScrolled] = useState(false);
     const [bookmarksData, setBookmarksData] = useState<BookmarksData | null>(null);
-    const [headerVersion, setHeaderVersion] = useState<'v1' | 'v2'>('v2');
+    const [headerVersion, setHeaderVersion] = useState<'v1' | 'v2'>('v1');
 
     useEffect(() => {
         const contentEl = mainContentRef.current;

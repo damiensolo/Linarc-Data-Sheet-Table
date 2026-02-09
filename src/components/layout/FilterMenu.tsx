@@ -166,7 +166,7 @@ const FilterMenu: React.FC<FilterMenuProps> = ({ onClose, triggerRef }) => {
     return createPortal(
         <div 
             ref={menuRef} 
-            className="fixed w-[600px] bg-white rounded-lg shadow-xl border border-gray-200 z-[9999] flex flex-col p-4"
+            className="fixed w-[668px] bg-white rounded-lg shadow-xl border border-gray-200 z-[9999] flex flex-col p-4"
             style={{ top: position.top, left: position.left }}
         >
             <div className="flex items-center justify-between mb-4">
