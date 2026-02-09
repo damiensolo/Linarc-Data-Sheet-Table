@@ -89,7 +89,7 @@ const PrimaryMenuItem: React.FC<PrimaryMenuItemProps> = ({
                     {onToggleBookmark && (
                         <button
                             onClick={handleBookmarkClick}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity p-2 -m-1 hover:bg-gray-100 rounded touch-manipulation"
+                            className={`${isBookmarked ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity p-2 -m-1 hover:bg-gray-100 rounded touch-manipulation`}
                             aria-label={isBookmarked ? "Remove bookmark" : "Add bookmark"}
                         >
                             <BookmarkIcon 
