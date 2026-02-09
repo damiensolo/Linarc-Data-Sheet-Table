@@ -197,7 +197,7 @@ const ProjectDetailsCard: React.FC<ProjectDetailsCardProps> = ({ project }) => {
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.95 }}
                         transition={{ duration: 0.2, ease: 'easeOut' }}
-                        className="bg-[#2a2a2a] border border-gray-600 rounded-lg shadow-xl p-4 z-[60]"
+                        className="bg-[#2a2a2a] border border-gray-600 rounded-lg shadow-xl p-4 z-[100]"
                         style={dropdownStyle}
                     >
                         <div className="space-y-3 text-[12.25px]">

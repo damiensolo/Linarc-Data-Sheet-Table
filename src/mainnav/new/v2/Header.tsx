@@ -320,7 +320,7 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({ projects, selectedPro
                         animate={{ opacity: 1, y: 5 }}
                         exit={{ opacity: 0, y: -5 }}
                         transition={{ duration: 0.15, ease: "easeOut" }}
-                        className="absolute z-10 left-0 md:left-auto right-0 md:right-auto w-[calc(100vw-4rem)] md:w-max md:min-w-full mt-1 bg-[#2a2a2a] border border-gray-600 rounded-md shadow-lg max-w-[280px] md:max-w-none"
+                        className="absolute z-[100] left-0 md:left-auto right-0 md:right-auto w-[calc(100vw-4rem)] md:w-max md:min-w-full mt-1 bg-[#2a2a2a] border border-gray-600 rounded-md shadow-lg max-w-[280px] md:max-w-none"
                     >
                         <ul className="p-1" role="listbox">
                             {projects.map(project => (
@@ -586,8 +586,8 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
 
     // Version-specific styling
     const headerClasses = version === 'v1' 
-        ? "relative z-50 bg-[#1e1e1e] text-white font-['Lato'] shadow-lg h-[72px] border-b-[2px] border-gray-600"
-        : "relative z-50 bg-[#1a1a1a] text-white font-['Lato'] shadow-xl min-h-[72px] md:h-[72px] border-b-2 border-cyan-500/50";
+        ? "relative z-[100] bg-[#1e1e1e] text-white font-['Lato'] shadow-lg h-[72px] border-b-[2px] border-gray-600"
+        : "relative z-[100] bg-[#1a1a1a] text-white font-['Lato'] shadow-xl min-h-[72px] md:h-[72px] border-b-2 border-cyan-500/50";
     
     const hoverMenuClasses = version === 'v1'
         ? "bg-black -ml-2 -mt-2 -mb-[10px] self-stretch flex flex-col justify-center items-center rounded-none border-b-2 border-gray-600"
