@@ -612,7 +612,7 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
         : "relative z-[100] bg-[#1a1a1a] text-white font-['Lato'] shadow-xl min-h-[72px] md:h-[72px] border-b-2 border-cyan-500/50";
     
     const hoverMenuClasses = version === 'v1'
-        ? "bg-black -ml-2 -mt-2 -mb-[10px] self-stretch flex flex-col justify-center items-center rounded-none border-b-2 border-gray-600"
+        ? "bg-black -ml-2 -mt-3 -mb-[10px] self-stretch flex flex-col justify-center items-center rounded-none border-b-2 border-gray-600 pt-[7px]"
         : "hover:bg-zinc-900/30 px-2 py-2 rounded-md";
     
     const bookmarksMenuClasses = version === 'v1'
