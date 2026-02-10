@@ -1,7 +1,7 @@
 import React, { Fragment, useEffect, useRef, useState, useLayoutEffect } from 'react';
 import { RowActionsMenu } from '../../shared/RowActionsMenu';
 import { Task, Status, Column, ColumnId, DisplayDensity, TaskStyle } from '../../../types';
-import { EyeIcon, ChevronRightIcon, ChevronDownIcon, DocumentIcon, LinkIcon, MoreHorizontalIcon, DownloadIcon, TrashIcon, PaperclipIcon } from '../../common/Icons';
+import { EyeIcon, ChevronRightIcon, ChevronDownIcon, DocumentIcon } from '../../common/Icons';
 import { StatusDisplay, AssigneeAvatar, StatusSelector, ProgressDisplay } from '../../shared/TaskElements';
 import { formatDateForInput, formatDateFromInput, parseDate } from '../../../lib/dateUtils';
 import { DatePicker } from '../../common/ui/DatePicker';
