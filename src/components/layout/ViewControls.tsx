@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { View, ViewMode } from '../../types';
 import { useProject } from '../../context/ProjectContext';
 import FilterMenu from './FilterMenu';
-import { PlusIcon, MoreHorizontalIcon, TableIcon, BoardIcon, GanttIcon, LookaheadIcon, SearchIcon, FilterIcon, SpreadsheetIcon, DashboardIcon } from '../common/Icons';
+import { PlusIcon, MoreHorizontalIcon, TableIcon, BoardIcon, GanttIcon, LookaheadIcon, SearchIcon, FilterIcon, SpreadsheetIcon, DashboardIcon, ShareIcon } from '../common/Icons';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../common/ui/Tooltip';
 
 const modes: { id: ViewMode; label: string; icon: React.FC<React.SVGProps<SVGSVGElement>> }[] = [
@@ -15,8 +15,8 @@ const modes: { id: ViewMode; label: string; icon: React.FC<React.SVGProps<SVGSVG
   { id: 'lookahead', label: 'Lookahead', icon: LookaheadIcon },
 ];
 
-const TabMenu: React.FC<{ view: View, isDefault: boolean, onRename: () => void, onDelete: () => void, onSetDefault: () => void, canDelete: boolean }> = 
-({ view, isDefault, onRename, onDelete, onSetDefault, canDelete }) => {
+const TabMenu: React.FC<{ view: View, isDefault: boolean, onRename: () => void, onDelete: () => void, onSetDefault: () => void, onShare: () => void, canDelete: boolean }> = 
+({ view, isDefault, onRename, onDelete, onSetDefault, onShare, canDelete }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [coords, setCoords] = useState({ top: 0, left: 0 });
   const menuWrapperRef = useRef<HTMLDivElement>(null);
@@ -81,6 +81,15 @@ const TabMenu: React.FC<{ view: View, isDefault: boolean, onRename: () => void, 
                     className={`w-full text-left px-3 py-1.5 text-sm transition-colors ${isDefault ? 'text-gray-400 cursor-default' : 'text-gray-700 hover:bg-gray-100'}`}
                 >
                     {isDefault ? 'Default view' : 'Set as default'}
+                </button>
+            </li>
+            <li>
+                <button 
+                    onClick={() => { onShare(); setIsOpen(false); }} 
+                    className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 transition-colors flex items-center gap-2"
+                >
+                    <ShareIcon className="w-3.5 h-3.5" />
+                    Share
                 </button>
             </li>
             <li>
@@ -256,6 +265,7 @@ const ViewControls: React.FC = () => {
                             onRename={() => setModalState({ type: 'rename', view })}
                             onDelete={() => handleDeleteView(view.id)}
                             onSetDefault={() => setDefaultViewId(view.id)}
+                            onShare={() => console.log('Share view:', view.id)}
                             canDelete={true}
                             />
                             </div>
