@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { BudgetLineItem, SpreadsheetColumn, DisplayDensity } from '../../../../types';
-import { LinkIcon, ChevronRightIcon, ChevronDownIcon } from '../../../common/Icons';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../../common/ui/Tooltip';
+import { ChevronRightIcon, ChevronDownIcon } from '../../../common/Icons';
+import { RowActionsMenu } from '../../../shared/RowActionsMenu';
 import { SpreadsheetRowType } from '../SpreadsheetViewV2';
 
 const formatCurrency = (amount: number | null | undefined) => {
@@ -322,19 +322,14 @@ const SpreadsheetRowV2: React.FC<SpreadsheetRowV2Props> = ({
             >
                 <div className="flex items-center justify-center h-full relative z-30">
                     {rowType !== 'summary' && (
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger>
-                                    <button 
-                                        onClick={(e) => { e.stopPropagation(); setIsLinked(!isLinked); }}
-                                        className={`transition-all duration-200 focus:outline-none ${isLinked ? 'text-blue-600' : 'text-gray-400 opacity-60 hover:opacity-100 hover:text-gray-700'}`}
-                                    >
-                                        <LinkIcon className="w-5 h-5" />
-                                    </button>
-                                </TooltipTrigger>
-                                <TooltipContent side="left">{isLinked ? 'Linked to System' : 'System Link'}</TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
+                        <RowActionsMenu 
+                            onView={() => console.log('View details', row.id)}
+                            onLink={() => setIsLinked(!isLinked)}
+                            onExport={() => console.log('Export row', row.id)}
+                            onAttachments={() => console.log('Attachments for row', row.id)}
+                            onDelete={() => console.log('Delete row', row.id)}
+                            isLinked={isLinked}
+                        />
                     )}
                 </div>
                 {customBorder && rowType !== 'summary' && (
