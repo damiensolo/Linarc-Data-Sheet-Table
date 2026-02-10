@@ -9,12 +9,19 @@ export const getDefaultTableColumns = (): Column[] => [
   { id: 'progress', label: 'Progress', width: '200px', visible: true, minWidth: 150 },
 ];
 
-export const FILTERABLE_COLUMNS: { id: ColumnId, label: string, type: 'text' | 'enum' }[] = [
+export const FILTERABLE_COLUMNS: { id: ColumnId, label: string, type: 'text' | 'enum' | 'number' }[] = [
     { id: 'name', label: 'Subject', type: 'text' },
     { id: 'status', label: 'Status', type: 'enum' },
     { id: 'priority', label: 'Priority', type: 'enum' },
     { id: 'assignee', label: 'Assignee', type: 'text' },
     { id: 'dates', label: 'Due Date', type: 'text' },
+    { id: 'totalBudget', label: 'Budget', type: 'number' },
+    { id: 'remainingContract', label: 'Remaining', type: 'number' },
+    { id: 'labor', label: 'Labor', type: 'number' },
+    { id: 'material', label: 'Material', type: 'number' },
+    { id: 'equipment', label: 'Equipment', type: 'number' },
+    { id: 'subcontractor', label: 'Subcontractor', type: 'number' },
+    { id: 'effortHours', label: 'Hours', type: 'number' },
 ];
 
 export const TEXT_OPERATORS: { id: FilterOperator, label: string }[] = [
@@ -22,6 +29,17 @@ export const TEXT_OPERATORS: { id: FilterOperator, label: string }[] = [
     { id: 'not_contains', label: 'does not contain' },
     { id: 'is', label: 'is' },
     { id: 'is_not', label: 'is not' },
+    { id: 'is_empty', label: 'is empty' },
+    { id: 'is_not_empty', label: 'is not empty' },
+];
+
+export const NUMBER_OPERATORS: { id: FilterOperator, label: string }[] = [
+    { id: 'eq', label: '=' },
+    { id: 'neq', label: '!=' },
+    { id: 'gt', label: '>' },
+    { id: 'lt', label: '<' },
+    { id: 'gte', label: '>=' },
+    { id: 'lte', label: '<=' },
     { id: 'is_empty', label: 'is empty' },
     { id: 'is_not_empty', label: 'is not empty' },
 ];

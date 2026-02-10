@@ -405,6 +405,7 @@ const TableView: React.FC<TableViewProps> = ({ isScrolled, density }) => {
                         onShowDetails={handleShowDetails}
                         activeDetailedTaskId={detailedTaskId}
                         taskStyles={activeView.taskStyles}
+                        filters={activeView.filters}
                     />
                     ))}
                 </tbody>

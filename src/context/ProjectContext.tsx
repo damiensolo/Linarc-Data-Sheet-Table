@@ -1,6 +1,6 @@
 import React, { createContext, useState, useMemo, useCallback, useContext, SetStateAction, ReactNode } from 'react';
 import { MOCK_TASKS, MOCK_BUDGET_DATA } from '../data';
-import { Task, View, FilterRule, Priority, ColumnId, Status, DisplayDensity, Column, ViewMode } from '../types';
+import { Task, View, FilterRule, HighlightRule, Priority, ColumnId, Status, DisplayDensity, Column, ViewMode } from '../types';
 import { getDefaultTableColumns, getDefaultSpreadsheetColumns } from '../constants';
 
 type SortConfig = {
@@ -11,6 +11,7 @@ type SortConfig = {
 const getDefaultViewConfig = (viewMode: ViewMode): Omit<View, 'id' | 'name'> => {
   const baseConfig = {
     filters: [],
+    highlights: [],
     sort: null,
     displayDensity: 'comfortable' as DisplayDensity,
     showGridLines: false,
@@ -73,11 +74,14 @@ interface ProjectContextType {
   setModalState: React.Dispatch<SetStateAction<{ type: 'create' | 'rename'; view?: View } | null>>;
   showFilterMenu: boolean;
   setShowFilterMenu: React.Dispatch<SetStateAction<boolean>>;
+  showHighlightMenu: boolean;
+  setShowHighlightMenu: React.Dispatch<SetStateAction<boolean>>;
   showFieldsMenu: boolean;
   setShowFieldsMenu: React.Dispatch<SetStateAction<boolean>>;
   activeView: View;
   updateView: (updatedView: Partial<Omit<View, 'id' | 'name'>>) => void;
   setFilters: (filters: FilterRule[]) => void;
+  setHighlights: (highlights: HighlightRule[]) => void;
   setSort: (sort: SortConfig) => void;
   setColumns: (updater: SetStateAction<Column[]>) => void;
   setDisplayDensity: (density: DisplayDensity) => void;
@@ -109,6 +113,7 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const [modalState, setModalState] = useState<{ type: 'create' | 'rename'; view?: View } | null>(null);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
+  const [showHighlightMenu, setShowHighlightMenu] = useState(false);
   const [showFieldsMenu, setShowFieldsMenu] = useState(false);
   
   const activeView = useMemo<View>(() => {
@@ -144,6 +149,7 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
   }, [activeViewId, activeView]);
 
   const setFilters = (filters: FilterRule[]) => updateView({ filters });
+  const setHighlights = (highlights: HighlightRule[]) => updateView({ highlights });
   const setSort = (sort: SortConfig) => updateView({ sort });
   const setColumns = (updater: SetStateAction<View['columns']>) => {
     const newColumns =
@@ -281,10 +287,12 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     searchTerm, setSearchTerm,
     modalState, setModalState,
     showFilterMenu, setShowFilterMenu,
+    showHighlightMenu, setShowHighlightMenu,
     showFieldsMenu, setShowFieldsMenu,
     activeView,
     updateView,
     setFilters,
+    setHighlights,
     setSort,
     setColumns,
     setDisplayDensity,

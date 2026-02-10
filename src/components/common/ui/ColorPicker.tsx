@@ -176,7 +176,7 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ icon, label, onColorSelect, p
                 </div>
             }
             align="start"
-            className="z-50 p-0 w-auto border-none"
+            className="z-[10000] p-0 w-auto border-none"
         />
     );
 };

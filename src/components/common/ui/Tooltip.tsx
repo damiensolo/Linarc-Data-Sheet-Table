@@ -41,8 +41,28 @@ export const TooltipTrigger: React.FC<{ children: React.ReactNode; asChild?: boo
 
   const child = React.Children.only(children) as React.ReactElement<any>;
   
+  // Merge refs to allow child to keep its own ref
+  const mergedRef = (node: HTMLElement) => {
+      // Handle Tooltip's internal ref
+      if (typeof context.triggerRef === 'function') {
+          (context.triggerRef as Function)(node);
+      } else if (context.triggerRef) {
+          (context.triggerRef as React.MutableRefObject<HTMLElement | null>).current = node;
+      }
+
+      // Handle child's existing ref
+      const childRef = (child as any).ref;
+      if (childRef) {
+          if (typeof childRef === 'function') {
+              childRef(node);
+          } else {
+              (childRef as React.MutableRefObject<HTMLElement | null>).current = node;
+          }
+      }
+  };
+
   return React.cloneElement(child, {
-    ref: context.triggerRef,
+    ref: mergedRef,
     onMouseEnter: (e: React.MouseEvent) => {
         child.props.onMouseEnter?.(e);
         context.show();

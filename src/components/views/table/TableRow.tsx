@@ -1,12 +1,13 @@
-import React, { Fragment, useEffect, useRef, useState, useLayoutEffect } from 'react';
+import React, { Fragment, useEffect, useRef, useState, useLayoutEffect, useMemo } from 'react';
 import { RowActionsMenu } from '../../shared/RowActionsMenu';
-import { Task, Status, Column, ColumnId, DisplayDensity, TaskStyle } from '../../../types';
+import { Task, Status, Column, ColumnId, DisplayDensity, TaskStyle, FilterRule } from '../../../types';
 import { EyeIcon, ChevronRightIcon, ChevronDownIcon, DocumentIcon } from '../../common/Icons';
 import { StatusDisplay, AssigneeAvatar, StatusSelector, ProgressDisplay } from '../../shared/TaskElements';
 import { formatDateForInput, formatDateFromInput, parseDate } from '../../../lib/dateUtils';
 import { DatePicker } from '../../common/ui/DatePicker';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../common/ui/Tooltip';
 import { format } from 'date-fns';
+import { checkFilterMatch } from '../../../lib/utils';
 
 interface TableRowProps {
   task: Task;
@@ -25,6 +26,7 @@ interface TableRowProps {
   onShowDetails: (taskId: number) => void;
   activeDetailedTaskId: number | null;
   taskStyles?: { [taskId: number]: TaskStyle };
+  filters?: FilterRule[];
 }
 
 const getRowHeight = (density: DisplayDensity) => {
@@ -38,12 +40,13 @@ const getRowHeight = (density: DisplayDensity) => {
 
 const SelectionCell: React.FC<{ task: Task, isSelected: boolean, onToggleRow: (id: number) => void, rowNum?: number, isScrolled: boolean, rowHeightClass: string, customBg?: string, customBorder?: string }> = ({ task, isSelected, onToggleRow, rowNum, isScrolled, rowHeightClass, customBg, customBorder }) => {
   const taskNameId = `task-name-${task.id}`;
-  const bgClass = isSelected ? 'bg-blue-600 text-white' : 'bg-white group-hover:bg-gray-50';
+  const bgClass = isSelected ? 'bg-blue-600 text-white' : (customBg ? '' : 'bg-white group-hover:bg-gray-50');
   
   const cellClasses = `sticky left-0 z-30 ${rowHeightClass} w-[52px] min-w-[52px] max-w-[52px] px-0 text-center border-r border-gray-200 transition-shadow duration-200 cursor-pointer relative box-border ${!customBorder ? 'border-b' : ''} ${bgClass} ${isScrolled ? 'shadow-[2px_0_5px_rgba(0,0,0,0.05)]' : ''}`;
 
   return (
-    <td className={cellClasses} onClick={() => onToggleRow(task.id)} style={{ width: '52px' }}>
+    <td className={cellClasses} onClick={() => onToggleRow(task.id)} style={{ width: '52px', backgroundColor: customBg && !isSelected ? customBg : undefined }}>
+
         <div className="flex items-center justify-center h-full relative z-20">
             <span className={isSelected ? 'hidden' : 'group-hover:hidden text-gray-500'}>{rowNum}</span>
             <input
@@ -171,14 +174,18 @@ const DateCellContent: React.FC<{ task: Task, isEditing: boolean, onEdit: (cell:
 };
 
 
-const TableRow: React.FC<TableRowProps> = ({ task, level, onToggle, rowNumberMap, selectedTaskIds, onToggleRow, editingCell, onEditCell, onUpdateTask, columns, isScrolled, displayDensity, showGridLines, onShowDetails, activeDetailedTaskId, taskStyles }) => {
+const TableRow: React.FC<TableRowProps> = ({ task, level, onToggle, rowNumberMap, selectedTaskIds, onToggleRow, editingCell, onEditCell, onUpdateTask, columns, isScrolled, displayDensity, showGridLines, onShowDetails, activeDetailedTaskId, taskStyles, filters = [] }) => {
   const isSelected = selectedTaskIds.has(task.id);
   const rowNum = rowNumberMap.get(task.id);
   const rowHeightClass = getRowHeight(displayDensity);
   const [isLinked, setIsLinked] = useState(false);
 
+  const highlightFilter = useMemo(() => {
+        return filters.find(f => f.color && f.columnId && checkFilterMatch((task as any)[f.columnId], f.operator, f.value));
+  }, [filters, task]);
+
   const viewStyle = taskStyles ? taskStyles[task.id] : undefined;
-  const customBg = viewStyle?.backgroundColor;
+  const customBg = viewStyle?.backgroundColor || highlightFilter?.color;
   const customBorder = viewStyle?.borderColor;
   const customText = viewStyle?.textColor;
 
@@ -232,7 +239,7 @@ const TableRow: React.FC<TableRowProps> = ({ task, level, onToggle, rowNumberMap
             rowNum={rowNum}
             isScrolled={isScrolled}
             rowHeightClass={rowHeightClass}
-            customBg={customBg}
+            customBg={!isSelected ? customBg : undefined}
             customBorder={customBorder}
         />
         {columns.map((col, index) => {
@@ -267,6 +274,8 @@ const TableRow: React.FC<TableRowProps> = ({ task, level, onToggle, rowNumberMap
                 wrapperClass += " px-6";
             }
             
+            // Check for highlight filters - REMOVED (moved to row level)
+            
             return (
                  <td 
                     key={col.id}
@@ -285,7 +294,7 @@ const TableRow: React.FC<TableRowProps> = ({ task, level, onToggle, rowNumberMap
                 </td>
             )
         })}
-        <td className={`sticky right-0 z-30 w-20 px-2 flex-shrink-0 border-l border-gray-200 transition-shadow duration-200 ${!customBorder ? 'border-b' : ''} ${customBg || (isSelected ? 'bg-blue-50 group-hover:bg-blue-100' : 'bg-white group-hover:bg-gray-50')}`}>
+        <td className={`sticky right-0 z-30 w-20 px-2 flex-shrink-0 border-l border-gray-200 transition-shadow duration-200 ${!customBorder ? 'border-b' : ''} ${!isSelected && customBg ? '' : (isSelected ? 'bg-blue-50 group-hover:bg-blue-100' : 'bg-white group-hover:bg-gray-50')}`} style={(!isSelected && customBg) ? { backgroundColor: customBg } : undefined}>
             <div className="flex items-center justify-center h-full relative z-20">
                 <RowActionsMenu 
                     onView={() => onShowDetails(task.id)}
@@ -324,6 +333,7 @@ const TableRow: React.FC<TableRowProps> = ({ task, level, onToggle, rowNumberMap
             /* Fix: Use activeDetailedTaskId instead of detailedTaskId which was not in scope. */
             activeDetailedTaskId={activeDetailedTaskId}
             taskStyles={taskStyles}
+            filters={filters}
         />
       ))}
     </Fragment>

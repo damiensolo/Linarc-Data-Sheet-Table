@@ -457,6 +457,8 @@ const SpreadsheetViewV2: React.FC = () => {
                         onStartEdit={(rowId, colId) => setEditingCell({ rowId, colId })}
                         onUpdateCell={handleUpdateCellValue}
                         onContextMenu={handleContextMenu}
+                        filters={activeView.filters}
+                        highlights={activeView.highlights}
                     />
                 ))}
                 </tbody>

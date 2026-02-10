@@ -72,7 +72,15 @@ export interface Column {
 
 export type DisplayDensity = 'compact' | 'standard' | 'comfortable';
 
-export type FilterOperator = 'contains' | 'not_contains' | 'is' | 'is_not' | 'is_empty' | 'is_not_empty' | 'is_any_of' | 'is_none_of';
+export type FilterOperator = 'contains' | 'not_contains' | 'is' | 'is_not' | 'is_empty' | 'is_not_empty' | 'is_any_of' | 'is_none_of' | 'lt' | 'gt' | 'lte' | 'gte' | 'eq' | 'neq';
+
+export interface HighlightRule {
+    id: string;
+    columnId: ColumnId;
+    operator: FilterOperator;
+    value?: string | string[];
+    color: string;
+}
 
 export interface FilterRule {
     id: string;
@@ -139,4 +147,5 @@ export interface View {
   spreadsheetColumns?: SpreadsheetColumn[];
   taskStyles?: { [taskId: number]: TaskStyle };
   fontSize: number;
+  highlights?: HighlightRule[];
 }

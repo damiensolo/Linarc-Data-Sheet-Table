@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { BudgetLineItem, SpreadsheetColumn, DisplayDensity } from '../../../../types';
+import { BudgetLineItem, SpreadsheetColumn, DisplayDensity, FilterRule, HighlightRule } from '../../../../types';
 import { ChevronRightIcon, ChevronDownIcon } from '../../../common/Icons';
 import { RowActionsMenu } from '../../../shared/RowActionsMenu';
 import { SpreadsheetRowType } from '../SpreadsheetViewV2';
 import { SPREADSHEET_INDEX_COLUMN_WIDTH } from '../../../../constants/spreadsheetLayout';
+import { checkFilterMatch } from '../../../../lib/utils';
 
 const formatCurrency = (amount: number | null | undefined) => {
   if (amount === null || amount === undefined) return '';
@@ -32,6 +33,8 @@ interface SpreadsheetRowV2Props {
     onStartEdit: (rowId: string, colId: string) => void;
     onUpdateCell: (rowId: string, colId: string, value: any, direction?: 'up' | 'down' | 'left' | 'right') => void;
     onContextMenu: (e: React.MouseEvent, type: 'row' | 'cell', targetId: string, secondaryId?: string) => void;
+    filters: FilterRule[];
+    highlights?: HighlightRule[];
 }
 
 const getRowHeightClass = (density: DisplayDensity) => {
@@ -62,7 +65,9 @@ const SpreadsheetRowV2: React.FC<SpreadsheetRowV2Props> = ({
     onCellClick,
     onStartEdit,
     onUpdateCell,
-    onContextMenu
+    onContextMenu,
+    filters,
+    highlights
 }) => {
     const isRowFocused = focusedCell?.rowId === row.id && focusedCell?.type === rowType;
     const customStyle = row.style || {};
@@ -154,15 +159,25 @@ const SpreadsheetRowV2: React.FC<SpreadsheetRowV2Props> = ({
         }
     };
 
+    const highlightFilter = useMemo(() => {
+        // Kept for backward compatibility if needed, or if we decide to keep row highlighting via standard filters
+        if (rowType === 'summary') return null;
+        return filters.find(f => (f as any).color && f.columnId && checkFilterMatch((row as any)[f.columnId], f.operator, f.value));
+    }, [filters, row, rowType]);
+
     const rowStyle: React.CSSProperties = {};
-    if (customStyle.backgroundColor) rowStyle.backgroundColor = customStyle.backgroundColor;
+    if (highlightFilter && (highlightFilter as any).color) {
+        rowStyle.backgroundColor = (highlightFilter as any).color;
+    } else if (customStyle.backgroundColor) {
+        rowStyle.backgroundColor = customStyle.backgroundColor;
+    }
     if (customStyle.textColor) rowStyle.color = customStyle.textColor;
 
     const rowClasses = `group ${rowHeightClass} relative transition-colors ${
         isSelected ? 'bg-blue-100' : 
         rowType === 'parent' ? `${statusColors} font-semibold border-t border-b` : 
         rowType === 'summary' ? 'bg-gray-100 text-gray-900 font-bold border-t border-gray-300' : 
-        'bg-white'
+        (rowStyle.backgroundColor ? '' : 'bg-white')
     }`;
 
     // Get background for sticky columns to ensure zero transparency
@@ -175,7 +190,7 @@ const SpreadsheetRowV2: React.FC<SpreadsheetRowV2Props> = ({
             if (remaining === 0) return 'bg-[#f0fdf4]';
             return 'bg-[#fffbeb]';
         }
-        return 'bg-white';
+        return rowStyle.backgroundColor ? '' : 'bg-white';
     };
 
     const stickyBgClass = getStickyBg();
@@ -194,7 +209,8 @@ const SpreadsheetRowV2: React.FC<SpreadsheetRowV2Props> = ({
                 style={{ 
                     width: SPREADSHEET_INDEX_COLUMN_WIDTH, 
                     minWidth: SPREADSHEET_INDEX_COLUMN_WIDTH, 
-                    maxWidth: SPREADSHEET_INDEX_COLUMN_WIDTH 
+                    maxWidth: SPREADSHEET_INDEX_COLUMN_WIDTH,
+                    backgroundColor: (!isSelected && rowType !== 'summary' && rowStyle.backgroundColor) ? rowStyle.backgroundColor : undefined
                 }}
             >
                 <div className="flex items-center justify-center h-full relative z-30">
@@ -259,6 +275,30 @@ const SpreadsheetRowV2: React.FC<SpreadsheetRowV2Props> = ({
                     (rowType === 'parent' && (col.id === 'name' || col.id === 'remainingContract'))
                 );
 
+                // Check for cell highlighting based on Visual Filters (Highlights)
+                let highlightStyle: React.CSSProperties = {};
+                
+                // Only highlight if:
+                // 1. Not a summary row
+                // 2. Not a parent row that is currently expanded (header cells shouldn't highlight when open)
+                const shouldHighlight = rowType !== 'summary' && !(rowType === 'parent' && isExpanded) && highlights;
+
+                if (shouldHighlight) {
+                    const matchingHighlight = highlights.find(h => {
+                        if (h.columnId !== col.id) return false;
+                        const cellValue = (row as any)[col.id];
+                        
+                        // Don't highlight empty cells
+                        if (cellValue === null || cellValue === undefined || cellValue === '') return false;
+                        
+                        return checkFilterMatch(cellValue, h.operator, h.value);
+                    });
+                    
+                    if (matchingHighlight) {
+                        highlightStyle.backgroundColor = matchingHighlight.color;
+                    }
+                }
+
                 return (
                     <td 
                         key={col.id}
@@ -278,7 +318,12 @@ const SpreadsheetRowV2: React.FC<SpreadsheetRowV2Props> = ({
                             ${isSelected && rowType !== 'summary' ? 'bg-blue-50' : ''}
                             ${cellColorClass}
                         `}
-                        style={{ width: `${col.width}px`, minWidth: `${col.width}px`, maxWidth: `${col.width}px` }}
+                        style={{ 
+                            width: `${col.width}px`, 
+                            minWidth: `${col.width}px`, 
+                            maxWidth: `${col.width}px`,
+                            ...highlightStyle
+                        }}
                     >
                         {isCurrentCellEditing ? (
                             <input
@@ -323,7 +368,10 @@ const SpreadsheetRowV2: React.FC<SpreadsheetRowV2Props> = ({
                 ${stickyBgClass}
                 ${!isAtEnd ? 'before:content-[""] before:absolute before:top-0 before:bottom-0 before:-left-[6px] before:w-[6px] before:bg-gradient-to-l before:from-black/[0.12] before:to-transparent before:pointer-events-none' : ''}
             `}
-            style={{ width: '80px', minWidth: '80px', maxWidth: '80px' }}
+            style={{ 
+                width: '80px', minWidth: '80px', maxWidth: '80px',
+                backgroundColor: (!isSelected && rowType !== 'summary' && rowStyle.backgroundColor) ? rowStyle.backgroundColor : undefined 
+            }}
             >
                 <div className="flex items-center justify-center h-full relative z-30">
                     {rowType !== 'summary' && (

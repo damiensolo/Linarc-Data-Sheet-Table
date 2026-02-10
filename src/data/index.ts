@@ -161,7 +161,7 @@ export const MOCK_BUDGET_DATA: BudgetLineItem[] = [
     ]
   },
   { 
-    id: '2', sNo: 2, name: 'Rock Excavation and Disposal', remainingContract: 2500, totalBudget: 385000, quantity: 200, unit: 'CY', effortHours: 85, labor: 3000, equipment: 4000, subcontractor: 0, material: 0, others: 500, profit: 1000, overhead: 0, isExpanded: false,
+    id: '2', sNo: 2, name: 'Rock Excavation and Disposal', remainingContract: 2500, totalBudget: 385000, quantity: 200, unit: 'CY', effortHours: 85, labor: 3000, equipment: 4000, subcontractor: 0, material: 0, others: 500, profit: 1000, overhead: 0, isExpanded: true,
     children: [
         { id: '2.1', sNo: 2, costCode: '31-231', name: 'Drilling & Blasting', quantity: 100, unit: 'CY', effortHours: 45, totalBudget: 200000, labor: 1500, material: 0, equipment: 2500, subcontractor: 0, others: 0, overhead: 0, profit: 1000, remainingContract: null },
         { id: '2.2', sNo: 2, costCode: '31-232', name: 'Off-site Disposal', quantity: 100, unit: 'CY', effortHours: 40, totalBudget: 185000, labor: 1500, material: 0, equipment: 1500, subcontractor: 0, others: 500, overhead: 0, profit: 0, remainingContract: null },
@@ -176,13 +176,13 @@ export const MOCK_BUDGET_DATA: BudgetLineItem[] = [
     ]
   },
   { 
-    id: '4', sNo: 4, name: 'Subgrade Preparation', remainingContract: 1200, totalBudget: 345000, quantity: 1000, unit: 'SY', effortHours: 40, labor: 2000, equipment: 1500, subcontractor: 0, material: 500, others: 500, profit: 0, overhead: 0, isExpanded: false,
+    id: '4', sNo: 4, name: 'Subgrade Preparation', remainingContract: 1200, totalBudget: 345000, quantity: 1000, unit: 'SY', effortHours: 40, labor: 2000, equipment: 1500, subcontractor: 0, material: 500, others: 500, profit: 0, overhead: 0, isExpanded: true,
     children: [
         { id: '4.1', sNo: 4, costCode: '31-220', name: 'Fine Grading', quantity: 1000, unit: 'SY', effortHours: 40, totalBudget: 345000, labor: 2000, material: 500, equipment: 1500, subcontractor: 0, others: 500, overhead: 0, profit: 0, remainingContract: null },
     ]
   },
   { 
-    id: '5', sNo: 5, name: 'Shallow Concrete Footings', remainingContract: 15000, totalBudget: 825000, quantity: 80, unit: 'CY', effortHours: 320, labor: 12000, equipment: 3000, subcontractor: 0, material: 8000, others: 1000, profit: 1000, overhead: 0, isExpanded: false,
+    id: '5', sNo: 5, name: 'Shallow Concrete Footings', remainingContract: 15000, totalBudget: 825000, quantity: 80, unit: 'CY', effortHours: 320, labor: 12000, equipment: 3000, subcontractor: 0, material: 8000, others: 1000, profit: 1000, overhead: 0, isExpanded: true,
     children: [
         { id: '5.1', sNo: 5, costCode: '03-311', name: 'Formwork Installation', quantity: 400, unit: 'SF', effortHours: 120, totalBudget: 280000, labor: 5000, material: 1000, equipment: 1000, subcontractor: 0, others: 500, overhead: 0, profit: 500, remainingContract: null },
         { id: '5.2', sNo: 5, costCode: '03-312', name: 'Rebar Placement', quantity: 2, unit: 'TON', effortHours: 80, totalBudget: 270000, labor: 3000, material: 3500, equipment: 500, subcontractor: 0, others: 0, overhead: 0, profit: 0, remainingContract: null },

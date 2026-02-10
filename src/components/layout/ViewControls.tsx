@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom';
 import { View, ViewMode } from '../../types';
 import { useProject } from '../../context/ProjectContext';
 import FilterMenu from './FilterMenu';
-import { PlusIcon, MoreHorizontalIcon, TableIcon, BoardIcon, GanttIcon, LookaheadIcon, SearchIcon, FilterIcon, SpreadsheetIcon, DashboardIcon, ShareIcon } from '../common/Icons';
+import HighlightMenu from './HighlightMenu';
+import { PlusIcon, MoreHorizontalIcon, TableIcon, BoardIcon, GanttIcon, LookaheadIcon, SearchIcon, FilterIcon, SpreadsheetIcon, DashboardIcon, ShareIcon, FillColorIcon } from '../common/Icons';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../common/ui/Tooltip';
 
 const modes: { id: ViewMode; label: string; icon: React.FC<React.SVGProps<SVGSVGElement>> }[] = [
@@ -122,13 +123,14 @@ const ViewControls: React.FC = () => {
   const {
     views, activeViewId, defaultViewId, handleSelectView, setModalState, handleDeleteView, setDefaultViewId, setViews,
     activeViewMode, handleViewModeChange,
-    searchTerm, setSearchTerm, showFilterMenu, setShowFilterMenu, activeView
+    searchTerm, setSearchTerm, showFilterMenu, setShowFilterMenu, showHighlightMenu, setShowHighlightMenu, activeView
   } = useProject();
 
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
     const [isSearchFocused, setIsSearchFocused] = useState(false);
     const filterButtonRef = useRef<HTMLButtonElement>(null);
+    const highlightButtonRef = useRef<HTMLButtonElement>(null);
 
     const handleDragStart = (e: React.DragEvent, index: number) => {
     setDraggedIndex(index);
@@ -184,6 +186,22 @@ const ViewControls: React.FC = () => {
                             {activeView.filters.length > 0 && <span className="bg-blue-100 text-blue-700 text-xs font-bold px-1.5 py-0.5 rounded-full">{activeView.filters.length}</span>}
                         </button>
                         {showFilterMenu && <FilterMenu onClose={() => setShowFilterMenu(false)} triggerRef={filterButtonRef} />}
+                    </div>
+
+                    {/* Highlight */}
+                    <div className="relative">
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger>
+                                    <button ref={highlightButtonRef} onClick={() => setShowHighlightMenu(p => !p)} className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 shadow-sm" aria-label="Highlight cells">
+                                        <FillColorIcon className="w-4 h-4" />
+                                        {(activeView.highlights?.length || 0) > 0 && <span className="bg-blue-100 text-blue-700 text-xs font-bold px-1.5 py-0.5 rounded-full">{activeView.highlights?.length}</span>}
+                                    </button>
+                                </TooltipTrigger>
+                                <TooltipContent>Highlight</TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                        {showHighlightMenu && <HighlightMenu onClose={() => setShowHighlightMenu(false)} triggerRef={highlightButtonRef} />}
                     </div>
 
                     <div className="h-6 w-px bg-gray-300 mx-1"></div>
