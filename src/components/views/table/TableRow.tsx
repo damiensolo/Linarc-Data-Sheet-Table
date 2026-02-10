@@ -40,10 +40,10 @@ const SelectionCell: React.FC<{ task: Task, isSelected: boolean, onToggleRow: (i
   const taskNameId = `task-name-${task.id}`;
   const bgClass = isSelected ? 'bg-blue-600 text-white' : 'bg-white group-hover:bg-gray-50';
   
-  const cellClasses = `sticky left-0 z-30 ${rowHeightClass} px-2 w-14 text-center border-r border-gray-200 transition-shadow duration-200 cursor-pointer relative ${!customBorder ? 'border-b' : ''} ${bgClass} ${isScrolled ? 'shadow-[2px_0_5px_rgba(0,0,0,0.05)]' : ''}`;
+  const cellClasses = `sticky left-0 z-30 ${rowHeightClass} w-[52px] min-w-[52px] max-w-[52px] px-0 text-center border-r border-gray-200 transition-shadow duration-200 cursor-pointer relative box-border ${!customBorder ? 'border-b' : ''} ${bgClass} ${isScrolled ? 'shadow-[2px_0_5px_rgba(0,0,0,0.05)]' : ''}`;
 
   return (
-    <td className={cellClasses} onClick={() => onToggleRow(task.id)}>
+    <td className={cellClasses} onClick={() => onToggleRow(task.id)} style={{ width: '52px' }}>
         <div className="flex items-center justify-center h-full relative z-20">
             <span className={isSelected ? 'hidden' : 'group-hover:hidden text-gray-500'}>{rowNum}</span>
             <input

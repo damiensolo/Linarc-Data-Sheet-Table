@@ -209,7 +209,7 @@ const TableView: React.FC<TableViewProps> = ({ isScrolled, density }) => {
         <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden relative flex flex-col flex-grow">
             
             <div className="flex items-center h-14 border-b border-gray-200 bg-white flex-shrink-0 transition-all z-50 relative pr-4">
-                 <div className="w-14 flex items-center justify-center flex-shrink-0 border-r border-gray-200">
+                 <div className="w-[52px] min-w-[52px] max-w-[52px] flex items-center justify-center flex-shrink-0 border-r border-gray-200" style={{ width: '52px', minWidth: '52px', maxWidth: '52px' }}>
                      <input 
                         type="checkbox" 
                         checked={isAllSelected} 
@@ -331,9 +331,14 @@ const TableView: React.FC<TableViewProps> = ({ isScrolled, density }) => {
                     className="w-full table-fixed text-left text-gray-500 whitespace-nowrap border-collapse"
                     style={{ fontSize: activeView.fontSize }}
                 >
+                    <colgroup>
+                        <col style={{ width: '52px', minWidth: '52px', maxWidth: '52px' }} />
+                        {visibleColumns.map(col => <col key={col.id} style={{ width: col.width }} />)}
+                        <col style={{ width: '80px' }} />
+                    </colgroup>
                 <thead className={`uppercase bg-gray-50 sticky top-0 z-40 transition-shadow duration-200 ${isScrolled ? 'shadow-[0_4px_6px_-2px_rgba(0,0,0,0.1),0_2px_4px_-2px_rgba(0,0,0,0.05)]' : ''}`}>
                     <tr ref={headerRef}>
-                    <th scope="col" className={`sticky left-0 bg-gray-50 z-50 ${headerHeightClass} px-2 w-14 border-r border-gray-200 transition-all duration-200 ${isScrolled ? 'shadow-[2px_0_5px_rgba(0,0,0,0.05)]' : ''}`} style={{ boxShadow: 'inset 0 -1px 0 #e5e7eb' }}>
+                    <th scope="col" className={`sticky left-0 bg-gray-50 z-50 ${headerHeightClass} w-[52px] min-w-[52px] max-w-[52px] px-0 border-r border-gray-200 transition-all duration-200 box-border ${isScrolled ? 'shadow-[2px_0_5px_rgba(0,0,0,0.05)]' : ''}`} style={{ boxShadow: 'inset 0 -1px 0 #e5e7eb', width: '52px' }}>
                         <div className="flex items-center justify-center h-full font-semibold text-gray-500">
                             #
                         </div>
