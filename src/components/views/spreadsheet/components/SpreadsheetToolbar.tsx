@@ -9,6 +9,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../
 import ColorPicker from '../../../common/ui/ColorPicker';
 import { BudgetLineItemStyle } from '../../../../types';
 import { BACKGROUND_COLORS, TEXT_BORDER_COLORS } from '../../../../constants/designTokens';
+import { SPREADSHEET_INDEX_COLUMN_WIDTH } from '../../../../constants/spreadsheetLayout';
 
 interface SpreadsheetToolbarProps {
     isAllSelected: boolean;
@@ -29,7 +30,14 @@ const SpreadsheetToolbar: React.FC<SpreadsheetToolbarProps> = ({
 }) => {
     return (
         <div className="flex items-center h-14 border-b border-gray-200 bg-white flex-shrink-0 transition-all z-40 relative pr-4">
-            <div className="w-14 flex items-center justify-center flex-shrink-0 border-r border-gray-200">
+            <div
+                className="w-14 flex items-center justify-center flex-shrink-0 border-r border-gray-200"
+                style={{
+                    width: SPREADSHEET_INDEX_COLUMN_WIDTH,
+                    minWidth: SPREADSHEET_INDEX_COLUMN_WIDTH,
+                    maxWidth: SPREADSHEET_INDEX_COLUMN_WIDTH,
+                }}
+            >
                 <input 
                     type="checkbox" 
                     checked={isAllSelected} 

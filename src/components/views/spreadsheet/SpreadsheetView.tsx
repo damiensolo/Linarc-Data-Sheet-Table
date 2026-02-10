@@ -7,6 +7,7 @@ import SpreadsheetRow from './components/SpreadsheetRow';
 import { ContextMenu, ContextMenuItem } from '../../common/ui/ContextMenu';
 import { ScissorsIcon, CopyIcon, ClipboardIcon, TrashIcon, ArrowUpIcon, ArrowDownIcon, ChevronLeftIcon, ChevronRightIcon, FillColorIcon, BorderColorIcon } from '../../common/Icons';
 import { BACKGROUND_COLORS, TEXT_BORDER_COLORS } from '../../../constants/designTokens';
+import { SPREADSHEET_INDEX_COLUMN_WIDTH } from '../../../constants/spreadsheetLayout';
 
 // --- Constants ---
 
@@ -435,7 +436,12 @@ const SpreadsheetView: React.FC = () => {
                 {/* Summary Footer */}
                 <tfoot className="bg-gray-100 text-gray-900 border-t-2 border-gray-300 sticky bottom-0 z-30 font-semibold shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
                     <tr className="h-8">
-                        <td className={`sticky left-0 z-40 border-r border-gray-300 p-0 text-center bg-gray-100 ${!scrollState.isAtStart ? 'shadow-[4px_0_8px_-4px_rgba(0,0,0,0.3)]' : ''}`}>
+                        <td className={`sticky left-0 z-40 border-r border-gray-300 p-0 text-center bg-gray-100 ${!scrollState.isAtStart ? 'shadow-[4px_0_8px_-4px_rgba(0,0,0,0.3)]' : ''}`}
+                        style={{
+                            width: SPREADSHEET_INDEX_COLUMN_WIDTH,
+                            minWidth: SPREADSHEET_INDEX_COLUMN_WIDTH,
+                            maxWidth: SPREADSHEET_INDEX_COLUMN_WIDTH,
+                        }}>
                             <div className="flex items-center justify-center h-full" style={{ fontSize: activeView.fontSize }}>Total</div>
                         </td>
                         {columns.map((col) => {

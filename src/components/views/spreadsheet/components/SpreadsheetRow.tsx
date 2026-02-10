@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { BudgetLineItem, SpreadsheetColumn, DisplayDensity } from '../../../../types';
 import { AlertTriangleIcon } from '../../../common/Icons';
 import { RowActionsMenu } from '../../../shared/RowActionsMenu';
+import { SPREADSHEET_INDEX_COLUMN_WIDTH } from '../../../../constants/spreadsheetLayout';
 
 const formatCurrency = (amount: number | null | undefined) => {
   if (amount === null || amount === undefined) return '';
@@ -82,6 +83,9 @@ const SpreadsheetRow: React.FC<SpreadsheetRowProps> = ({
                     ${isScrolled ? 'after:content-[""] after:absolute after:top-0 after:bottom-0 after:-right-[6px] after:w-[6px] after:bg-gradient-to-r after:from-black/[0.12] after:to-transparent after:pointer-events-none' : ''}
                 `}
                 style={{
+                    width: SPREADSHEET_INDEX_COLUMN_WIDTH,
+                    minWidth: SPREADSHEET_INDEX_COLUMN_WIDTH,
+                    maxWidth: SPREADSHEET_INDEX_COLUMN_WIDTH,
                     backgroundColor: (!isSelected && !isRowFocused) ? (customStyle.backgroundColor || '#ffffff') : undefined,
                 }}
             >

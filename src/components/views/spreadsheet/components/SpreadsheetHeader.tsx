@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { SpreadsheetColumn, DisplayDensity, ColumnId } from '../../../../types';
 import { Resizer } from '../../../common/ui/Resizer';
 import { SortIcon, ArrowUpIcon, ArrowDownIcon } from '../../../common/Icons';
+import { SPREADSHEET_INDEX_COLUMN_WIDTH } from '../../../../constants/spreadsheetLayout';
 
 interface SpreadsheetHeaderProps {
     columns: SpreadsheetColumn[];
@@ -86,11 +87,14 @@ const SpreadsheetHeader: React.FC<SpreadsheetHeaderProps> = ({
             ${isVerticalScrolled ? 'shadow-[0_4px_6px_-2px_rgba(0,0,0,0.1),0_2px_4px_-2px_rgba(0,0,0,0.05)]' : ''}
         `}>
             <tr className={heightClass}>
-                {/* Sticky Left Header */}
+                {/* Sticky Left Header - fixed width index column */}
                 <th className={`sticky left-0 z-[51] w-14 border-r border-gray-200 px-1 text-center bg-gray-50 transition-all
                     ${isScrolled ? 'after:content-[""] after:absolute after:top-0 after:bottom-0 after:-right-[6px] after:w-[6px] after:bg-gradient-to-r after:from-black/[0.12] after:to-transparent after:pointer-events-none' : ''}
                 `}
                 style={{ 
+                    width: SPREADSHEET_INDEX_COLUMN_WIDTH,
+                    minWidth: SPREADSHEET_INDEX_COLUMN_WIDTH,
+                    maxWidth: SPREADSHEET_INDEX_COLUMN_WIDTH,
                     fontSize,
                     boxShadow: 'inset 0 -1px 0 #e5e7eb' // Ensures border remains visible when sticky
                 }}>

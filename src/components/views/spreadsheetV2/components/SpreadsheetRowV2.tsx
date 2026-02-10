@@ -3,6 +3,7 @@ import { BudgetLineItem, SpreadsheetColumn, DisplayDensity } from '../../../../t
 import { ChevronRightIcon, ChevronDownIcon } from '../../../common/Icons';
 import { RowActionsMenu } from '../../../shared/RowActionsMenu';
 import { SpreadsheetRowType } from '../SpreadsheetViewV2';
+import { SPREADSHEET_INDEX_COLUMN_WIDTH } from '../../../../constants/spreadsheetLayout';
 
 const formatCurrency = (amount: number | null | undefined) => {
   if (amount === null || amount === undefined) return '';
@@ -190,7 +191,11 @@ const SpreadsheetRowV2: React.FC<SpreadsheetRowV2Props> = ({
                     ${rowType === 'parent' ? 'cursor-pointer' : rowType === 'summary' ? '' : 'cursor-pointer'}
                     ${isScrolled ? 'after:content-[""] after:absolute after:top-0 after:bottom-0 after:-right-[6px] after:w-[6px] after:bg-gradient-to-r after:from-black/[0.12] after:to-transparent after:pointer-events-none' : ''}
                 `}
-                style={{ width: '56px', minWidth: '56px', maxWidth: '56px' }}
+                style={{ 
+                    width: SPREADSHEET_INDEX_COLUMN_WIDTH, 
+                    minWidth: SPREADSHEET_INDEX_COLUMN_WIDTH, 
+                    maxWidth: SPREADSHEET_INDEX_COLUMN_WIDTH 
+                }}
             >
                 <div className="flex items-center justify-center h-full relative z-30">
                     {rowType !== 'summary' && (

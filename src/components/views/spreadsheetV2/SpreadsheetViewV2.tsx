@@ -6,6 +6,7 @@ import SpreadsheetHeader from '../spreadsheet/components/SpreadsheetHeader';
 import SpreadsheetRowV2 from './components/SpreadsheetRowV2';
 import { ContextMenu, ContextMenuItem } from '../../common/ui/ContextMenu';
 import { ScissorsIcon, CopyIcon, ClipboardIcon, TrashIcon, PlusIcon } from '../../common/Icons';
+import { SPREADSHEET_INDEX_COLUMN_WIDTH } from '../../../constants/spreadsheetLayout';
 
 const formatCurrency = (amount: number | null | undefined) => {
   if (amount === null || amount === undefined) return '';
@@ -461,7 +462,12 @@ const SpreadsheetViewV2: React.FC = () => {
                 </tbody>
                 <tfoot className="bg-gray-100 text-gray-900 border-t-2 border-gray-300 sticky bottom-0 z-30 font-bold shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
                     <tr className="h-9">
-                        <td className={`sticky left-0 z-40 w-14 border-r border-gray-300 p-0 text-center bg-gray-100 ${!scrollState.isAtStart ? 'shadow-[4px_0_8px_-4px_rgba(0,0,0,0.3)]' : ''}`}>
+                        <td className={`sticky left-0 z-40 w-14 border-r border-gray-300 p-0 text-center bg-gray-100 ${!scrollState.isAtStart ? 'shadow-[4px_0_8px_-4px_rgba(0,0,0,0.3)]' : ''}`}
+                        style={{
+                            width: SPREADSHEET_INDEX_COLUMN_WIDTH,
+                            minWidth: SPREADSHEET_INDEX_COLUMN_WIDTH,
+                            maxWidth: SPREADSHEET_INDEX_COLUMN_WIDTH,
+                        }}>
                             <div className="flex items-center justify-center h-full font-bold" style={{ fontSize: activeView.fontSize }}>Total</div>
                         </td>
                         {columns.map((col) => {
