@@ -1,4 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { 
+    LayoutDashboard, 
+    KanbanSquare, 
+    FileSpreadsheet, 
+    CheckCircle2, 
+    XCircle,
+    Bookmark
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import BookmarksMenu from './FavoritesMenu';
 import { QuickCreateMenu } from './QuickCreateMenu';
@@ -6,27 +14,23 @@ import { QuickCreateMenu } from './QuickCreateMenu';
 // --- Icon Definitions ---
 
 const IconWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-    <svg 
-        xmlns="http://www.w3.org/2000/svg" 
-        width="24" 
-        height="24" 
-        viewBox="0 0 24 24" 
-        fill="none" 
-        stroke="currentColor" 
-        strokeWidth="1.5" 
-        strokeLinecap="round" 
-        strokeLinejoin="round" 
-        className="w-6 h-8"
-    >
+    <div className="flex items-center justify-center w-6 h-8 text-current">
         {children}
-    </svg>
+    </div>
 );
 
-const DashboardIcon = () => <IconWrapper><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></IconWrapper>;
-const BoardsIcon = () => <IconWrapper><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line></IconWrapper>;
-const LogsIcon = () => <IconWrapper><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></IconWrapper>;
-const CompletedIcon = () => <IconWrapper><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"></path><path d="m9 12 2 2 4-4"></path></IconWrapper>;
-const ClosedIcon = () => <IconWrapper><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></IconWrapper>;
+const DashboardIcon = () => <IconWrapper><LayoutDashboard size={24} strokeWidth={1.5} /></IconWrapper>;
+const BoardsIcon = () => <IconWrapper><KanbanSquare size={24} strokeWidth={1.5} /></IconWrapper>;
+const LogsIcon = () => <IconWrapper><FileSpreadsheet size={24} strokeWidth={1.5} /></IconWrapper>;
+const CompletedIcon = () => <IconWrapper><CheckCircle2 size={24} strokeWidth={1.5} /></IconWrapper>;
+const ClosedIcon = () => <IconWrapper><XCircle size={24} strokeWidth={1.5} /></IconWrapper>;
+
+// Bookmarks Icon
+const BookmarksIcon = () => (
+    <IconWrapper>
+        <Bookmark size={24} strokeWidth={1.5} />
+    </IconWrapper>
+);
 
 const LinarcLogo = () => (
     <svg width="50" height="50" viewBox="0 0 50 50" fill="none" xmlns="http://www.w3.org/2000/svg" className="mx-auto">
@@ -87,12 +91,6 @@ interface SidebarProps {
     onToggleBookmark?: (categoryKey: string, itemKey: string) => void;
 }
 
-// Bookmarks Icon
-const BookmarksIcon = () => (
-    <IconWrapper>
-        <path d="M19 21l-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/>
-    </IconWrapper>
-);
 
 const Sidebar: React.FC<SidebarProps> = ({ version = 'v1', bookmarks = [], onSelect, onToggleBookmark }) => {
     const [activeItemKey, setActiveItemKey] = useState('dashboard');

@@ -69,9 +69,10 @@ const FilterMenu: React.FC<FilterMenuProps> = ({ onClose, triggerRef }) => {
     const { activeView, setFilters } = useProject();
     const { filters } = activeView;
     const menuRef = useRef<HTMLDivElement>(null);
-    const [isAdding, setIsAdding] = useState(false);
-    const [newRule, setNewRule] = useState<{ columnId?: ColumnId; operator?: FilterOperator; value?: string | string[] }>({});
     const [position, setPosition] = useState({ top: 0, left: 0 });
+    
+    // Local state for filters including incomplete ones
+    const [localFilters, setLocalFilters] = useState<FilterRule[]>(filters);
 
     useLayoutEffect(() => {
         if (triggerRef.current) {
@@ -107,38 +108,51 @@ const FilterMenu: React.FC<FilterMenuProps> = ({ onClose, triggerRef }) => {
         };
     }, [onClose, triggerRef]);
 
-    const addFilter = () => {
-        if (!newRule.columnId || !newRule.operator) return;
+    // Sync valid filters to global state
+    useEffect(() => {
+        const validFilters = localFilters.filter(rule => {
+            if (!rule.columnId || !rule.operator) return false;
+            const isValueRequired = !['is_empty', 'is_not_empty'].includes(rule.operator);
+            if (isValueRequired && (rule.value === undefined || rule.value === '' || (Array.isArray(rule.value) && rule.value.length === 0))) return false;
+            return true;
+        });
         
-        const isValueRequired = !['is_empty', 'is_not_empty'].includes(newRule.operator);
-        if (isValueRequired && (newRule.value === undefined || (Array.isArray(newRule.value) && newRule.value.length === 0))) return;
+        setFilters(validFilters);
+    }, [localFilters, setFilters]);
+
+    const addNewFilter = () => {
+        const defaultCol = FILTERABLE_COLUMNS[0];
+        const defaultOp = defaultCol.type === 'text' ? TEXT_OPERATORS[0] : ENUM_OPERATORS[0];
         
-        const finalRule: FilterRule = {
+        const newRule: FilterRule = {
             id: `filter_${Date.now()}`,
-            columnId: newRule.columnId,
-            operator: newRule.operator,
-            value: newRule.value,
+            columnId: defaultCol.id,
+            operator: defaultOp.id as FilterOperator,
+            value: undefined
         };
-        setFilters([...filters, finalRule]);
-        setNewRule({});
-        setIsAdding(false);
+        setLocalFilters([...localFilters, newRule]);
     };
     
-    const removeFilter = (id: string) => setFilters(filters.filter(f => f.id !== id));
-    
-    const selectedColumn = FILTERABLE_COLUMNS.find(c => c.id === newRule.columnId);
-    const operators = selectedColumn?.type === 'text' ? TEXT_OPERATORS : ENUM_OPERATORS;
-    const requiresValue = newRule.operator && !['is_empty', 'is_not_empty'].includes(newRule.operator);
+    const removeFilter = (id: string) => {
+        setLocalFilters(localFilters.filter(f => f.id !== id));
+    };
 
-    const getDisplayValue = (rule: FilterRule) => {
-        if (!rule.value || Array.isArray(rule.value) && rule.value.length === 0) return '';
-        if (['is_empty', 'is_not_empty'].includes(rule.operator)) return '';
-
-        if (Array.isArray(rule.value)) {
-            const options = getEnumOptions(rule.columnId);
-            return rule.value.map(v => options.find(o => o.id === v)?.label || v).join(', ');
-        }
-        return `"${rule.value}"`;
+    const updateFilter = (id: string, updates: Partial<FilterRule>) => {
+        setLocalFilters(localFilters.map(f => {
+            if (f.id === id) {
+                const updated = { ...f, ...updates };
+                
+                // If column changed, reset operator and value
+                if (updates.columnId && updates.columnId !== f.columnId) {
+                     const newCol = FILTERABLE_COLUMNS.find(c => c.id === updates.columnId);
+                     const newOps = newCol?.type === 'text' ? TEXT_OPERATORS : ENUM_OPERATORS;
+                     updated.operator = newOps[0].id as FilterOperator;
+                     updated.value = undefined;
+                }
+                return updated;
+            }
+            return f;
+        }));
     };
 
     const addQuickFilter = (type: string) => {
@@ -160,7 +174,7 @@ const FilterMenu: React.FC<FilterMenuProps> = ({ onClose, triggerRef }) => {
                 rule = { id: `qf_${Date.now()}`, columnId: 'dates', operator: 'contains', value: 'Next Week' };
                 break;
         }
-        if (rule) setFilters([...filters, rule]);
+        if (rule) setLocalFilters([...localFilters, rule]);
     };
 
     return createPortal(
@@ -171,9 +185,9 @@ const FilterMenu: React.FC<FilterMenuProps> = ({ onClose, triggerRef }) => {
         >
             <div className="flex items-center justify-between mb-4">
                 <h3 className="text-base font-semibold text-gray-900">Filters</h3>
-                {filters.length > 0 && (
+                {localFilters.length > 0 && (
                     <button 
-                        onClick={() => setFilters([])} 
+                        onClick={() => setLocalFilters([])} 
                         className="text-sm text-gray-500 hover:text-gray-900 hover:underline transition-colors"
                     >
                         Clear all
@@ -194,72 +208,61 @@ const FilterMenu: React.FC<FilterMenuProps> = ({ onClose, triggerRef }) => {
 
             <div className="space-y-3 mb-4">
                 <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">All filters</h4>
-                {filters.length === 0 && <p className="text-sm text-gray-400 italic">No active filters</p>}
-                {filters.map(rule => (
-                    <div key={rule.id} className="flex items-center gap-2 text-sm bg-gray-50 p-2 rounded-md border border-gray-200">
-                        <div className="w-1/4 font-medium text-gray-700 bg-white px-2 py-1 rounded border border-gray-200">
-                            {FILTERABLE_COLUMNS.find(c => c.id === rule.columnId)?.label}
+                {localFilters.length === 0 && <p className="text-sm text-gray-400 italic">No active filters</p>}
+                {localFilters.map(rule => {
+                    const selectedColumn = FILTERABLE_COLUMNS.find(c => c.id === rule.columnId);
+                    const operators = selectedColumn?.type === 'text' ? TEXT_OPERATORS : ENUM_OPERATORS;
+                    const requiresValue = rule.operator && !['is_empty', 'is_not_empty'].includes(rule.operator);
+
+                    return (
+                        <div key={rule.id} className="flex items-center gap-2 text-sm bg-gray-50 p-2 rounded-md border border-gray-200">
+                            <div className="w-1/4">
+                                <CustomSelect 
+                                    options={FILTERABLE_COLUMNS.map(c => ({ id: c.id, label: c.label }))}
+                                    value={rule.columnId}
+                                    onChange={val => updateFilter(rule.id, { columnId: val as ColumnId })}
+                                    placeholder="Select field"
+                                />
+                            </div>
+                            <div className="w-1/4">
+                                <CustomSelect
+                                    options={operators}
+                                    value={rule.operator}
+                                    onChange={val => updateFilter(rule.id, { operator: val as FilterOperator })}
+                                    placeholder="Select operator"
+                                />
+                            </div>
+                            <div className="flex-1">
+                                {requiresValue && selectedColumn ? (
+                                    selectedColumn.type === 'text' ? (
+                                        <input
+                                            type="text"
+                                            value={rule.value as string || ''}
+                                            onChange={e => updateFilter(rule.id, { value: e.target.value })}
+                                            placeholder="Enter value..."
+                                            className="form-input w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        />
+                                    ) : (
+                                        <EnumMultiSelect
+                                            options={getEnumOptions(selectedColumn.id)}
+                                            selected={rule.value as string[] || []}
+                                            onChange={val => updateFilter(rule.id, { value: val })}
+                                        />
+                                    )
+                                ) : <div className="h-8 bg-gray-100 rounded border border-gray-200 opacity-50"></div>}
+                            </div>
+                            <button onClick={() => removeFilter(rule.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors">
+                                <XIcon className="w-4 h-4" />
+                            </button>
                         </div>
-                        <div className="w-1/4 text-gray-600 bg-white px-2 py-1 rounded border border-gray-200">
-                            {[...TEXT_OPERATORS, ...ENUM_OPERATORS].find(o => o.id === rule.operator)?.label}
-                        </div>
-                        <div className="flex-1 font-medium text-gray-800 bg-white px-2 py-1 rounded border border-gray-200 truncate">
-                            {getDisplayValue(rule) || <span className="text-gray-400 italic">No value</span>}
-                        </div>
-                        <button onClick={() => removeFilter(rule.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors">
-                            <XIcon className="w-4 h-4" />
-                        </button>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
 
-            {isAdding ? (
-                <div className="p-3 border border-gray-200 rounded-md mb-3 bg-gray-50">
-                    <div className="grid grid-cols-[1fr_1fr_1.5fr] gap-2 mb-3">
-                         <CustomSelect
-                            options={FILTERABLE_COLUMNS.map(c => ({ id: c.id, label: c.label }))}
-                            value={newRule.columnId || ''}
-                            onChange={(val) => setNewRule({ columnId: val as ColumnId })}
-                            placeholder="Select field"
-                        />
-                        {newRule.columnId ? (
-                            <CustomSelect
-                                options={operators}
-                                value={newRule.operator || ''}
-                                onChange={(val) => setNewRule(p => ({ ...p, operator: val as FilterOperator }))}
-                                placeholder="Select operator"
-                            />
-                        ) : <div className="bg-gray-100 rounded border border-gray-200"></div>}
-                        
-                        {requiresValue && selectedColumn ? (
-                           selectedColumn.type === 'text' ? (
-                                <input
-                                    type="text"
-                                    value={newRule.value as string || ''}
-                                    onChange={e => setNewRule(p => ({...p, value: e.target.value}))}
-                                    placeholder="Enter value..."
-                                    className="form-input w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                />
-                           ) : (
-                                <EnumMultiSelect
-                                    options={getEnumOptions(selectedColumn.id)}
-                                    selected={newRule.value as string[] || []}
-                                    onChange={val => setNewRule(p => ({ ...p, value: val }))}
-                                />
-                           )
-                        ) : <div className="bg-gray-100 rounded border border-gray-200"></div>}
-                    </div>
-                    <div className="flex justify-end gap-2">
-                        <button onClick={() => { setIsAdding(false); setNewRule({}) }} className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">Cancel</button>
-                        <button onClick={addFilter} className="px-3 py-1.5 text-sm font-medium text-white bg-zinc-800 rounded-md hover:bg-zinc-700 shadow-sm">Apply Filter</button>
-                    </div>
-                </div>
-            ) : (
-                <button onClick={() => setIsAdding(true)} className="flex items-center gap-1.5 text-sm text-gray-600 font-medium p-2 hover:bg-gray-100 rounded-md transition-colors w-fit">
-                    <PlusIcon className="w-4 h-4" />
-                    <span>Add filter</span>
-                </button>
-            )}
+            <button onClick={addNewFilter} className="flex items-center gap-1.5 text-sm text-gray-600 font-medium p-2 hover:bg-gray-100 rounded-md transition-colors w-fit">
+                <PlusIcon className="w-4 h-4" />
+                <span>Add filter</span>
+            </button>
         </div>,
         document.body
     );
