@@ -86,7 +86,7 @@ const AppHeader: React.FC = () => {
                 </div>
                 
                 <div className="flex items-center gap-2">
-                    <button className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 bg-white border-2 border-[#121212] rounded-md hover:bg-gray-50 shadow-none transition-colors">
+                    <button className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 bg-white border-2 border-[#BDC3CC] rounded-md hover:bg-gray-50 shadow-none transition-colors">
                         <DownloadIcon className="w-4 h-4" />
                         <span>Download</span>
                     </button>
