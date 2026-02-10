@@ -317,13 +317,32 @@ const Sparkline: React.FC<{ data: number[], trend: Trend, width?: number, height
     const pathData = data.map((point, i) => {
         const x = getSvgX(i);
         const y = getSvgY(point);
-        return `${i === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`;
+        if (i === 0) return `M ${x.toFixed(2)} ${y.toFixed(2)}`;
+        // Simple smoothing using cubic bezier
+        const prevX = getSvgX(i - 1);
+        const prevY = getSvgY(data[i - 1]);
+        const cp1x = prevX + (x - prevX) / 2;
+        const cp1y = prevY;
+        const cp2x = prevX + (x - prevX) / 2;
+        const cp2y = y;
+        return `C ${cp1x.toFixed(2)} ${cp1y.toFixed(2)} ${cp2x.toFixed(2)} ${cp2y.toFixed(2)} ${x.toFixed(2)} ${y.toFixed(2)}`;
     }).join(' ');
 
     const color = trend === 'up' ? 'stroke-green-500' : trend === 'down' ? 'stroke-red-500' : 'stroke-gray-400';
+    const fillColor = trend === 'up' ? 'text-green-500' : trend === 'down' ? 'text-red-500' : 'text-gray-400'; // For fill reference
+
+    // Create area path
+    const areaPath = `${pathData} V ${height} H 0 Z`;
 
     return (
         <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="flex-shrink-0">
+             <defs>
+                <linearGradient id={`gradient-${trend}`} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" className={`${fillColor.replace('text-', 'stop-')} opacity-20`} stopOpacity="0.2" />
+                    <stop offset="100%" className={`${fillColor.replace('text-', 'stop-')} opacity-0`} stopOpacity="0" />
+                </linearGradient>
+            </defs>
+            <path d={areaPath} fill={`url(#gradient-${trend})`} className="opacity-50" />
             <path d={pathData} fill="none" className={color} strokeWidth={strokeWidth} strokeLinejoin="round" strokeLinecap="round" />
         </svg>
     );
@@ -340,6 +359,13 @@ export const ProgressDisplay: React.FC<{ progress: Progress }> = ({ progress }) 
         else if (end < start) trend = 'down';
     }
 
+    const getProgressColor = (percent: number) => {
+        if (percent >= 100) return 'bg-green-500';
+        if (percent >= 75) return 'bg-blue-500';
+        if (percent >= 40) return 'bg-yellow-500';
+        return 'bg-gray-400';
+    };
+
     return (
         <div className="flex items-center gap-2 w-full" title={`Progress: ${percentage}%`}>
             {history && history.length > 1 ? (
@@ -348,7 +374,7 @@ export const ProgressDisplay: React.FC<{ progress: Progress }> = ({ progress }) 
             <div className="w-full flex-grow">
                 <div className="flex items-center gap-2">
                     <div className="h-2 bg-gray-200 rounded-full w-full">
-                        <div className="h-2 bg-blue-500 rounded-full" style={{ width: `${percentage}%` }}></div>
+                        <div className={`h-2 rounded-full ${getProgressColor(percentage)}`} style={{ width: `${percentage}%` }}></div>
                     </div>
                     <span className="text-xs font-mono text-gray-500 w-9 text-right">{percentage}%</span>
                 </div>

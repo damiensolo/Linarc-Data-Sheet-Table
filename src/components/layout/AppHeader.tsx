@@ -86,7 +86,7 @@ const AppHeader: React.FC = () => {
                 </div>
                 
                 <div className="flex items-center gap-2">
-                    <button className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 bg-white ring-2 ring-gray-400 ring-inset rounded-md hover:bg-gray-50 shadow-sm transition-colors">
+                    <button className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 bg-white border-2 border-[#262626] rounded-md hover:bg-gray-50 shadow-sm transition-colors">
                         <DownloadIcon className="w-4 h-4" />
                         <span>Download</span>
                     </button>
@@ -106,7 +106,7 @@ const AppHeader: React.FC = () => {
                     )}
 
                     {showCreateButton && (
-                        <button className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-zinc-800 rounded-md hover:bg-zinc-700 shadow-sm transition-colors">
+                        <button className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-zinc-800 border rounded-md hover:bg-zinc-700 shadow-sm transition-colors">
                             <PlusIcon className="w-4 h-4" />
                             <span>Create</span>
                         </button>

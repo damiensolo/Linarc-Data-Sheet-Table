@@ -1,6 +1,7 @@
-import React, { Fragment, useEffect, useRef, useState } from 'react';
+import React, { Fragment, useEffect, useRef, useState, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Task, Status, Column, ColumnId, DisplayDensity, TaskStyle } from '../../../types';
-import { EyeIcon, ChevronRightIcon, ChevronDownIcon, DocumentIcon, LinkIcon } from '../../common/Icons';
+import { EyeIcon, ChevronRightIcon, ChevronDownIcon, DocumentIcon, LinkIcon, MoreHorizontalIcon, DownloadIcon, TrashIcon, PaperclipIcon } from '../../common/Icons';
 import { StatusDisplay, AssigneeAvatar, StatusSelector, ProgressDisplay } from '../../shared/TaskElements';
 import { formatDateForInput, formatDateFromInput, parseDate } from '../../../lib/dateUtils';
 import { DatePicker } from '../../common/ui/DatePicker';
@@ -169,6 +170,84 @@ const DateCellContent: React.FC<{ task: Task, isEditing: boolean, onEdit: (cell:
     );
 };
 
+const RowActionsMenu: React.FC<{ 
+    onView: () => void;
+    onLink: () => void;
+    onExport: () => void;
+    onAttachments: () => void;
+    onDelete: () => void;
+    isLinked: boolean;
+}> = ({ onView, onLink, onExport, onAttachments, onDelete, isLinked }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [coords, setCoords] = useState({ top: 0, left: 0 });
+    const buttonRef = useRef<HTMLButtonElement>(null);
+
+    useLayoutEffect(() => {
+        if (isOpen && buttonRef.current) {
+            const rect = buttonRef.current.getBoundingClientRect();
+            const MENU_WIDTH = 160;
+            let left = rect.left;
+            
+            if (left + MENU_WIDTH > window.innerWidth) {
+                left = rect.right - MENU_WIDTH;
+            }
+            if (left < 0) left = 0;
+
+            setCoords({
+                top: rect.bottom + 4,
+                left: left
+            });
+        }
+    }, [isOpen]);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+             if (buttonRef.current && !buttonRef.current.contains(event.target as Node)) {
+                 setIsOpen(false);
+             }
+        };
+        if (isOpen) document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [isOpen]);
+
+    return (
+        <>
+            <button 
+                ref={buttonRef}
+                onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen); }}
+                className={`p-1 rounded-md transition-colors focus:outline-none ${isOpen ? 'bg-gray-100 text-gray-700' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'}`}
+            >
+                <MoreHorizontalIcon className="w-5 h-5" />
+            </button>
+            {isOpen && createPortal(
+                <div 
+                    className="fixed w-40 bg-white rounded-md shadow-lg border border-gray-200 z-[9999] py-1"
+                    style={{ top: coords.top, left: coords.left }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                >
+                    <button onClick={(e) => { e.stopPropagation(); onView(); setIsOpen(false); }} className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2">
+                        <EyeIcon className="w-4 h-4 text-gray-500" /> View
+                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); onLink(); setIsOpen(false); }} className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2">
+                        <LinkIcon className="w-4 h-4 text-gray-500" /> {isLinked ? 'Unlink' : 'Link'}
+                    </button>
+                     <button onClick={(e) => { e.stopPropagation(); onExport(); setIsOpen(false); }} className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2">
+                        <DownloadIcon className="w-4 h-4 text-gray-500" /> Export
+                    </button>
+                     <button onClick={(e) => { e.stopPropagation(); onAttachments(); setIsOpen(false); }} className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2">
+                        <PaperclipIcon className="w-4 h-4 text-gray-500" /> Attachments
+                    </button>
+                    <div className="h-px bg-gray-200 my-1"></div>
+                    <button onClick={(e) => { e.stopPropagation(); onDelete(); setIsOpen(false); }} className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
+                        <TrashIcon className="w-4 h-4" /> Delete
+                    </button>
+                </div>,
+                document.body
+            )}
+        </>
+    );
+};
+
 const TableRow: React.FC<TableRowProps> = ({ task, level, onToggle, rowNumberMap, selectedTaskIds, onToggleRow, editingCell, onEditCell, onUpdateTask, columns, isScrolled, displayDensity, showGridLines, onShowDetails, activeDetailedTaskId, taskStyles }) => {
   const isSelected = selectedTaskIds.has(task.id);
   const rowNum = rowNumberMap.get(task.id);
@@ -285,20 +364,14 @@ const TableRow: React.FC<TableRowProps> = ({ task, level, onToggle, rowNumberMap
         })}
         <td className={`sticky right-0 z-30 w-20 px-2 flex-shrink-0 border-l border-gray-200 transition-shadow duration-200 ${!customBorder ? 'border-b' : ''} ${customBg || (isSelected ? 'bg-blue-50 group-hover:bg-blue-100' : 'bg-white group-hover:bg-gray-50')}`}>
             <div className="flex items-center justify-center h-full relative z-20">
-                <TooltipProvider>
-                    <Tooltip>
-                        <TooltipTrigger>
-                            <button 
-                                onClick={(e) => { e.stopPropagation(); setIsLinked(!isLinked); }}
-                                className={`transition-all duration-200 focus:outline-none ${isLinked ? 'text-blue-600' : 'text-gray-400 opacity-60 hover:opacity-100 hover:text-gray-700'}`}
-                                aria-label={isLinked ? "Unlink from system" : "Link to system data"}
-                            >
-                                <LinkIcon className="w-5 h-5" />
-                            </button>
-                        </TooltipTrigger>
-                        <TooltipContent side="left">{isLinked ? 'Unlink Data' : 'Link to System'}</TooltipContent>
-                    </Tooltip>
-                </TooltipProvider>
+                <RowActionsMenu 
+                    onView={() => onShowDetails(task.id)}
+                    onLink={() => setIsLinked(!isLinked)}
+                    onExport={() => console.log('Export task', task.id)}
+                    onAttachments={() => console.log('Attachments for task', task.id)}
+                    onDelete={() => console.log('Delete task', task.id)}
+                    isLinked={isLinked}
+                />
             </div>
             {customBorder && (
                 <>

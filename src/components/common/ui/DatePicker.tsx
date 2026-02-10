@@ -27,7 +27,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({ date, setDate, className
                 <button
                     type="button"
                     className={cn(
-                        "flex w-full h-full items-center justify-between text-left bg-transparent p-0 group focus:outline-none text-sm",
+                        "flex w-full h-full items-center justify-between text-left bg-transparent p-0 group focus:outline-none",
                         !date && "text-slate-500",
                         className
                     )}
