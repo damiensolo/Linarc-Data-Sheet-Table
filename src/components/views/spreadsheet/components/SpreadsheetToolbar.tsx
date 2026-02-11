@@ -18,6 +18,10 @@ interface SpreadsheetToolbarProps {
     hasRowSelection: boolean;
     selectedCount: number;
     onStyleUpdate: (style: Partial<BudgetLineItemStyle>) => void;
+    onCut: () => void;
+    onCopy: () => void;
+    onPaste: () => void;
+    onDelete: () => void;
 }
 
 const SpreadsheetToolbar: React.FC<SpreadsheetToolbarProps> = ({
@@ -26,7 +30,11 @@ const SpreadsheetToolbar: React.FC<SpreadsheetToolbarProps> = ({
     toolbarCheckboxRef,
     hasRowSelection,
     selectedCount,
-    onStyleUpdate
+    onStyleUpdate,
+    onCut,
+    onCopy,
+    onPaste,
+    onDelete
 }) => {
     return (
         <div className="flex items-center h-14 border-b border-gray-200 bg-white flex-shrink-0 transition-all z-40 relative pr-4">
@@ -63,7 +71,10 @@ const SpreadsheetToolbar: React.FC<SpreadsheetToolbarProps> = ({
                             <div className="flex items-center gap-1 p-1.5 rounded-lg">
                                 <Tooltip>
                                     <TooltipTrigger>
-                                        <button className="p-2.5 text-gray-600 hover:text-gray-900 hover:bg-white rounded-md transition-all shadow-sm border border-transparent hover:border-gray-200 hover:shadow focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <button 
+                                            onClick={onCut}
+                                            className="p-2.5 text-gray-600 hover:text-gray-900 hover:bg-white rounded-md transition-all shadow-sm border border-transparent hover:border-gray-200 hover:shadow focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        >
                                             <ScissorsIcon className="w-5 h-5" />
                                         </button>
                                     </TooltipTrigger>
@@ -72,7 +83,10 @@ const SpreadsheetToolbar: React.FC<SpreadsheetToolbarProps> = ({
                                 
                                 <Tooltip>
                                     <TooltipTrigger>
-                                        <button className="p-2.5 text-gray-600 hover:text-gray-900 hover:bg-white rounded-md transition-all shadow-sm border border-transparent hover:border-gray-200 hover:shadow focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <button 
+                                            onClick={onCopy}
+                                            className="p-2.5 text-gray-600 hover:text-gray-900 hover:bg-white rounded-md transition-all shadow-sm border border-transparent hover:border-gray-200 hover:shadow focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        >
                                             <CopyIcon className="w-5 h-5" />
                                         </button>
                                     </TooltipTrigger>
@@ -81,7 +95,10 @@ const SpreadsheetToolbar: React.FC<SpreadsheetToolbarProps> = ({
                                 
                                 <Tooltip>
                                     <TooltipTrigger>
-                                        <button className="p-2.5 text-gray-600 hover:text-gray-900 hover:bg-white rounded-md transition-all shadow-sm border border-transparent hover:border-gray-200 hover:shadow focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <button 
+                                            onClick={onPaste}
+                                            className="p-2.5 text-gray-600 hover:text-gray-900 hover:bg-white rounded-md transition-all shadow-sm border border-transparent hover:border-gray-200 hover:shadow focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        >
                                             <ClipboardIcon className="w-5 h-5" />
                                         </button>
                                     </TooltipTrigger>
@@ -90,7 +107,10 @@ const SpreadsheetToolbar: React.FC<SpreadsheetToolbarProps> = ({
                                 
                                 <Tooltip>
                                     <TooltipTrigger>
-                                        <button className="p-2.5 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md transition-all shadow-sm border border-transparent hover:border-red-200 hover:shadow focus:outline-none focus:ring-2 focus:ring-red-500">
+                                        <button 
+                                            onClick={onDelete}
+                                            className="p-2.5 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md transition-all shadow-sm border border-transparent hover:border-red-200 hover:shadow focus:outline-none focus:ring-2 focus:ring-red-500"
+                                        >
                                             <TrashIcon className="w-5 h-5" />
                                         </button>
                                     </TooltipTrigger>

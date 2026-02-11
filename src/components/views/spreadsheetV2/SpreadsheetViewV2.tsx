@@ -26,8 +26,42 @@ const SpreadsheetViewV2: React.FC = () => {
   const { activeView, updateView, searchTerm, handleSort } = useProject();
   
   const rawBudgetData = useMemo(() => activeView.spreadsheetData || [], [activeView.spreadsheetData]);
-  const columns = useMemo(() => activeView.spreadsheetColumns || [], [activeView.spreadsheetColumns]);
+  const columns = useMemo(() => {
+      const cols = activeView.spreadsheetColumns || [];
+      return cols.filter(c => c.visible !== false);
+  }, [activeView.spreadsheetColumns]);
   const displayDensity = activeView.displayDensity;
+  const showColoredRows = activeView.showColoredRows ?? true;
+
+  // Implement Sorting
+  const sortedData = useMemo(() => {
+      if (!activeView.sort) return rawBudgetData;
+      
+      const { columnId, direction } = activeView.sort;
+      
+      const sortRecursive = (items: BudgetLineItem[]): BudgetLineItem[] => {
+          const sorted = [...items].sort((a, b) => {
+              const valA = a[columnId as keyof BudgetLineItem];
+              const valB = b[columnId as keyof BudgetLineItem];
+
+              if (valA === valB) return 0;
+              if (valA === null || valA === undefined) return 1;
+              if (valB === null || valB === undefined) return -1;
+
+              if (valA < valB) return direction === 'asc' ? -1 : 1;
+              return direction === 'asc' ? 1 : -1;
+          });
+          
+          return sorted.map(item => {
+              if (item.children && item.children.length > 0) {
+                  return { ...item, children: sortRecursive(item.children) };
+              }
+              return item;
+          });
+      };
+      
+      return sortRecursive(rawBudgetData);
+  }, [rawBudgetData, activeView.sort]);
 
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set(
       rawBudgetData.filter(item => item.isExpanded).map(item => item.id)
@@ -50,6 +84,8 @@ const SpreadsheetViewV2: React.FC = () => {
       targetId: string;
       secondaryId?: string;
   } | null>(null);
+
+  const [clipboard, setClipboard] = useState<BudgetLineItem[] | null>(null);
 
   // Flatten logic
   const visibleData = useMemo(() => {
@@ -80,9 +116,9 @@ const SpreadsheetViewV2: React.FC = () => {
         });
     };
     
-    recurse(rawBudgetData, 0);
+    recurse(sortedData, 0);
     return flattened;
-  }, [rawBudgetData, expandedIds, searchTerm]);
+  }, [sortedData, expandedIds, searchTerm]);
 
   // Selection Logic
   const selectableRows = useMemo(() => visibleData.filter(d => d.type !== 'summary'), [visibleData]);
@@ -336,16 +372,174 @@ const SpreadsheetViewV2: React.FC = () => {
     updateView({ spreadsheetData: updateRecursive(rawBudgetData) });
   };
 
+  const handleAddSubRow = (parentId: string) => {
+    const parentRow = rawBudgetData.find(r => r.id === parentId);
+    if (parentRow) {
+        const newSubRow: BudgetLineItem = {
+            id: `subrow-${Date.now()}`,
+            sNo: parentRow.children ? parentRow.children.length + 1 : 1,
+            name: 'New Sub-item',
+            quantity: 0,
+            unit: 'EA',
+            effortHours: 0,
+            totalBudget: 0,
+            labor: 0,
+            equipment: 0,
+            subcontractor: 0,
+            material: 0,
+            others: 0,
+            remainingContract: 0,
+            style: {}
+        };
+        
+        const updateRecursive = (items: BudgetLineItem[]): BudgetLineItem[] => items.map(item => {
+            if (item.id === parentId) {
+                return { 
+                    ...item, 
+                    children: [...(item.children || []), newSubRow],
+                    isExpanded: true 
+                };
+            }
+            if (item.children) return { ...item, children: updateRecursive(item.children) };
+            return item;
+        });
+
+        updateView({ spreadsheetData: updateRecursive(rawBudgetData) });
+        setExpandedIds(prev => new Set([...prev, parentId]));
+    }
+  };
+
+  const handleDeleteRow = (targetIds?: Set<string>) => {
+      const idsToDelete = targetIds || selectedRowIds;
+      if (idsToDelete.size === 0 && contextMenu?.targetId) {
+          idsToDelete.add(contextMenu.targetId);
+      }
+      
+      const filterRecursive = (items: BudgetLineItem[]): BudgetLineItem[] => {
+          return items.filter(item => !idsToDelete.has(item.id)).map(item => ({
+              ...item,
+              children: item.children ? filterRecursive(item.children) : undefined
+          }));
+      };
+      
+      updateView({ spreadsheetData: filterRecursive(rawBudgetData) });
+      setSelectedRowIds(new Set());
+      setContextMenu(null);
+  };
+
+  const handleCut = (targetIds?: Set<string>) => {
+      const idsToCut = targetIds || selectedRowIds;
+      if (idsToCut.size === 0 && contextMenu?.targetId) {
+          idsToCut.add(contextMenu.targetId);
+      }
+      
+      // Find items to cut
+      const itemsToCut: BudgetLineItem[] = [];
+      const findRecursive = (items: BudgetLineItem[]) => {
+          items.forEach(item => {
+              if (idsToCut.has(item.id)) itemsToCut.push(item);
+              if (item.children) findRecursive(item.children);
+          });
+      };
+      findRecursive(rawBudgetData);
+      
+      if (itemsToCut.length > 0) {
+          setClipboard(itemsToCut);
+          handleDeleteRow(idsToCut);
+      }
+  };
+
+  const handleCopy = (targetIds?: Set<string>) => {
+      const idsToCopy = targetIds || selectedRowIds;
+      if (idsToCopy.size === 0 && contextMenu?.targetId) {
+          idsToCopy.add(contextMenu.targetId);
+      }
+
+      const itemsToCopy: BudgetLineItem[] = [];
+      const findRecursive = (items: BudgetLineItem[]) => {
+          items.forEach(item => {
+              if (idsToCopy.has(item.id)) itemsToCopy.push(JSON.parse(JSON.stringify(item)));
+              if (item.children) findRecursive(item.children);
+          });
+      };
+      findRecursive(rawBudgetData);
+      
+      if (itemsToCopy.length > 0) {
+          setClipboard(itemsToCopy);
+      }
+  };
+
+  const handlePaste = (targetId?: string) => {
+      if (!clipboard || clipboard.length === 0) return;
+      
+      // If targetId is provided (context menu), paste after that row
+      // If no targetId, paste at the end of the list or selected location
+      // For simplicity in this v2, let's paste at the end if no target, or as sibling if target
+      
+      const newItems = clipboard.map(item => ({
+          ...item,
+          id: `pasted-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          name: `${item.name} (Copy)`
+      }));
+
+      if (targetId) {
+          const insertRecursive = (items: BudgetLineItem[]): BudgetLineItem[] => {
+              const targetIndex = items.findIndex(i => i.id === targetId);
+              if (targetIndex !== -1) {
+                  const newArr = [...items];
+                  newItems.forEach((newItem, i) => {
+                      newArr.splice(targetIndex + 1 + i, 0, newItem);
+                  });
+                  return newArr;
+              }
+              return items.map(item => ({
+                  ...item,
+                  children: item.children ? insertRecursive(item.children) : undefined
+              }));
+          };
+          updateView({ spreadsheetData: insertRecursive(rawBudgetData) });
+      } else {
+          updateView({ spreadsheetData: [...rawBudgetData, ...newItems] });
+      }
+  };
+
   const getContextMenuItems = (): ContextMenuItem[] => {
       if (!contextMenu) return [];
+      const targetId = contextMenu.targetId;
+      
       return [
-          { label: 'Add Sub-row', icon: <PlusIcon className="w-4 h-4"/>, onClick: () => {} },
+          { 
+              label: 'Add Sub-row', 
+              icon: <PlusIcon className="w-4 h-4"/>, 
+              onClick: () => handleAddSubRow(targetId) 
+          },
           { separator: true } as any,
-          { label: 'Cut', icon: <ScissorsIcon className="w-4 h-4"/>, shortcut: 'Ctrl+X', onClick: () => {} },
-          { label: 'Copy', icon: <CopyIcon className="w-4 h-4"/>, shortcut: 'Ctrl+C', onClick: () => {} },
-          { label: 'Paste', icon: <ClipboardIcon className="w-4 h-4"/>, shortcut: 'Ctrl+V', onClick: () => {} },
+          { 
+              label: 'Cut', 
+              icon: <ScissorsIcon className="w-4 h-4"/>, 
+              shortcut: 'Ctrl+X', 
+              onClick: () => handleCut(new Set([targetId])) 
+          },
+          { 
+              label: 'Copy', 
+              icon: <CopyIcon className="w-4 h-4"/>, 
+              shortcut: 'Ctrl+C', 
+              onClick: () => handleCopy(new Set([targetId])) 
+          },
+          { 
+              label: 'Paste', 
+              icon: <ClipboardIcon className="w-4 h-4"/>, 
+              shortcut: 'Ctrl+V', 
+              disabled: !clipboard,
+              onClick: () => handlePaste(targetId) 
+          },
           { separator: true } as any,
-          { label: 'Delete Row', icon: <TrashIcon className="w-4 h-4 text-red-500"/>, danger: true, onClick: () => {} },
+          { 
+              label: 'Delete Row', 
+              icon: <TrashIcon className="w-4 h-4 text-red-500"/>, 
+              danger: true, 
+              onClick: () => handleDeleteRow(new Set([targetId])) 
+          },
       ];
   };
 
@@ -389,6 +583,33 @@ const SpreadsheetViewV2: React.FC = () => {
       updateView({ spreadsheetColumns: newCols });
   };
 
+  const handleAddRow = () => {
+    const newRow: BudgetLineItem = {
+        id: `row-${Date.now()}`,
+        sNo: (rawBudgetData.length + 1), 
+        name: 'New Item',
+        quantity: 0,
+        unit: 'EA',
+        effortHours: 0,
+        totalBudget: 0,
+        labor: 0,
+        equipment: 0,
+        subcontractor: 0,
+        material: 0,
+        others: 0,
+        remainingContract: 0,
+        style: {}
+    };
+    updateView({ spreadsheetData: [...rawBudgetData, newRow] });
+    
+    // Scroll to bottom
+    setTimeout(() => {
+        if (scrollContainerRef.current) {
+            scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+        }
+    }, 50);
+  };
+
   // Aggregated totals
   const totals = useMemo(() => {
     const sumRecursive = (items: BudgetLineItem[]) => items.reduce((acc, item) => ({
@@ -422,6 +643,10 @@ const SpreadsheetViewV2: React.FC = () => {
                 hasRowSelection={selectedRowIds.size > 0}
                 selectedCount={selectedRowIds.size}
                 onStyleUpdate={(style) => handleBulkStyleUpdate(style)}
+                onCut={() => handleCut()}
+                onCopy={() => handleCopy()}
+                onPaste={() => handlePaste()}
+                onDelete={() => handleDeleteRow()}
             />
             <div className="overflow-auto relative select-none focus:outline-none min-h-0" ref={scrollContainerRef}>
             <table className="border-collapse min-w-full table-fixed" style={{ fontSize: activeView.fontSize }}>
@@ -459,6 +684,7 @@ const SpreadsheetViewV2: React.FC = () => {
                         onContextMenu={handleContextMenu}
                         filters={activeView.filters}
                         highlights={activeView.highlights}
+                        showColoredRows={showColoredRows}
                     />
                 ))}
                 </tbody>
@@ -492,6 +718,18 @@ const SpreadsheetViewV2: React.FC = () => {
                     </tr>
                 </tfoot>
             </table>
+            </div>
+            {/* Add Row Button */}
+            <div className="p-3 border-t border-gray-200 bg-gray-50 flex justify-start">
+                 <button 
+                    onClick={handleAddRow}
+                    className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium text-sm transition-colors"
+                >
+                    <div className="w-5 h-5 rounded-full border border-blue-600 flex items-center justify-center">
+                        <PlusIcon className="w-3 h-3" />
+                    </div>
+                    Add row
+                </button>
             </div>
         </div>
         {contextMenu && contextMenu.visible && (

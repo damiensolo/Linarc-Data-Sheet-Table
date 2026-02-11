@@ -35,6 +35,7 @@ interface SpreadsheetRowV2Props {
     onContextMenu: (e: React.MouseEvent, type: 'row' | 'cell', targetId: string, secondaryId?: string) => void;
     filters: FilterRule[];
     highlights?: HighlightRule[];
+    showColoredRows: boolean;
 }
 
 const getRowHeightClass = (density: DisplayDensity) => {
@@ -67,7 +68,8 @@ const SpreadsheetRowV2: React.FC<SpreadsheetRowV2Props> = ({
     onUpdateCell,
     onContextMenu,
     filters,
-    highlights
+    highlights,
+    showColoredRows
 }) => {
     const isRowFocused = focusedCell?.rowId === row.id && focusedCell?.type === rowType;
     const customStyle = row.style || {};
@@ -100,11 +102,12 @@ const SpreadsheetRowV2: React.FC<SpreadsheetRowV2Props> = ({
     // Allocation status logic
     const remaining = row.remainingContract ?? 0;
     const statusColors = useMemo(() => {
+        if (!showColoredRows) return '';
         if (rowType !== 'parent') return '';
         if (remaining < 0) return 'bg-[#fef2f2] border-red-200'; // red-50
         if (remaining === 0) return 'bg-[#f0fdf4] border-green-100'; // green-50
         return 'bg-[#fffbeb] border-amber-100'; // amber-50
-    }, [remaining, rowType]);
+    }, [remaining, rowType, showColoredRows]);
 
     // Initialize edit value
     useEffect(() => {
@@ -185,7 +188,7 @@ const SpreadsheetRowV2: React.FC<SpreadsheetRowV2Props> = ({
         if (rowType === 'summary') return 'bg-gray-100';
         if (isSelected) return 'bg-[#dbeafe]'; // blue-100
         if (isRowFocused) return 'bg-[#eff6ff]'; // blue-50
-        if (rowType === 'parent') {
+        if (rowType === 'parent' && showColoredRows) {
             if (remaining < 0) return 'bg-[#fef2f2]';
             if (remaining === 0) return 'bg-[#f0fdf4]';
             return 'bg-[#fffbeb]';

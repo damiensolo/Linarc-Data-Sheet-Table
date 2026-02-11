@@ -130,6 +130,7 @@ export interface SpreadsheetColumn {
     align?: 'left' | 'right';
     isTotal?: boolean;
     editable?: boolean;
+    visible?: boolean;
 }
 
 export type ViewMode = 'table' | 'spreadsheet' | 'spreadsheetV2' | 'board' | 'gantt' | 'lookahead' | 'dashboard';
@@ -143,6 +144,7 @@ export interface View {
   columns: Column[];
   displayDensity: DisplayDensity;
   showGridLines: boolean;
+  showColoredRows?: boolean;
   spreadsheetData?: BudgetLineItem[];
   spreadsheetColumns?: SpreadsheetColumn[];
   taskStyles?: { [taskId: number]: TaskStyle };

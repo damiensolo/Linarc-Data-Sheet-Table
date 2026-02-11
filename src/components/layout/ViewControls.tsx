@@ -21,6 +21,7 @@ const TabMenu: React.FC<{ view: View, isDefault: boolean, onRename: () => void, 
   const [isOpen, setIsOpen] = useState(false);
   const [coords, setCoords] = useState({ top: 0, left: 0 });
   const menuWrapperRef = useRef<HTMLDivElement>(null);
+  const menuContentRef = useRef<HTMLDivElement>(null);
 
   useLayoutEffect(() => {
     if (isOpen && menuWrapperRef.current) {
@@ -42,7 +43,12 @@ const TabMenu: React.FC<{ view: View, isDefault: boolean, onRename: () => void, 
     
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (menuWrapperRef.current && !menuWrapperRef.current.contains(event.target as Node)) {
+      if (
+        menuWrapperRef.current && 
+        !menuWrapperRef.current.contains(event.target as Node) &&
+        menuContentRef.current &&
+        !menuContentRef.current.contains(event.target as Node)
+      ) {
         setIsOpen(false);
       }
     };
@@ -70,6 +76,7 @@ const TabMenu: React.FC<{ view: View, isDefault: boolean, onRename: () => void, 
       </button>
       {isOpen && createPortal(
         <div 
+            ref={menuContentRef}
             className="fixed w-40 bg-white rounded-md shadow-lg border border-gray-200 z-[9999]"
             style={{ top: coords.top, left: coords.left }}
             onMouseDown={(e) => e.stopPropagation()}

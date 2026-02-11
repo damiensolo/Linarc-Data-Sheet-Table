@@ -15,6 +15,7 @@ const getDefaultViewConfig = (viewMode: ViewMode): Omit<View, 'id' | 'name'> => 
     sort: null,
     displayDensity: 'comfortable' as DisplayDensity,
     showGridLines: false,
+    showColoredRows: true,
     taskStyles: {},
     fontSize: 12,
   };
@@ -86,6 +87,7 @@ interface ProjectContextType {
   setColumns: (updater: SetStateAction<Column[]>) => void;
   setDisplayDensity: (density: DisplayDensity) => void;
   setShowGridLines: (show: boolean) => void;
+  setShowColoredRows: (show: boolean) => void;
   setFontSize: (size: number) => void;
   handleSort: (columnId: ColumnId) => void;
   handleUpdateTask: (taskId: number, updatedValues: Partial<Omit<Task, 'id' | 'children'>>) => void;
@@ -160,6 +162,7 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
   const setDisplayDensity = (density: View['displayDensity']) => updateView({ displayDensity: density });
   const setShowGridLines = (show: boolean) => updateView({ showGridLines: show });
+  const setShowColoredRows = (show: boolean) => updateView({ showColoredRows: show });
   const setFontSize = (size: number) => updateView({ fontSize: size });
 
   const handleSort = (columnId: ColumnId) => {
@@ -297,6 +300,7 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     setColumns,
     setDisplayDensity,
     setShowGridLines,
+    setShowColoredRows,
     setFontSize,
     handleSort,
     handleUpdateTask,

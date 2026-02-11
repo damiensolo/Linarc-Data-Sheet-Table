@@ -21,6 +21,7 @@ interface SpreadsheetRowProps {
     onRowHeaderClick: (id: string, multiSelect: boolean) => void;
     onCellClick: (rowId: string, colId: string) => void;
     onContextMenu: (e: React.MouseEvent, type: 'row' | 'cell', targetId: string, secondaryId?: string) => void;
+    showColoredRows: boolean;
 }
 
 const getRowHeightClass = (density: DisplayDensity) => {
@@ -43,7 +44,8 @@ const SpreadsheetRow: React.FC<SpreadsheetRowProps> = ({
     displayDensity,
     onRowHeaderClick,
     onCellClick,
-    onContextMenu
+    onContextMenu,
+    showColoredRows
 }) => {
     const isRowFocused = focusedCell?.rowId === row.id;
     const customStyle = row.style || {};
@@ -54,7 +56,7 @@ const SpreadsheetRow: React.FC<SpreadsheetRowProps> = ({
     const [isLinked, setIsLinked] = useState(false);
 
     const rowStyle: React.CSSProperties = {};
-    if (customStyle.backgroundColor) rowStyle.backgroundColor = customStyle.backgroundColor;
+    if (showColoredRows && customStyle.backgroundColor) rowStyle.backgroundColor = customStyle.backgroundColor;
     if (customStyle.textColor) rowStyle.color = customStyle.textColor;
 
     // Sticky background logic - Header uses dark blue, Actions/Data uses light blue
@@ -86,7 +88,7 @@ const SpreadsheetRow: React.FC<SpreadsheetRowProps> = ({
                     width: SPREADSHEET_INDEX_COLUMN_WIDTH,
                     minWidth: SPREADSHEET_INDEX_COLUMN_WIDTH,
                     maxWidth: SPREADSHEET_INDEX_COLUMN_WIDTH,
-                    backgroundColor: (!isSelected && !isRowFocused) ? (customStyle.backgroundColor || '#ffffff') : undefined,
+                    backgroundColor: (!isSelected && !isRowFocused && showColoredRows) ? (customStyle.backgroundColor || '#ffffff') : undefined,
                 }}
             >
                 <div className="flex items-center justify-center h-full relative z-30" style={{ fontSize }}>
@@ -147,7 +149,7 @@ const SpreadsheetRow: React.FC<SpreadsheetRowProps> = ({
                 ${!isAtEnd ? 'before:content-[""] before:absolute before:top-0 before:bottom-0 before:-left-[6px] before:w-[6px] before:bg-gradient-to-l before:from-black/[0.12] before:to-transparent before:pointer-events-none' : ''}
             `}
             style={{
-                backgroundColor: (!isSelected && !isRowFocused) ? (customStyle.backgroundColor || '#ffffff') : undefined,
+                backgroundColor: (!isSelected && !isRowFocused && showColoredRows) ? (customStyle.backgroundColor || '#ffffff') : undefined,
             }}
             >
                 <div className="flex items-center justify-center h-full relative z-30">

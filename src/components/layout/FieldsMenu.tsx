@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { ColumnId, DisplayDensity } from '../../types';
 import { GripVerticalIcon, MinusIcon, PlusIcon } from '../common/Icons';
 import { useProject } from '../../context/ProjectContext';
-import { getDefaultTableColumns } from '../../constants';
+import { getDefaultTableColumns, getDefaultSpreadsheetColumns } from '../../constants';
 import { cn } from '../../lib/utils';
 
 interface SettingsMenuProps {
@@ -59,17 +59,20 @@ const DensityButton: React.FC<{
 
 
 const FieldsMenu: React.FC<SettingsMenuProps> = ({ onClose, className, disableClickOutside }) => {
-  const { activeView, setColumns, setDisplayDensity, setShowGridLines, setFontSize, activeViewMode } = useProject();
-  const { columns, displayDensity, showGridLines, fontSize } = activeView;
+  const { activeView, updateView, setColumns, setDisplayDensity, setShowGridLines, setShowColoredRows, setFontSize, activeViewMode } = useProject();
+  const { displayDensity, showGridLines, showColoredRows, fontSize } = activeView;
   const menuRef = useRef<HTMLDivElement>(null);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dropIndicatorIndex, setDropIndicatorIndex] = useState<number | null>(null);
   
   const isSpreadsheet = activeViewMode === 'spreadsheet';
+  const isSpreadsheetV2 = activeViewMode === 'spreadsheetV2';
+  const isAnySpreadsheet = isSpreadsheet || isSpreadsheetV2;
   const isDashboard = activeViewMode === 'dashboard';
-  const showFields = !isSpreadsheet && !isDashboard;
-  const showGridLinesOption = showFields && activeViewMode !== 'gantt' && activeViewMode !== 'lookahead';
+  const showFields = !isDashboard; 
+  const showGridLinesOption = showFields && !isAnySpreadsheet && activeViewMode !== 'gantt' && activeViewMode !== 'lookahead';
 
+  const columns = isAnySpreadsheet ? (activeView.spreadsheetColumns || []) : activeView.columns;
 
   useEffect(() => {
     if (disableClickOutside) return;
@@ -84,7 +87,12 @@ const FieldsMenu: React.FC<SettingsMenuProps> = ({ onClose, className, disableCl
   }, [onClose, disableClickOutside]);
 
   const handleVisibilityChange = (id: ColumnId) => {
-    setColumns(prev => prev.map(c => c.id === id ? { ...c, visible: !c.visible } : c));
+    if (isAnySpreadsheet) {
+        const newCols = columns.map(c => c.id === id ? { ...c, visible: !(c.visible ?? true) } : c);
+        updateView({ spreadsheetColumns: newCols });
+    } else {
+        setColumns(prev => prev.map(c => c.id === id ? { ...c, visible: !c.visible } : c));
+    }
   };
   
   const handleDragStart = (e: React.DragEvent, index: number) => {
@@ -108,13 +116,21 @@ const FieldsMenu: React.FC<SettingsMenuProps> = ({ onClose, className, disableCl
     if (draggedIndex === null || dropIndicatorIndex === null || draggedIndex === dropIndicatorIndex) {
       // no change or invalid drop
     } else {
-        setColumns(prev => {
-            const newColumns = [...prev];
+        if (isAnySpreadsheet) {
+            const newColumns = [...columns];
             const [removed] = newColumns.splice(draggedIndex, 1);
             const adjustedDropIndex = draggedIndex < dropIndicatorIndex ? dropIndicatorIndex - 1 : dropIndicatorIndex;
             newColumns.splice(adjustedDropIndex, 0, removed);
-            return newColumns;
-        });
+            updateView({ spreadsheetColumns: newColumns });
+        } else {
+            setColumns(prev => {
+                const newColumns = [...prev];
+                const [removed] = newColumns.splice(draggedIndex, 1);
+                const adjustedDropIndex = draggedIndex < dropIndicatorIndex ? dropIndicatorIndex - 1 : dropIndicatorIndex;
+                newColumns.splice(adjustedDropIndex, 0, removed);
+                return newColumns;
+            });
+        }
     }
     setDraggedIndex(null);
     setDropIndicatorIndex(null);
@@ -126,7 +142,13 @@ const FieldsMenu: React.FC<SettingsMenuProps> = ({ onClose, className, disableCl
       }
   };
 
-  const onResetColumns = () => setColumns(getDefaultTableColumns());
+  const onResetColumns = () => {
+    if (isAnySpreadsheet) {
+        updateView({ spreadsheetColumns: getDefaultSpreadsheetColumns() });
+    } else {
+        setColumns(getDefaultTableColumns());
+    }
+  };
 
   return (
     <div ref={menuRef} className={cn("absolute top-full right-0 mt-2 w-72 bg-white rounded-md shadow-lg border border-gray-200 z-50 flex flex-col", className)}>
@@ -188,6 +210,25 @@ const FieldsMenu: React.FC<SettingsMenuProps> = ({ onClose, className, disableCl
             </div>
         </div>
       )}
+
+      {/* Colored Rows Section - Only for Spreadsheet Views */}
+      {isAnySpreadsheet && (
+        <div className="p-3 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+                <h4 className="text-sm font-medium text-gray-700">Show colored rows</h4>
+                <label htmlFor="colored-rows-toggle" className="relative inline-flex items-center cursor-pointer">
+                    <input 
+                        type="checkbox" 
+                        id="colored-rows-toggle" 
+                        className="sr-only peer" 
+                        checked={showColoredRows ?? true} 
+                        onChange={(e) => setShowColoredRows(e.target.checked)} 
+                    />
+                    <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-4 peer-focus:ring-blue-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
+            </div>
+        </div>
+      )}
               
       {/* Fields Section - Hidden for some views */}
       {showFields && (
@@ -216,7 +257,7 @@ const FieldsMenu: React.FC<SettingsMenuProps> = ({ onClose, className, disableCl
                   <input
                     type="checkbox"
                     id={`field-${column.id}`}
-                    checked={column.visible}
+                    checked={column.visible ?? true}
                     onChange={() => handleVisibilityChange(column.id)}
                     className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />

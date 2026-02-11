@@ -55,8 +55,12 @@ const SpreadsheetView: React.FC = () => {
       return sorted;
   }, [filteredData, activeView.sort]);
 
-  const columns = useMemo(() => activeView.spreadsheetColumns || [], [activeView.spreadsheetColumns]);
+  const columns = useMemo(() => {
+      const cols = activeView.spreadsheetColumns || [];
+      return cols.filter(c => c.visible !== false);
+  }, [activeView.spreadsheetColumns]);
   const displayDensity = activeView.displayDensity;
+  const showColoredRows = activeView.showColoredRows ?? true;
 
   const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
   const [focusedCell, setFocusedCell] = useState<{ rowId: string; colId: string } | null>(null);
@@ -429,6 +433,7 @@ const SpreadsheetView: React.FC = () => {
                         onRowHeaderClick={handleRowHeaderClick}
                         onCellClick={handleCellClick}
                         onContextMenu={handleContextMenu}
+                        showColoredRows={showColoredRows}
                     />
                 ))}
                 </tbody>
