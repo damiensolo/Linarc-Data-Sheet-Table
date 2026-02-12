@@ -16,6 +16,7 @@ interface BookmarksMenuProps {
     bookmarks: BookmarkItem[];
     onSelect: (categoryKey: string, subcategoryKey: string) => void;
     onToggleBookmark: (categoryKey: string, itemKey: string) => void;
+    onClose: () => void;
     position?: 'bottom' | 'right';
     triggerRef?: React.RefObject<HTMLElement>;
 }
@@ -38,7 +39,7 @@ const BookmarkIcon: React.FC<{ filled: boolean; className?: string }> = ({ fille
     </svg>
 );
 
-const BookmarksMenu: React.FC<BookmarksMenuProps> = ({ bookmarks, onSelect, onToggleBookmark, position = 'bottom', triggerRef }) => {
+const BookmarksMenu: React.FC<BookmarksMenuProps> = ({ bookmarks, onSelect, onToggleBookmark, onClose, position = 'bottom', triggerRef }) => {
     const isRightPosition = position === 'right';
     const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
     const menuRef = useRef<HTMLDivElement>(null);
@@ -62,6 +63,19 @@ const BookmarksMenu: React.FC<BookmarksMenuProps> = ({ bookmarks, onSelect, onTo
             }
         }
     }, [isRightPosition, triggerRef]);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+                onClose();
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [onClose]);
     
     const animationProps = isRightPosition
         ? {

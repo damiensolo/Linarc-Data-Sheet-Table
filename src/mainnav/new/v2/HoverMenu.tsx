@@ -29,6 +29,7 @@ interface HoverMenuProps {
     navigationData: { [key: string]: CategoryData };
     menuLayout: { [key: string]: string[] };
     onSelect: (categoryKey: string, subcategoryKey: string) => void;
+    onClose: () => void;
     bookmarks?: Set<string>;
     onToggleBookmark?: (categoryKey: string, itemKey: string) => void;
     triggerRef?: React.RefObject<HTMLElement>;
@@ -156,7 +157,7 @@ const renderColumn = (
 
 
 // --- Main Component Definition ---
-const HoverMenu: React.FC<HoverMenuProps> = ({ navigationData, menuLayout, onSelect, bookmarks, onToggleBookmark, triggerRef }) => {
+const HoverMenu: React.FC<HoverMenuProps> = ({ navigationData, menuLayout, onSelect, onClose, bookmarks, onToggleBookmark, triggerRef }) => {
     const [position, setPosition] = useState({ top: 0, left: 0 });
     const menuRef = useRef<HTMLDivElement>(null);
 
@@ -169,6 +170,19 @@ const HoverMenu: React.FC<HoverMenuProps> = ({ navigationData, menuLayout, onSel
             });
         }
     }, [triggerRef]);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+                onClose();
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [onClose]);
 
     const menuContent = (
         <motion.div

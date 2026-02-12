@@ -676,6 +676,7 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
                                     navigationData={navigationData}
                                     menuLayout={menuLayout}
                                     onSelect={handleSelect}
+                                    onClose={() => setMenuVisible(false)}
                                     bookmarks={bookmarks}
                                     onToggleBookmark={toggleBookmark}
                                     triggerRef={hoverMenuRef}
@@ -717,6 +718,7 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
                                     bookmarks={bookmarkItems}
                                     onSelect={handleSelect}
                                     onToggleBookmark={toggleBookmark}
+                                    onClose={() => setBookmarksMenuVisible(false)}
                                     position="bottom"
                                     triggerRef={bookmarksMenuRef}
                                 />
