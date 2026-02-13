@@ -10,6 +10,7 @@ interface ColorPickerProps {
   label: string;
   onColorSelect: (color: string | undefined) => void;
   presets?: string[];
+  value?: string;
 }
 
 const DEFAULT_PRESET_COLORS = [
@@ -25,9 +26,15 @@ const DropperIcon = (props: React.SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
-const ColorPicker: React.FC<ColorPickerProps> = ({ icon, label, onColorSelect, presets = DEFAULT_PRESET_COLORS }) => {
+const ColorPicker: React.FC<ColorPickerProps> = ({ icon, label, onColorSelect, presets = DEFAULT_PRESET_COLORS, value }) => {
     const [open, setOpen] = useState(false);
-    const [hex, setHex] = useState('#000000');
+    const [hex, setHex] = useState(value || '#000000');
+
+    React.useEffect(() => {
+        if (value) {
+            setHex(value);
+        }
+    }, [value]);
 
     // Safe check for EyeDropper API support
     const hasEyeDropper = typeof window !== 'undefined' && 'EyeDropper' in window;

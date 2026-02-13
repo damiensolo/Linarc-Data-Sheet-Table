@@ -324,10 +324,17 @@ const SpreadsheetRowV2: React.FC<SpreadsheetRowV2Props> = ({
                         style={{ 
                             width: `${col.width}px`, 
                             minWidth: `${col.width}px`, 
-                            maxWidth: `${col.width}px`,
-                            ...highlightStyle
+                            maxWidth: `${col.width}px`
                         }}
                     >
+                        {highlightStyle.backgroundColor ? (
+                            <div
+                                key={highlightStyle.backgroundColor}
+                                className="absolute inset-0 z-0 pointer-events-none"
+                                style={{ backgroundColor: highlightStyle.backgroundColor }}
+                                aria-hidden
+                            />
+                        ) : null}
                         {isCurrentCellEditing ? (
                             <input
                                 ref={inputRef} value={editValue} onChange={(e) => setEditValue(e.target.value)}

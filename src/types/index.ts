@@ -79,7 +79,7 @@ export interface HighlightRule {
     columnId: ColumnId;
     operator: FilterOperator;
     value?: string | string[];
-    color: string;
+    color?: string;
 }
 
 export interface FilterRule {

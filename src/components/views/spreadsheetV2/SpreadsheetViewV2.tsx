@@ -23,7 +23,7 @@ interface FlattenedRow {
 }
 
 const SpreadsheetViewV2: React.FC = () => {
-  const { activeView, updateView, searchTerm, handleSort } = useProject();
+  const { activeView, displayHighlights, updateView, searchTerm, handleSort } = useProject();
   
   const rawBudgetData = useMemo(() => activeView.spreadsheetData || [], [activeView.spreadsheetData]);
   const columns = useMemo(() => {
@@ -683,7 +683,7 @@ const SpreadsheetViewV2: React.FC = () => {
                         onUpdateCell={handleUpdateCellValue}
                         onContextMenu={handleContextMenu}
                         filters={activeView.filters}
-                        highlights={activeView.highlights}
+                        highlights={displayHighlights}
                         showColoredRows={showColoredRows}
                     />
                 ))}

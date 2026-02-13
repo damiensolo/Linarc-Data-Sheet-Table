@@ -1,4 +1,4 @@
-import React, { createContext, useState, useMemo, useCallback, useContext, SetStateAction, ReactNode } from 'react';
+import React, { createContext, useState, useMemo, useCallback, useContext, useRef, useEffect, SetStateAction, ReactNode } from 'react';
 import { MOCK_TASKS, MOCK_BUDGET_DATA } from '../data';
 import { Task, View, FilterRule, HighlightRule, Priority, ColumnId, Status, DisplayDensity, Column, ViewMode } from '../types';
 import { getDefaultTableColumns, getDefaultSpreadsheetColumns } from '../constants';
@@ -80,6 +80,8 @@ interface ProjectContextType {
   showFieldsMenu: boolean;
   setShowFieldsMenu: React.Dispatch<SetStateAction<boolean>>;
   activeView: View;
+  /** Highlights used for cell rendering; updates immediately when user changes color */
+  displayHighlights: HighlightRule[];
   updateView: (updatedView: Partial<Omit<View, 'id' | 'name'>>) => void;
   setFilters: (filters: FilterRule[]) => void;
   setHighlights: (highlights: HighlightRule[]) => void;
@@ -117,7 +119,8 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [showHighlightMenu, setShowHighlightMenu] = useState(false);
   const [showFieldsMenu, setShowFieldsMenu] = useState(false);
-  
+  const [displayHighlights, setDisplayHighlights] = useState<HighlightRule[]>([]);
+
   const activeView = useMemo<View>(() => {
     if (activeViewId === null) {
       if (transientView && transientView.type === activeViewMode) {
@@ -132,6 +135,17 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     return foundView;
   }, [views, activeViewId, activeViewMode, transientView]);
 
+  const activeViewRef = useRef<View>(activeView);
+  useEffect(() => {
+    activeViewRef.current = activeView;
+  }, [activeView]);
+
+  // Sync displayHighlights only when switching views, so we don't overwrite
+  // the value set by setHighlights when the user picks a color.
+  useEffect(() => {
+    setDisplayHighlights(activeView.highlights ?? []);
+  }, [activeViewId, activeViewMode]);
+
   const handleSelectView = (viewId: string) => {
     const selectedView = views.find(v => v.id === viewId);
     if (selectedView) {
@@ -144,14 +158,21 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const updateView = useCallback((updatedProps: Partial<Omit<View, 'id' | 'name'>>) => {
     if (activeViewId === null) {
-      setTransientView(prev => ({ ...(prev ?? activeView), ...updatedProps }));
+      setTransientView(prev => {
+        const base = prev ?? activeViewRef.current;
+        return { ...base, ...updatedProps };
+      });
     } else {
       setViews(prev => prev.map(v => v.id === activeViewId ? { ...v, ...updatedProps } : v));
     }
-  }, [activeViewId, activeView]);
+  }, [activeViewId]);
 
   const setFilters = (filters: FilterRule[]) => updateView({ filters });
-  const setHighlights = (highlights: HighlightRule[]) => updateView({ highlights });
+  const setHighlights = useCallback((highlights: HighlightRule[]) => {
+    const next = highlights.length ? [...highlights] : [];
+    setDisplayHighlights(next);
+    updateView({ highlights: next });
+  }, [updateView]);
   const setSort = (sort: SortConfig) => updateView({ sort });
   const setColumns = (updater: SetStateAction<View['columns']>) => {
     const newColumns =
@@ -293,6 +314,7 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     showHighlightMenu, setShowHighlightMenu,
     showFieldsMenu, setShowFieldsMenu,
     activeView,
+    displayHighlights,
     updateView,
     setFilters,
     setHighlights,

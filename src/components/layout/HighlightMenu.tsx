@@ -129,16 +129,11 @@ const HighlightMenu: React.FC<HighlightMenuProps> = ({ onClose, triggerRef }) =>
         };
     }, [onClose, triggerRef]);
 
-    // Sync valid highlights to global state
+    // Sync highlights to global state. Send any rule that has columnId, operator, and color
+    // so color changes are applied immediately. Rules without value won't match cells until value is set.
     useEffect(() => {
-        const validHighlights = localHighlights.filter(rule => {
-            if (!rule.columnId || !rule.operator || !rule.color) return false;
-            const isValueRequired = !['is_empty', 'is_not_empty'].includes(rule.operator);
-            if (isValueRequired && (rule.value === undefined || rule.value === '' || (Array.isArray(rule.value) && rule.value.length === 0))) return false;
-            return true;
-        });
-        
-        setHighlights(validHighlights);
+        const toSync = localHighlights.filter(rule => rule.columnId && rule.operator && rule.color);
+        setHighlights(toSync);
     }, [localHighlights, setHighlights]);
 
     const addNewHighlight = () => {
@@ -309,6 +304,7 @@ const HighlightMenu: React.FC<HighlightMenuProps> = ({ onClose, triggerRef }) =>
                                     label="Highlight Color"
                                     onColorSelect={(color) => color && updateHighlight(rule.id, { color })}
                                     presets={ACCESSIBLE_PASTEL_COLORS}
+                                    value={rule.color}
                                 />
                             </div>
                             <button onClick={() => removeHighlight(rule.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors">
