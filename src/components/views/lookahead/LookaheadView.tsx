@@ -279,8 +279,8 @@ const LookaheadView: React.FC = () => {
                     <div className="flex items-center w-full overflow-hidden" style={{ paddingLeft: `${8 + (level * 24)}px`}}>
                         <div className="w-5 h-5 flex items-center justify-center flex-shrink-0 mr-1">
                             {task.children ? (
-                                <button onClick={() => handleToggle(task.id)} className="text-gray-400 hover:text-gray-800">
-                                    {task.isExpanded ? <ChevronDownIcon className="w-4 h-4" /> : <ChevronRightIcon className="w-4 h-4" />}
+                                <button onClick={() => handleToggle(task.id)} className="mr-1 p-0.5 rounded hover:bg-blue-100 text-blue-500 hover:text-blue-700 shrink-0 transition-colors">
+                                    {task.isExpanded ? <ChevronDownIcon className="w-3.5 h-3.5" /> : <ChevronRightIcon className="w-3.5 h-3.5" />}
                                 </button>
                             ) : <DocumentIcon className="w-4 h-4 text-gray-400"/>}
                         </div>

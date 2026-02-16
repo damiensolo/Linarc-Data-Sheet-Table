@@ -36,7 +36,7 @@ const getDefaultViewConfig = (viewMode: ViewMode): Omit<View, 'id' | 'name'> => 
     case 'lookahead':
        return { ...baseConfig, displayDensity: 'standard', type: 'lookahead', columns: JSON.parse(JSON.stringify(getDefaultTableColumns())) };
     case 'gantt':
-      return { ...baseConfig, displayDensity: 'standard', type: 'gantt', columns: [] };
+      return { ...baseConfig, displayDensity: 'compact', type: 'gantt', columns: [] };
     case 'board':
       return { ...baseConfig, type: viewMode, columns: [] };
     case 'table':

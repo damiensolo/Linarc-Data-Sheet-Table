@@ -44,11 +44,11 @@ const GanttRow: React.FC<GanttRowProps> = ({ task, level, onToggle, projectStart
            <div className="flex items-center w-full" style={{ paddingLeft: `${level * 24}px` }}>
             <button
               onClick={() => hasChildren && onToggle(task.id)}
-              className="w-6 h-6 flex items-center justify-center mr-1 text-gray-400 hover:text-gray-800 rounded-sm hover:bg-gray-200 flex-shrink-0"
+              className={`mr-1 p-0.5 rounded shrink-0 transition-colors flex items-center justify-center ${hasChildren ? 'hover:bg-blue-100 text-blue-500 hover:text-blue-700' : 'cursor-default text-transparent'}`}
             >
               {hasChildren ? (
-                task.isExpanded ? <ChevronDownIcon className="w-4 h-4" /> : <ChevronRightIcon className="w-4 h-4" />
-              ) : <span className="w-4 h-4"></span>}
+                task.isExpanded ? <ChevronDownIcon className="w-3.5 h-3.5" /> : <ChevronRightIcon className="w-3.5 h-3.5" />
+              ) : <span className="w-3.5 h-3.5"></span>}
             </button>
             <DocumentIcon className="w-4 h-4 mr-2 text-gray-400 flex-shrink-0"/>
             <span className="text-gray-800 truncate mr-auto" style={{ fontSize: '1em' }}>{task.name}</span>

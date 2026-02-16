@@ -91,10 +91,10 @@ const NameCellContent: React.FC<{ task: Task, level: number, isEditing: boolean,
                 {hasChildren ? (
                     <button
                         onClick={(e) => { e.stopPropagation(); onToggle(task.id); }}
-                        className="text-gray-400 hover:text-gray-800"
+                        className="mr-1 p-0.5 rounded hover:bg-blue-100 text-blue-500 hover:text-blue-700 shrink-0 transition-colors"
                         aria-expanded={task.isExpanded}
                     >
-                        {task.isExpanded ? <ChevronDownIcon className="w-4 h-4" /> : <ChevronRightIcon className="w-4 h-4" />}
+                        {task.isExpanded ? <ChevronDownIcon className="w-3.5 h-3.5" /> : <ChevronRightIcon className="w-3.5 h-3.5" />}
                     </button>
                 ) : (
                     <DocumentIcon className="w-4 h-4 text-gray-400"/>
