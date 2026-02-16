@@ -33,6 +33,8 @@ interface HoverMenuProps {
     bookmarks?: Set<string>;
     onToggleBookmark?: (categoryKey: string, itemKey: string) => void;
     triggerRef?: React.RefObject<HTMLElement>;
+    onMouseEnter?: () => void;
+    onMouseLeave?: () => void;
 }
 
 interface PrimaryMenuItemProps {
@@ -157,7 +159,7 @@ const renderColumn = (
 
 
 // --- Main Component Definition ---
-const HoverMenu: React.FC<HoverMenuProps> = ({ navigationData, menuLayout, onSelect, onClose, bookmarks, onToggleBookmark, triggerRef }) => {
+const HoverMenu: React.FC<HoverMenuProps> = ({ navigationData, menuLayout, onSelect, onClose, bookmarks, onToggleBookmark, triggerRef, onMouseEnter, onMouseLeave }) => {
     const [position, setPosition] = useState({ top: 0, left: 0 });
     const menuRef = useRef<HTMLDivElement>(null);
 
@@ -193,6 +195,8 @@ const HoverMenu: React.FC<HoverMenuProps> = ({ navigationData, menuLayout, onSel
             transition={{ duration: 0.2, ease: 'easeOut' }}
             className="fixed bg-white rounded-xl shadow-2xl p-4 md:p-6 lg:p-8 z-[10000] origin-top-left w-[calc(100vw-2rem)] md:w-auto md:min-w-[850px]"
             style={{ top: position.top, left: position.left }}
+            onMouseEnter={onMouseEnter}
+            onMouseLeave={onMouseLeave}
         >
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-4 md:gap-x-6 lg:gap-x-8 text-black">
                 <div className="space-y-6 md:space-y-8 border-r-0 md:border-r border-gray-100 pr-0 md:pr-6 lg:pr-8 pb-6 md:pb-0 border-b md:border-b-0 last:border-b-0 last:pb-0">

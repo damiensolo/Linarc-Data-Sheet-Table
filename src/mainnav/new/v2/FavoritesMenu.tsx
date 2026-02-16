@@ -66,16 +66,17 @@ const BookmarksMenu: React.FC<BookmarksMenuProps> = ({ bookmarks, onSelect, onTo
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
-            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-                onClose();
-            }
+            const target = event.target as Node;
+            if (triggerRef?.current?.contains(target)) return;
+            if (menuRef.current?.contains(target)) return;
+            onClose();
         };
 
         document.addEventListener('mousedown', handleClickOutside);
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
         };
-    }, [onClose]);
+    }, [onClose, triggerRef]);
     
     const animationProps = isRightPosition
         ? {

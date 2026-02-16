@@ -485,7 +485,33 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
     const mobileProjectSelectorRef = useRef<HTMLDivElement>(null);
     const hoverMenuRef = useRef<HTMLDivElement>(null);
     const bookmarksMenuRef = useRef<HTMLDivElement>(null);
+    const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const { bookmarks, toggleBookmark, getBookmarkItems } = useBookmarks();
+
+    const hoverCountRef = useRef(0);
+
+    const handleMenuEnter = () => {
+        if (isMobile) return;
+        hoverCountRef.current++;
+        if (hoverTimeoutRef.current) {
+            clearTimeout(hoverTimeoutRef.current);
+            hoverTimeoutRef.current = null;
+        }
+        setMenuVisible(true);
+        setBookmarksMenuVisible(false);
+    };
+
+    const handleMenuLeave = () => {
+        if (isMobile) return;
+        hoverCountRef.current--;
+        if (hoverCountRef.current < 0) hoverCountRef.current = 0;
+
+        if (hoverCountRef.current === 0) {
+            hoverTimeoutRef.current = setTimeout(() => {
+                setMenuVisible(false);
+            }, 300);
+        }
+    };
 
     // Detect mobile device
     useEffect(() => {
@@ -639,13 +665,8 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
                         ref={hoverMenuRef}
                         className={`relative flex flex-col items-center gap-1 ${hoverMenuClasses} transition-colors cursor-pointer group shrink-0`}
                         style={{ width: '82px' }}
-                        onMouseEnter={() => {
-                            if (!isMobile) {
-                                setMenuVisible(true);
-                                setBookmarksMenuVisible(false);
-                            }
-                        }}
-                        onMouseLeave={() => !isMobile && setMenuVisible(false)}
+                        onMouseEnter={handleMenuEnter}
+                        onMouseLeave={handleMenuLeave}
                         onClick={() => {
                             if (isMobile) {
                                 setMenuVisible(!isMenuVisible);
@@ -680,6 +701,8 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
                                     bookmarks={bookmarks}
                                     onToggleBookmark={toggleBookmark}
                                     triggerRef={hoverMenuRef}
+                                    onMouseEnter={handleMenuEnter}
+                                    onMouseLeave={handleMenuLeave}
                                 />
                             }
                         </AnimatePresence>
