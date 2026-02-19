@@ -181,13 +181,13 @@ const ViewControls: React.FC = () => {
                             onChange={e => setSearchTerm(e.target.value)}
                             onFocus={() => setIsSearchFocused(true)}
                             onBlur={() => setIsSearchFocused(false)}
-                            className={`pr-3 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 w-48 shadow-sm transition-all duration-200 ${isSearchFocused ? 'pl-3' : 'pl-9'}`}
+                            className={`pr-3 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 w-48 shadow-sm transition-all duration-200 h-9 ${isSearchFocused ? 'pl-3' : 'pl-9'}`}
                         />
                     </div>
 
                     {/* Filter */}
                     <div className="relative">
-                        <button ref={filterButtonRef} onClick={() => setShowFilterMenu(p => !p)} className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 shadow-sm">
+                        <button ref={filterButtonRef} onClick={() => setShowFilterMenu(p => !p)} className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 shadow-sm h-9">
                             <FilterIcon className="w-4 h-4" />
                             <span>Filter</span>
                             {activeView.filters.length > 0 && <span className="bg-blue-100 text-blue-700 text-xs font-bold px-1.5 py-0.5 rounded-full">{activeView.filters.length}</span>}
@@ -200,8 +200,7 @@ const ViewControls: React.FC = () => {
                         <TooltipProvider>
                             <Tooltip>
                                 <TooltipTrigger>
-                                    <button ref={highlightButtonRef} onClick={() => setShowHighlightMenu(p => !p)} className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 shadow-sm" aria-label="Highlight cells">
-                                        <FillColorIcon className="w-4 h-4" />
+                                                                         <button ref={highlightButtonRef} onClick={() => setShowHighlightMenu(p => !p)} className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 shadow-sm h-9" aria-label="Highlight cells">                                        <FillColorIcon className="w-4 h-4" />
                                         {(activeView.highlights?.length || 0) > 0 && <span className="bg-blue-100 text-blue-700 text-xs font-bold px-1.5 py-0.5 rounded-full">{activeView.highlights?.length}</span>}
                                     </button>
                                 </TooltipTrigger>
