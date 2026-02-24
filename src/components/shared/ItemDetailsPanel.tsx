@@ -31,7 +31,7 @@ const ProgressStats: React.FC<{ progress: Progress }> = ({ progress }) => {
     <div className="flex items-center gap-6">
       <div>
         <div className="text-xs text-gray-500">Current Progress</div>
-        <div className="text-2xl font-bold text-gray-800">{percentage}%</div>
+        <div className="text-lg font-bold text-gray-800">{percentage}%</div>
       </div>
       <div>
         <div className="text-xs text-gray-500">Trend</div>
@@ -46,7 +46,7 @@ const ProgressStats: React.FC<{ progress: Progress }> = ({ progress }) => {
 
 const HealthStatusDot: React.FC<{ status: 'complete' | 'at_risk' | 'blocked' }> = ({ status }) => {
   const color = status === 'complete' ? 'bg-green-500' : status === 'at_risk' ? 'bg-yellow-500' : 'bg-red-500';
-  return <span className={`w-3 h-3 rounded-full ${color} flex-shrink-0`}></span>;
+  return <span className={`w-2.5 h-2.5 rounded-full ${color} flex-shrink-0`}></span>;
 };
 
 
@@ -73,13 +73,13 @@ const ItemDetailsPanel: React.FC<ItemDetailsPanelProps> = ({ task, onClose, onPr
     >
       {task && (
         <div className="flex flex-col h-full" style={{ width: '400px' }}>
-          <header className="flex items-center justify-between p-4 border-b border-gray-200 flex-shrink-0">
-            <h2 id="details-panel-title" className="text-lg font-semibold text-gray-800 truncate">{task.name}</h2>
+          <header className="flex items-center justify-between p-3 border-b border-gray-200 flex-shrink-0">
+            <h2 id="details-panel-title" className="text-base font-semibold text-gray-800 truncate">{task.name}</h2>
             <button onClick={handleClose} className="p-1 rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-800" aria-label="Close details">
-              <XIcon className="w-5 h-5" />
+              <XIcon className="w-4 h-4" />
             </button>
           </header>
-          <div className="flex-grow p-4 overflow-y-auto space-y-6">
+          <div className="flex-grow p-3 overflow-y-auto space-y-4 text-sm">
             
             {/* Dashboard Section */}
             <div className="grid grid-cols-3 gap-2 p-2 bg-gray-50 rounded-lg">
@@ -102,12 +102,12 @@ const ItemDetailsPanel: React.FC<ItemDetailsPanelProps> = ({ task, onClose, onPr
             {/* Task Health Section */}
             {task.health && task.health.length > 0 && (
                 <div>
-                    <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Task Health</h3>
-                    <ul className="space-y-3">
+                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Task Health</h3>
+                    <ul className="space-y-2">
                         {task.health.map((item, index) => (
                             <li key={index} className="flex items-center gap-3" title={item.details}>
                                 <HealthStatusDot status={item.status} />
-                                <span className="text-sm font-medium text-gray-700">{item.name}</span>
+                                <span className="text-xs font-medium text-gray-700">{item.name}</span>
                             </li>
                         ))}
                     </ul>
@@ -117,13 +117,13 @@ const ItemDetailsPanel: React.FC<ItemDetailsPanelProps> = ({ task, onClose, onPr
             {/* Sub-Items Section */}
             {task.children && task.children.length > 0 && (
                 <div>
-                    <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Sub-Items</h3>
-                    <ul className="space-y-2">
+                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Sub-Items</h3>
+                    <ul className="space-y-1.5">
                         {task.children.map(child => (
                             <li key={child.id} className="flex items-center justify-between p-2 rounded-md bg-gray-50 hover:bg-gray-100">
                                 <div className="flex items-center gap-2">
-                                    <DocumentIcon className="w-4 h-4 text-gray-400" />
-                                    <span className="text-sm font-medium text-gray-800">{child.name}</span>
+                                    <DocumentIcon className="w-3.5 h-3.5 text-gray-400" />
+                                    <span className="text-xs font-medium text-gray-800">{child.name}</span>
                                 </div>
                                 <div className="w-28 flex-shrink-0">
                                   <StatusDisplay status={child.status} />
@@ -137,9 +137,9 @@ const ItemDetailsPanel: React.FC<ItemDetailsPanelProps> = ({ task, onClose, onPr
             {/* Progress Section */}
             {task.progress && (
                 <div>
-                    <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Progress Overview</h3>
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                        <div className="mb-4">
+                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Progress Overview</h3>
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                        <div className="mb-3">
                             <ProgressStats progress={task.progress} />
                         </div>
                         <InteractiveProgressChart progress={task.progress} />
