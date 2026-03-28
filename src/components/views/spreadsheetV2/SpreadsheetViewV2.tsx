@@ -778,11 +778,12 @@ const SpreadsheetViewV2: React.FC = () => {
   return (
     <div 
         ref={containerRef}
-        className="flex flex-col h-full p-4 outline-none focus:ring-0 overflow-hidden" 
+        className="flex flex-col h-full p-4 outline-none focus:ring-0 overflow-hidden gap-4" 
         onKeyDown={handleKeyDown} 
         tabIndex={0}
     >
-        <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden relative flex flex-col focus:outline-none max-h-full min-h-0">
+        {/* Floating Toolbar */}
+        <div className="flex items-center gap-2">
             <SpreadsheetToolbar
                 isAllSelected={isAllSelected}
                 handleToggleAll={handleToggleAll}
@@ -795,15 +796,28 @@ const SpreadsheetViewV2: React.FC = () => {
                 onPaste={() => handlePaste()}
                 onDelete={() => handleDeleteRow()}
             />
-            <div className="overflow-auto relative select-none focus:outline-none min-h-0" ref={scrollContainerRef}>
+        </div>
+
+        <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden relative flex flex-col focus:outline-none max-h-full min-h-0 flex-grow">
+            <div className="overflow-auto relative select-none focus:outline-none min-h-0 flex-grow" ref={scrollContainerRef}>
             <table className="border-collapse min-w-full table-fixed" style={{ fontSize: activeView.fontSize }}>
                 <SpreadsheetHeader
-                    columns={columns} focusedCell={focusedCell} resizingColumnId={resizingColumnId}
-                    isScrolled={!scrollState.isAtStart} isAtEnd={scrollState.isAtEnd}
+                    columns={columns}
+                    focusedCell={focusedCell}
+                    resizingColumnId={resizingColumnId}
+                    isScrolled={!scrollState.isAtStart}
+                    isAtEnd={scrollState.isAtEnd}
                     isVerticalScrolled={scrollState.isScrolledTop}
-                    fontSize={activeView.fontSize} displayDensity={displayDensity}
-                    sort={activeView.sort} onSort={handleSort} onColumnMove={handleColumnMove}
-                    onMouseDown={onMouseDown} onContextMenu={(e, id) => handleContextMenu(e, 'column', id)}
+                    fontSize={activeView.fontSize}
+                    displayDensity={displayDensity}
+                    sort={activeView.sort || null}
+                    onSort={handleSort}
+                    onColumnMove={handleColumnMove}
+                    onMouseDown={onMouseDown}
+                    onContextMenu={(e, colId) => handleContextMenu(e, 'column', colId)}
+                    isAllSelected={isAllSelected}
+                    onToggleAll={handleToggleAll}
+                    toolbarCheckboxRef={toolbarCheckboxRef}
                 />
                 <tbody>
                 {visibleData.map(({ item, level, type }) => (

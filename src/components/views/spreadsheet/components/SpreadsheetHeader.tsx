@@ -20,6 +20,9 @@ interface SpreadsheetHeaderProps {
     onColumnMove: (fromId: string, toId: string, position: 'left' | 'right') => void;
     onMouseDown: (columnId: string) => (e: React.MouseEvent) => void;
     onContextMenu: (e: React.MouseEvent, columnId: string) => void;
+    isAllSelected: boolean;
+    onToggleAll: () => void;
+    toolbarCheckboxRef: React.RefObject<HTMLInputElement>;
 }
 
 const getHeaderHeightClass = (density: DisplayDensity) => {
@@ -44,7 +47,10 @@ const SpreadsheetHeader: React.FC<SpreadsheetHeaderProps> = ({
     onSort,
     onColumnMove,
     onMouseDown,
-    onContextMenu
+    onContextMenu,
+    isAllSelected,
+    onToggleAll,
+    toolbarCheckboxRef,
 }) => {
     const { expansionCycle, handleCycleExpansion } = useProject();
     const heightClass = getHeaderHeightClass(displayDensity);
@@ -101,30 +107,18 @@ const SpreadsheetHeader: React.FC<SpreadsheetHeaderProps> = ({
                     fontSize,
                     boxShadow: 'inset 0 -1px 0 #e5e7eb' // Ensures border remains visible when sticky
                 }}>
-                    <div className="flex items-center justify-center h-full w-full text-gray-500 font-semibold group/header">
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <button 
-                                        onClick={handleCycleExpansion}
-                                        className="p-1 rounded hover:bg-gray-200 transition-colors"
-                                        aria-label="Cycle expansion"
-                                    >
-                                        {expansionCycle === 0 && <ChevronUpIcon className="w-4 h-4" />}
-                                        {expansionCycle === 1 && <ChevronDownIcon className="w-4 h-4" />}
-                                        {expansionCycle === 2 && <ChevronsDownIcon className="w-4 h-4" />}
-                                    </button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    {expansionCycle === 0 && "Expand First Tier"}
-                                    {expansionCycle === 1 && "Expand All"}
-                                    {expansionCycle === 2 && "Collapse All"}
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
+                    <div className="flex items-center justify-center h-full w-full">
+                        <input 
+                            type="checkbox" 
+                            checked={isAllSelected} 
+                            onChange={onToggleAll} 
+                            ref={toolbarCheckboxRef}
+                            aria-label="Select all visible rows"
+                            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                        />
                     </div>
                 </th>
-                {columns.map(col => (
+                {columns.map((col, idx) => (
                     <th 
                         key={col.id} 
                         className={`border-r border-gray-200 px-2 whitespace-nowrap uppercase font-semibold relative group cursor-pointer ${col.align === 'right' ? 'text-right' : 'text-left'} 
@@ -146,6 +140,33 @@ const SpreadsheetHeader: React.FC<SpreadsheetHeaderProps> = ({
                             <div className={`absolute top-0 h-full w-1 bg-blue-500 rounded-full ${dropIndicator.position === 'left' ? 'left-0' : 'right-0'}`} style={{ zIndex: 20 }} />
                         )}
                         <div className={`flex items-center h-full w-full overflow-hidden ${col.align === 'right' ? 'justify-end' : 'justify-start'} gap-1`}>
+                            {idx === 0 && (
+                                <div className="mr-2 flex items-center">
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <button 
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleCycleExpansion();
+                                                    }}
+                                                    className="p-1 rounded hover:bg-gray-200 transition-colors"
+                                                    aria-label="Cycle expansion"
+                                                >
+                                                    {expansionCycle === 0 && <ChevronUpIcon className="w-4 h-4" />}
+                                                    {expansionCycle === 1 && <ChevronDownIcon className="w-4 h-4" />}
+                                                    {expansionCycle === 2 && <ChevronsDownIcon className="w-4 h-4" />}
+                                                </button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                                {expansionCycle === 0 && "Expand First Tier"}
+                                                {expansionCycle === 1 && "Expand All"}
+                                                {expansionCycle === 2 && "Collapse All"}
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                </div>
+                            )}
                             <span className="truncate">{col.label}</span>
                             {sort?.columnId === col.id ? (
                                 sort.direction === 'asc' ? 

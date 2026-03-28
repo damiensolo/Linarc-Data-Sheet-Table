@@ -214,127 +214,112 @@ const TableView: React.FC<TableViewProps> = ({ isScrolled, density }) => {
   const hasSelection = selectedTaskIds.size > 0;
 
   return (
-    <div className="flex flex-col h-full p-4">
-        <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden relative flex flex-col flex-grow">
-            
-            <div className="flex items-center h-14 border-b border-gray-200 bg-white flex-shrink-0 transition-all z-50 relative pr-4">
-                 <div className="w-[52px] min-w-[52px] max-w-[52px] flex items-center justify-center flex-shrink-0 border-r border-gray-200" style={{ width: '52px', minWidth: '52px', maxWidth: '52px' }}>
-                     <input 
-                        type="checkbox" 
-                        checked={isAllSelected} 
-                        onChange={handleToggleAll} 
-                        ref={toolbarCheckboxRef}
-                        aria-label="Select all visible rows"
-                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                     />
-                 </div>
-
-                 <div className="flex-1 pl-4 flex items-center">
-                    <AnimatePresence mode="wait">
-                    {hasSelection ? (
-                        <motion.div 
-                            key="actions"
-                            initial={{ opacity: 0, x: -10 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, x: -10 }}
-                            transition={{ duration: 0.2 }}
-                            className="flex items-center gap-4 flex-1"
-                        >
-                            <TooltipProvider>
-                                <div className="flex items-center gap-1 p-1.5 rounded-lg">
-                                    <Tooltip>
-                                        <TooltipTrigger>
-                                            <button className="p-2.5 text-gray-600 hover:text-gray-900 hover:bg-white rounded-md transition-all shadow-sm border border-transparent hover:border-gray-200 hover:shadow focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                                <ScissorsIcon className="w-5 h-5" />
-                                            </button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>Cut</TooltipContent>
-                                    </Tooltip>
-                                    
-                                    <Tooltip>
-                                        <TooltipTrigger>
-                                            <button className="p-2.5 text-gray-600 hover:text-gray-900 hover:bg-white rounded-md transition-all shadow-sm border border-transparent hover:border-gray-200 hover:shadow focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                                <CopyIcon className="w-5 h-5" />
-                                            </button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>Copy</TooltipContent>
-                                    </Tooltip>
-                                    
-                                    <Tooltip>
-                                        <TooltipTrigger>
-                                            <button className="p-2.5 text-gray-600 hover:text-gray-900 hover:bg-white rounded-md transition-all shadow-sm border border-transparent hover:border-gray-200 hover:shadow focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                                <ClipboardIcon className="w-5 h-5" />
-                                            </button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>Paste</TooltipContent>
-                                    </Tooltip>
-                                    
-                                    <Tooltip>
-                                        <TooltipTrigger>
-                                            <button className="p-2.5 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md transition-all shadow-sm border border-transparent hover:border-red-200 hover:shadow focus:outline-none focus:ring-2 focus:ring-red-500">
-                                                <TrashIcon className="w-5 h-5" />
-                                            </button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>Delete</TooltipContent>
-                                    </Tooltip>
-                                    
-                                    <div className="w-px h-6 bg-gray-300 mx-1"></div>
-                                    
-                                    <ColorPicker 
-                                        icon={<FillColorIcon className="w-5 h-5" />} 
-                                        label="Background" 
-                                        onColorSelect={(color) => handleBulkStyleUpdate({ backgroundColor: color })} 
-                                        presets={BACKGROUND_COLORS}
-                                    />
-                                    <ColorPicker 
-                                        icon={<BorderColorIcon className="w-5 h-5" />} 
-                                        label="Border" 
-                                        onColorSelect={(color) => handleBulkStyleUpdate({ borderColor: color })} 
-                                        presets={TEXT_BORDER_COLORS}
-                                    />
-                                    <ColorPicker 
-                                        icon={<TextColorIcon className="w-5 h-5" />} 
-                                        label="Text" 
-                                        onColorSelect={(color) => handleBulkStyleUpdate({ textColor: color })} 
-                                        presets={TEXT_BORDER_COLORS}
-                                    />
-                                </div>
-                            </TooltipProvider>
-                            <span className="text-sm font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
-                                {selectedTaskIds.size} selected
-                            </span>
-                        </motion.div>
-                    ) : (
-                         <motion.div
-                            key="controls"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            transition={{ duration: 0.2 }}
-                         >
-                            <ViewControls />
-                         </motion.div>
-                    )}
-                    </AnimatePresence>
-                    
-                    {!hasSelection && (
-                        <div className="ml-auto pl-4 border-l border-gray-200 h-6 flex items-center">
-                             <Popover
-                                trigger={
-                                    <button className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors">
-                                        <SettingsIcon className="w-4 h-4" />
+    <div className="flex flex-col h-full p-4 gap-4">
+        {/* Floating Toolbar Design */}
+        <div className="flex items-center gap-2">
+            <AnimatePresence mode="wait">
+            {hasSelection ? (
+                <motion.div 
+                    key="actions"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    transition={{ duration: 0.2 }}
+                    className="flex items-center gap-4 flex-1"
+                >
+                    <TooltipProvider>
+                        <div className="flex items-center gap-1">
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <button className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-all">
+                                        <ScissorsIcon className="w-5 h-5" />
                                     </button>
-                                }
-                                content={
-                                    <FieldsMenu onClose={() => {}} disableClickOutside className="right-0 mt-2" />
-                                }
-                                align="end"
-                             />
+                                </TooltipTrigger>
+                                <TooltipContent>Cut</TooltipContent>
+                            </Tooltip>
+                            
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <button className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-all">
+                                        <CopyIcon className="w-5 h-5" />
+                                    </button>
+                                </TooltipTrigger>
+                                <TooltipContent>Copy</TooltipContent>
+                            </Tooltip>
+                            
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <button className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-all">
+                                        <ClipboardIcon className="w-5 h-5" />
+                                    </button>
+                                </TooltipTrigger>
+                                <TooltipContent>Paste</TooltipContent>
+                            </Tooltip>
+                            
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <button className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md transition-all">
+                                        <TrashIcon className="w-5 h-5" />
+                                    </button>
+                                </TooltipTrigger>
+                                <TooltipContent>Delete</TooltipContent>
+                            </Tooltip>
+                            
+                            <div className="w-px h-6 bg-gray-300 mx-1"></div>
+                            
+                            <ColorPicker 
+                                icon={<FillColorIcon className="w-5 h-5" />} 
+                                label="Background" 
+                                onColorSelect={(color) => handleBulkStyleUpdate({ backgroundColor: color })} 
+                                presets={BACKGROUND_COLORS}
+                            />
+                            <ColorPicker 
+                                icon={<BorderColorIcon className="w-5 h-5" />} 
+                                label="Border" 
+                                onColorSelect={(color) => handleBulkStyleUpdate({ borderColor: color })} 
+                                presets={TEXT_BORDER_COLORS}
+                            />
+                            <ColorPicker 
+                                icon={<TextColorIcon className="w-5 h-5" />} 
+                                label="Text" 
+                                onColorSelect={(color) => handleBulkStyleUpdate({ textColor: color })} 
+                                presets={TEXT_BORDER_COLORS}
+                            />
                         </div>
-                    )}
-                 </div>
-            </div>
+                    </TooltipProvider>
+                    <span className="text-sm font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
+                        {selectedTaskIds.size} selected
+                    </span>
+                </motion.div>
+            ) : (
+                 <motion.div
+                    key="controls"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="flex items-center gap-2 flex-1"
+                 >
+                    <ViewControls />
+                    <div className="ml-auto flex items-center">
+                        <Popover
+                            trigger={
+                                <button className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors" aria-label="View settings">
+                                    <SettingsIcon className="w-4 h-4" />
+                                </button>
+                            }
+                            content={
+                                <FieldsMenu onClose={() => {}} disableClickOutside className="right-0 mt-2" />
+                            }
+                            align="end"
+                        />
+                    </div>
+                 </motion.div>
+            )}
+            </AnimatePresence>
+        </div>
 
+        <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden relative flex flex-col flex-grow">
             <div className="overflow-x-auto flex-1">
                 <table 
                     className="w-full table-fixed text-left text-gray-500 whitespace-nowrap border-collapse"
@@ -348,31 +333,21 @@ const TableView: React.FC<TableViewProps> = ({ isScrolled, density }) => {
                 <thead className={`uppercase bg-gray-50 sticky top-0 z-40 transition-shadow duration-200 ${isScrolled ? 'shadow-[0_4px_6px_-2px_rgba(0,0,0,0.1),0_2px_4px_-2px_rgba(0,0,0,0.05)]' : ''}`}>
                     <tr ref={headerRef}>
                     <th scope="col" className={`sticky left-0 bg-gray-50 z-50 ${headerHeightClass} w-[52px] min-w-[52px] max-w-[52px] px-0 border-r border-gray-200 transition-all duration-200 box-border ${isScrolled ? 'shadow-[2px_0_5px_rgba(0,0,0,0.05)]' : ''}`} style={{ boxShadow: 'inset 0 -1px 0 #e5e7eb', width: '52px' }}>
-                        <div className="flex items-center justify-center h-full font-semibold text-gray-500">
-                            <TooltipProvider>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <button 
-                                            onClick={handleCycleExpansion}
-                                            className="p-1 rounded hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                            aria-label="Cycle expansion"
-                                        >
-                                            {expansionCycle === 0 && <ChevronUpIcon className="w-4 h-4" />}
-                                            {expansionCycle === 1 && <ChevronDownIcon className="w-4 h-4" />}
-                                            {expansionCycle === 2 && <ChevronsDownIcon className="w-4 h-4" />}
-                                        </button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        {expansionCycle === 0 && "Expand First Tier"}
-                                        {expansionCycle === 1 && "Expand All"}
-                                        {expansionCycle === 2 && "Collapse All"}
-                                    </TooltipContent>
-                                </Tooltip>
-                            </TooltipProvider>
+                        <div className="flex items-center justify-center h-full">
+                            <input 
+                                type="checkbox" 
+                                checked={isAllSelected} 
+                                onChange={handleToggleAll} 
+                                ref={toolbarCheckboxRef}
+                                aria-label="Select all visible rows"
+                                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                            />
                         </div>
                     </th>
                     {visibleColumns.map((col, index) => {
                         const isLastVisibleColumn = index === visibleColumns.length - 1;
+                        const isSecondColumn = index === 0; // The second column of the table (first of visibleColumns)
+                        
                         return (
                         <th 
                             key={col.id} 
@@ -393,6 +368,33 @@ const TableView: React.FC<TableViewProps> = ({ isScrolled, density }) => {
                             <div className={`absolute top-0 h-full w-1 bg-blue-500 rounded-full ${dropIndicator.position === 'left' ? 'left-0' : 'right-0'}`} style={{ zIndex: 20 }} />
                             )}
                             <div className={`flex items-center gap-1 ${col.id === 'details' ? 'justify-center' : ''} overflow-hidden`}>
+                            {isSecondColumn && (
+                                <div className="mr-2 flex items-center">
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <button 
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleCycleExpansion();
+                                                    }}
+                                                    className="p-1 rounded hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                    aria-label="Cycle expansion"
+                                                >
+                                                    {expansionCycle === 0 && <ChevronUpIcon className="w-4 h-4" />}
+                                                    {expansionCycle === 1 && <ChevronDownIcon className="w-4 h-4" />}
+                                                    {expansionCycle === 2 && <ChevronsDownIcon className="w-4 h-4" />}
+                                                </button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                                {expansionCycle === 0 && "Expand First Tier"}
+                                                {expansionCycle === 1 && "Expand All"}
+                                                {expansionCycle === 2 && "Collapse All"}
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                </div>
+                            )}
                             <span className="truncate">{col.label}</span>
                             {sortConfig?.columnId === col.id ? (
                                 sortConfig.direction === 'asc' ? 
