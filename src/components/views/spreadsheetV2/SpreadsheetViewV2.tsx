@@ -7,6 +7,7 @@ import SpreadsheetRowV2 from './components/SpreadsheetRowV2';
 import { ContextMenu, ContextMenuItem } from '../../common/ui/ContextMenu';
 import { ScissorsIcon, CopyIcon, ClipboardIcon, TrashIcon, PlusIcon } from '../../common/Icons';
 import { SPREADSHEET_INDEX_COLUMN_WIDTH } from '../../../constants/spreadsheetLayout';
+import { checkFilterMatch } from '../../../lib/utils';
 
 const formatCurrency = (amount: number | null | undefined) => {
   if (amount === null || amount === undefined) return '';
@@ -76,6 +77,36 @@ const SpreadsheetViewV2: React.FC = () => {
   const toolbarCheckboxRef = useRef<HTMLInputElement>(null);
   const [resizingColumnId, setResizingColumnId] = useState<string | null>(null);
   const activeResizerId = useRef<string | null>(null);
+  const { expansionCycle } = useProject();
+
+  // Handle Expansion Cycle
+  useEffect(() => {
+      if (expansionCycle === 0) {
+          setExpandedIds(new Set());
+      } else if (expansionCycle === 1) {
+          // Expand only the first level
+          const firstLevelIds = visibleData.filter(d => d.level === 0 && d.item.children && d.item.children.length > 0).map(d => d.item.id);
+          setExpandedIds(new Set(firstLevelIds));
+      } else if (expansionCycle === 2) {
+          // Expand all
+          const allParentIds: string[] = [];
+          const recurse = (items: BudgetLineItem[]) => {
+              items.forEach(item => {
+                  if (item.children && item.children.length > 0) {
+                      allParentIds.push(item.id);
+                      recurse(item.children);
+                  }
+              });
+          };
+          // We need to know ALL items, not just visible ones.
+          // Actually, using the groupedTree if grouping is active, or sortedData if not.
+          // This is a bit complex to do perfectly here without re-calculating everything.
+          // For now, expand everything currently in the flattened list that has children.
+          const currentVisibleParentIds = visibleData.filter(d => d.item.children && d.item.children.length > 0).map(d => d.item.id);
+          setExpandedIds(new Set(currentVisibleParentIds));
+          // Note: In Expand All, we might need multiple passes if expanding reveals more parents.
+      }
+  }, [expansionCycle]);
 
   const [contextMenu, setContextMenu] = useState<{
       visible: boolean;
@@ -87,24 +118,138 @@ const SpreadsheetViewV2: React.FC = () => {
 
   const [clipboard, setClipboard] = useState<BudgetLineItem[] | null>(null);
 
-  // Flatten logic
+  // Flatten & Group logic
   const visibleData = useMemo(() => {
     const flattened: FlattenedRow[] = [];
+    const groupByCols = activeView.groupBy || [];
+    const filters = activeView.filters || [];
     
-    const recurse = (items: BudgetLineItem[], level: number, parentId?: string) => {
+    // Normal non-grouped flattening
+    if (groupByCols.length === 0) {
+        const recurse = (items: BudgetLineItem[], level: number, parentId?: string) => {
+            items.forEach(item => {
+                const hasChildren = !!item.children && item.children.length > 0;
+                const isExpanded = expandedIds.has(item.id);
+                
+                // Filtering
+                const matchesFilters = filters.every(f => checkFilterMatch((item as any)[f.columnId], f.operator, f.value));
+                const matchesSearch = !searchTerm || 
+                    Object.values(item).some(v => v !== null && String(v).toLowerCase().includes(searchTerm.toLowerCase()));
+                
+                const isVisible = (matchesFilters && matchesSearch) || (hasChildren && item.children?.some(c => {
+                    const cMatchesFilters = filters.every(f => checkFilterMatch((c as any)[f.columnId], f.operator, f.value));
+                    const cMatchesSearch = !searchTerm || Object.values(c).some(v => v !== null && String(v).toLowerCase().includes(searchTerm.toLowerCase()));
+                    return cMatchesFilters && cMatchesSearch;
+                }));
+
+                if (isVisible) {
+                    flattened.push({ item, level, type: parentId ? 'child' : 'parent', parentId });
+                    
+                    if (hasChildren && isExpanded) {
+                        recurse(item.children!, level + 1, item.id);
+                        flattened.push({ 
+                            item, 
+                            level: level + 1, 
+                            type: 'summary',
+                            parentId: item.id
+                        });
+                    }
+                }
+            });
+        };
+        recurse(sortedData, 0);
+        return flattened;
+    }
+
+    // Grouping active
+    const allFilteredItems: BudgetLineItem[] = [];
+    const extractAndFilterItems = (items: BudgetLineItem[]) => {
+        items.forEach(item => {
+            const matchesFilters = filters.every(f => checkFilterMatch((item as any)[f.columnId], f.operator, f.value));
+            const matchesSearch = !searchTerm || 
+                    Object.values(item).some(v => v !== null && String(v).toLowerCase().includes(searchTerm.toLowerCase()));
+            
+            if (matchesFilters && matchesSearch) {
+                 allFilteredItems.push({ ...item, children: undefined });
+            }
+            if (item.children) extractAndFilterItems(item.children); // Flatten fully but filter individuals
+        });
+    };
+    extractAndFilterItems(sortedData);
+
+    const groupItemsRecursive = (items: BudgetLineItem[], groupColIndex: number, currentPath: string): BudgetLineItem[] => {
+        if (groupColIndex >= groupByCols.length) return items;
+        const groupRule = groupByCols[groupColIndex];
+        const colId = groupRule.columnId;
+        
+        const groups = new Map<string, BudgetLineItem[]>();
+        
+        items.forEach(item => {
+            let val = (item as any)[colId];
+            const targetCol = columns.find(c => c.id === colId);
+            const colLabel = targetCol?.label || colId;
+            if (val === null || val === undefined || val === '') val = `No ${colLabel}`;
+            const strVal = String(val);
+            if (!groups.has(strVal)) groups.set(strVal, []);
+            groups.get(strVal)!.push(item);
+        });
+
+        const sortedGroupKeys = Array.from(groups.keys()).sort((a, b) => {
+            const numA = parseFloat(a.replace(/[^0-9.-]+/g, ""));
+            const numB = parseFloat(b.replace(/[^0-9.-]+/g, ""));
+            if (!isNaN(numA) && !isNaN(numB)) return groupRule.direction === 'asc' ? numA - numB : numB - numA;
+            return groupRule.direction === 'asc' ? a.localeCompare(b) : b.localeCompare(a);
+        });
+
+        const groupedResult: BudgetLineItem[] = [];
+        let sNoCounter = 1;
+        
+        sortedGroupKeys.forEach((val) => {
+            const itemsInGroup = groups.get(val)!;
+            const groupId = `group-${currentPath}-${colId}-${val}`;
+            const targetCol = columns.find(c => c.id === colId);
+            
+            // Sub-group items
+            const childGroupsOrItems = groupItemsRecursive(itemsInGroup, groupColIndex + 1, `${currentPath}-${val}`);
+            
+            // Calculate totals for this group header
+            const sums: any = { remainingContract: 0, effortHours: 0, totalBudget: 0, labor: 0, material: 0, equipment: 0, subcontractor: 0, others: 0, overhead: 0, profit: 0 };
+            itemsInGroup.forEach((it: any) => {
+                ['remainingContract', 'effortHours', 'totalBudget', 'labor', 'material', 'equipment', 'subcontractor', 'others', 'overhead', 'profit'].forEach(k => {
+                    sums[k] += (it[k] || 0);
+                });
+            });
+
+            const syntheticGroup: BudgetLineItem = {
+                ...sums,
+                id: groupId,
+                sNo: sNoCounter++,
+                name: `${targetCol?.label || colId}: ${val} (${itemsInGroup.length})`,
+                quantity: null,
+                unit: '',
+                children: childGroupsOrItems
+            };
+
+            groupedResult.push(syntheticGroup);
+        });
+
+        return groupedResult;
+    };
+
+    const groupedTree = groupItemsRecursive(allFilteredItems, 0, 'root');
+
+    const recurseGroups = (items: BudgetLineItem[], level: number, parentId?: string) => {
         items.forEach(item => {
             const hasChildren = !!item.children && item.children.length > 0;
+            const isSyntheticGroup = item.id.startsWith('group-');
+            const rowType = isSyntheticGroup ? 'parent' : 'child';
             const isExpanded = expandedIds.has(item.id);
-            const matchesSearch = !searchTerm || 
-                Object.values(item).some(v => v !== null && String(v).toLowerCase().includes(searchTerm.toLowerCase()));
-            
-            const isVisible = matchesSearch || (hasChildren && item.children?.some(c => Object.values(c).some(v => v !== null && String(v).toLowerCase().includes(searchTerm.toLowerCase()))));
 
-            if (isVisible) {
-                flattened.push({ item, level, type: parentId ? 'child' : 'parent', parentId });
-                
-                if (hasChildren && isExpanded) {
-                    recurse(item.children!, level + 1, item.id);
+            flattened.push({ item, level, type: rowType, parentId });
+            
+            if (hasChildren && isExpanded) {
+                recurseGroups(item.children!, level + 1, item.id);
+                if (isSyntheticGroup) {
                     flattened.push({ 
                         item, 
                         level: level + 1, 
@@ -115,10 +260,10 @@ const SpreadsheetViewV2: React.FC = () => {
             }
         });
     };
-    
-    recurse(sortedData, 0);
+
+    recurseGroups(groupedTree, 0);
     return flattened;
-  }, [sortedData, expandedIds, searchTerm]);
+  }, [sortedData, expandedIds, searchTerm, activeView.groupBy, activeView.filters, columns]);
 
   // Selection Logic
   const selectableRows = useMemo(() => visibleData.filter(d => d.type !== 'summary'), [visibleData]);
@@ -506,12 +651,14 @@ const SpreadsheetViewV2: React.FC = () => {
   const getContextMenuItems = (): ContextMenuItem[] => {
       if (!contextMenu) return [];
       const targetId = contextMenu.targetId;
+      const isSyntheticGroup = targetId.startsWith('group-');
       
       return [
           { 
               label: 'Add Sub-row', 
               icon: <PlusIcon className="w-4 h-4"/>, 
-              onClick: () => handleAddSubRow(targetId) 
+              onClick: () => handleAddSubRow(targetId),
+              disabled: isSyntheticGroup
           },
           { separator: true } as any,
           { 

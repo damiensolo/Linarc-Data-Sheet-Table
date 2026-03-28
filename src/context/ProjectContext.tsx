@@ -15,9 +15,10 @@ const getDefaultViewConfig = (viewMode: ViewMode): Omit<View, 'id' | 'name'> => 
     sort: null,
     displayDensity: 'comfortable' as DisplayDensity,
     showGridLines: false,
-    showColoredRows: true,
+    showColoredRows: false,
     taskStyles: {},
     fontSize: 12,
+    groupBy: [],
   };
 
   switch (viewMode) {
@@ -44,6 +45,7 @@ const getDefaultViewConfig = (viewMode: ViewMode): Omit<View, 'id' | 'name'> => 
       return {
         ...baseConfig,
         type: 'table',
+        displayDensity: 'standard',
         columns: JSON.parse(JSON.stringify(getDefaultTableColumns())),
         spreadsheetData: [],
         spreadsheetColumns: [],
@@ -77,6 +79,8 @@ interface ProjectContextType {
   setShowFilterMenu: React.Dispatch<SetStateAction<boolean>>;
   showHighlightMenu: boolean;
   setShowHighlightMenu: React.Dispatch<SetStateAction<boolean>>;
+  showGroupMenu: boolean;
+  setShowGroupMenu: React.Dispatch<SetStateAction<boolean>>;
   showFieldsMenu: boolean;
   setShowFieldsMenu: React.Dispatch<SetStateAction<boolean>>;
   activeView: View;
@@ -85,6 +89,7 @@ interface ProjectContextType {
   updateView: (updatedView: Partial<Omit<View, 'id' | 'name'>>) => void;
   setFilters: (filters: FilterRule[]) => void;
   setHighlights: (highlights: HighlightRule[]) => void;
+  setGroupBy: (groupBy: string[] | null) => void;
   setSort: (sort: SortConfig) => void;
   setColumns: (updater: SetStateAction<Column[]>) => void;
   setDisplayDensity: (density: DisplayDensity) => void;
@@ -98,6 +103,8 @@ interface ProjectContextType {
   handleSaveView: (name: string) => void;
   handleDeleteView: (id: string) => void;
   detailedTask: Task | null;
+  expansionCycle: number;
+  handleCycleExpansion: () => void;
 }
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
@@ -118,8 +125,10 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [modalState, setModalState] = useState<{ type: 'create' | 'rename'; view?: View } | null>(null);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [showHighlightMenu, setShowHighlightMenu] = useState(false);
+  const [showGroupMenu, setShowGroupMenu] = useState(false);
   const [showFieldsMenu, setShowFieldsMenu] = useState(false);
   const [displayHighlights, setDisplayHighlights] = useState<HighlightRule[]>([]);
+  const [expansionCycle, setExpansionCycle] = useState(2); // 0: Collapse All, 1: Expand First, 2: Expand All
 
   const activeView = useMemo<View>(() => {
     if (activeViewId === null) {
@@ -167,12 +176,13 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
   }, [activeViewId]);
 
-  const setFilters = (filters: FilterRule[]) => updateView({ filters });
+  const setFilters = useCallback((filters: FilterRule[]) => updateView({ filters }), [updateView]);
   const setHighlights = useCallback((highlights: HighlightRule[]) => {
     const next = highlights.length ? [...highlights] : [];
     setDisplayHighlights(next);
     updateView({ highlights: next });
   }, [updateView]);
+  const setGroupBy = useCallback((groupBy: string[] | null) => updateView({ groupBy }), [updateView]);
   const setSort = (sort: SortConfig) => updateView({ sort });
   const setColumns = (updater: SetStateAction<View['columns']>) => {
     const newColumns =
@@ -237,6 +247,10 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
           });
       };
       setTasks(prev => toggleRecursively(prev));
+  }, []);
+
+  const handleCycleExpansion = useCallback(() => {
+     setExpansionCycle(prev => (prev + 1) % 3);
   }, []);
 
   const handleSaveView = (name: string) => {
@@ -312,12 +326,14 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     modalState, setModalState,
     showFilterMenu, setShowFilterMenu,
     showHighlightMenu, setShowHighlightMenu,
+    showGroupMenu, setShowGroupMenu,
     showFieldsMenu, setShowFieldsMenu,
     activeView,
     displayHighlights,
     updateView,
     setFilters,
     setHighlights,
+    setGroupBy,
     setSort,
     setColumns,
     setDisplayDensity,
@@ -330,6 +346,8 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     handleToggle,
     handleSaveView,
     handleDeleteView,
+    expansionCycle,
+    handleCycleExpansion,
     detailedTask,
   };
 

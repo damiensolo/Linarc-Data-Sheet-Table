@@ -45,13 +45,14 @@ export interface TaskStyle {
 }
 
 export interface Task {
-  id: number;
+  id: number | string;
   name: string;
   status: Status;
   assignees: Assignee[];
   startDate: string; // DD/MM/YYYY
   dueDate: string; // DD/MM/YYYY
   isExpanded?: boolean;
+  isGroup?: boolean;
   children?: Task[];
   priority?: Priority;
   impact?: Impact;
@@ -83,10 +84,14 @@ export interface HighlightRule {
 }
 
 export interface FilterRule {
-    id: string;
     columnId: ColumnId;
     operator: FilterOperator;
     value?: string | string[];
+}
+
+export interface GroupByRule {
+    columnId: ColumnId;
+    direction: 'asc' | 'desc';
 }
 
 // Spreadsheet Specific Types
@@ -121,6 +126,7 @@ export interface BudgetLineItem {
   style?: BudgetLineItemStyle;
   children?: BudgetLineItem[];
   isExpanded?: boolean;
+  isGroup?: boolean;
 }
 
 export interface SpreadsheetColumn {
@@ -150,4 +156,5 @@ export interface View {
   taskStyles?: { [taskId: number]: TaskStyle };
   fontSize: number;
   highlights?: HighlightRule[];
+  groupBy?: GroupByRule[] | null;
 }

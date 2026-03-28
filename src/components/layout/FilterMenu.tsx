@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { FilterRule, ColumnId, FilterOperator } from '../../types';
-import { FILTERABLE_COLUMNS, TEXT_OPERATORS, ENUM_OPERATORS, getEnumOptions } from '../../constants';
+import { FILTERABLE_COLUMNS, TEXT_OPERATORS, ENUM_OPERATORS, NUMBER_OPERATORS, getEnumOptions } from '../../constants';
 import { PlusIcon, XIcon, ChevronDownIcon } from '../common/Icons';
 import { useProject } from '../../context/ProjectContext';
 
@@ -122,7 +122,9 @@ const FilterMenu: React.FC<FilterMenuProps> = ({ onClose, triggerRef }) => {
 
     const addNewFilter = () => {
         const defaultCol = FILTERABLE_COLUMNS[0];
-        const defaultOp = defaultCol.type === 'text' ? TEXT_OPERATORS[0] : ENUM_OPERATORS[0];
+        const defaultOp = defaultCol.type === 'text' ? TEXT_OPERATORS[0] : 
+                          defaultCol.type === 'number' ? NUMBER_OPERATORS[0] :
+                          ENUM_OPERATORS[0];
         
         const newRule: FilterRule = {
             id: `filter_${Date.now()}`,
@@ -145,7 +147,9 @@ const FilterMenu: React.FC<FilterMenuProps> = ({ onClose, triggerRef }) => {
                 // If column changed, reset operator and value
                 if (updates.columnId && updates.columnId !== f.columnId) {
                      const newCol = FILTERABLE_COLUMNS.find(c => c.id === updates.columnId);
-                     const newOps = newCol?.type === 'text' ? TEXT_OPERATORS : ENUM_OPERATORS;
+                     const newOps = newCol?.type === 'text' ? TEXT_OPERATORS : 
+                                    newCol?.type === 'number' ? NUMBER_OPERATORS :
+                                    ENUM_OPERATORS;
                      updated.operator = newOps[0].id as FilterOperator;
                      updated.value = undefined;
                 }
@@ -211,7 +215,9 @@ const FilterMenu: React.FC<FilterMenuProps> = ({ onClose, triggerRef }) => {
                 {localFilters.length === 0 && <p className="text-sm text-gray-400 italic">No active filters</p>}
                 {localFilters.map(rule => {
                     const selectedColumn = FILTERABLE_COLUMNS.find(c => c.id === rule.columnId);
-                    const operators = selectedColumn?.type === 'text' ? TEXT_OPERATORS : ENUM_OPERATORS;
+                    const operators = selectedColumn?.type === 'text' ? TEXT_OPERATORS : 
+                                      selectedColumn?.type === 'number' ? NUMBER_OPERATORS :
+                                      ENUM_OPERATORS;
                     const requiresValue = rule.operator && !['is_empty', 'is_not_empty'].includes(rule.operator);
 
                     return (
@@ -234,12 +240,12 @@ const FilterMenu: React.FC<FilterMenuProps> = ({ onClose, triggerRef }) => {
                             </div>
                             <div className="flex-1">
                                 {requiresValue && selectedColumn ? (
-                                    selectedColumn.type === 'text' ? (
+                                    selectedColumn.type === 'text' || selectedColumn.type === 'number' ? (
                                         <input
-                                            type="text"
+                                            type={selectedColumn.type === 'number' ? 'number' : 'text'}
                                             value={rule.value as string || ''}
                                             onChange={e => updateFilter(rule.id, { value: e.target.value })}
-                                            placeholder="Enter value..."
+                                            placeholder={selectedColumn.type === 'number' ? '0.00' : 'Enter value...'}
                                             className="form-input w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                         />
                                     ) : (

@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useCallback, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ColumnId, DisplayDensity, TaskStyle, Task } from '../../../types';
 import TableRow from './TableRow';
-import { ArrowDownIcon, ArrowUpIcon, SortIcon, ScissorsIcon, CopyIcon, TrashIcon, FillColorIcon, BorderColorIcon, TextColorIcon, ClipboardIcon, SettingsIcon } from '../../common/Icons';
+import { ArrowDownIcon, ArrowUpIcon, SortIcon, ScissorsIcon, CopyIcon, TrashIcon, FillColorIcon, BorderColorIcon, TextColorIcon, ClipboardIcon, SettingsIcon, ChevronDownIcon, ChevronUpIcon, ChevronsDownIcon } from '../../common/Icons';
 import { useProject } from '../../../context/ProjectContext';
 import { useProjectData } from '../../../hooks/useProjectData';
 import ViewControls from '../../layout/ViewControls';
@@ -42,8 +42,17 @@ const TableView: React.FC<TableViewProps> = ({ isScrolled, density }) => {
     detailedTaskId,
     handleSort,
     updateView,
+    expansionCycle,
+    handleCycleExpansion,
   } = useProject();
-  const { sortedTasks, visibleTaskIds, rowNumberMap } = useProjectData(tasks, activeView, searchTerm);
+
+  const { 
+    sortedTasks, 
+    visibleTaskIds, 
+    rowNumberMap,
+    handleToggleLocal,
+    isExpandedLocal
+  } = useProjectData(tasks, activeView, searchTerm, expansionCycle);
 
   const { columns, displayDensity: contextDensity, showGridLines, sort: sortConfig } = activeView;
   const displayDensity = density || contextDensity;
@@ -340,7 +349,26 @@ const TableView: React.FC<TableViewProps> = ({ isScrolled, density }) => {
                     <tr ref={headerRef}>
                     <th scope="col" className={`sticky left-0 bg-gray-50 z-50 ${headerHeightClass} w-[52px] min-w-[52px] max-w-[52px] px-0 border-r border-gray-200 transition-all duration-200 box-border ${isScrolled ? 'shadow-[2px_0_5px_rgba(0,0,0,0.05)]' : ''}`} style={{ boxShadow: 'inset 0 -1px 0 #e5e7eb', width: '52px' }}>
                         <div className="flex items-center justify-center h-full font-semibold text-gray-500">
-                            #
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <button 
+                                            onClick={handleCycleExpansion}
+                                            className="p-1 rounded hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            aria-label="Cycle expansion"
+                                        >
+                                            {expansionCycle === 0 && <ChevronUpIcon className="w-4 h-4" />}
+                                            {expansionCycle === 1 && <ChevronDownIcon className="w-4 h-4" />}
+                                            {expansionCycle === 2 && <ChevronsDownIcon className="w-4 h-4" />}
+                                        </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        {expansionCycle === 0 && "Expand First Tier"}
+                                        {expansionCycle === 1 && "Expand All"}
+                                        {expansionCycle === 2 && "Collapse All"}
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
                         </div>
                     </th>
                     {visibleColumns.map((col, index) => {
@@ -392,20 +420,27 @@ const TableView: React.FC<TableViewProps> = ({ isScrolled, density }) => {
                         task={task} 
                         level={0} 
                         columns={visibleColumns}
-                        onToggle={handleToggle} 
+                        onToggle={(id) => {
+                           if (String(id).startsWith('group-')) {
+                               handleToggleLocal(id);
+                           } else {
+                               handleToggle(id as any);
+                           }
+                        }} 
                         rowNumberMap={rowNumberMap}
-                        selectedTaskIds={selectedTaskIds}
-                        onToggleRow={handleToggleRow}
-                        editingCell={editingCell}
-                        onEditCell={setEditingCell}
+                        selectedTaskIds={selectedTaskIds as any}
+                        onToggleRow={handleToggleRow as any}
+                        editingCell={editingCell as any}
+                        onEditCell={setEditingCell as any}
                         onUpdateTask={handleUpdateTask}
                         isScrolled={isScrolled}
                         displayDensity={displayDensity}
                         showGridLines={showGridLines}
-                        onShowDetails={handleShowDetails}
+                        onShowDetails={handleShowDetails as any}
                         activeDetailedTaskId={detailedTaskId}
-                        taskStyles={activeView.taskStyles}
+                        taskStyles={activeView.taskStyles as any}
                         filters={activeView.filters}
+                        checkExpanded={isExpandedLocal}
                     />
                     ))}
                 </tbody>

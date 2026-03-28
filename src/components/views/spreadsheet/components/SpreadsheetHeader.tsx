@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { SpreadsheetColumn, DisplayDensity, ColumnId } from '../../../../types';
 import { Resizer } from '../../../common/ui/Resizer';
-import { SortIcon, ArrowUpIcon, ArrowDownIcon } from '../../../common/Icons';
+import { SortIcon, ArrowUpIcon, ArrowDownIcon, ChevronDownIcon, ChevronUpIcon, ChevronsDownIcon } from '../../../common/Icons';
 import { SPREADSHEET_INDEX_COLUMN_WIDTH } from '../../../../constants/spreadsheetLayout';
+import { useProject } from '../../../../context/ProjectContext';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../../common/ui/Tooltip';
 
 interface SpreadsheetHeaderProps {
     columns: SpreadsheetColumn[];
@@ -44,6 +46,7 @@ const SpreadsheetHeader: React.FC<SpreadsheetHeaderProps> = ({
     onMouseDown,
     onContextMenu
 }) => {
+    const { expansionCycle, handleCycleExpansion } = useProject();
     const heightClass = getHeaderHeightClass(displayDensity);
     const [dropIndicator, setDropIndicator] = useState<{ id: string; position: 'left' | 'right' } | null>(null);
 
@@ -98,8 +101,27 @@ const SpreadsheetHeader: React.FC<SpreadsheetHeaderProps> = ({
                     fontSize,
                     boxShadow: 'inset 0 -1px 0 #e5e7eb' // Ensures border remains visible when sticky
                 }}>
-                    <div className="flex items-center justify-center h-full w-full text-gray-500 font-semibold">
-                        #
+                    <div className="flex items-center justify-center h-full w-full text-gray-500 font-semibold group/header">
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <button 
+                                        onClick={handleCycleExpansion}
+                                        className="p-1 rounded hover:bg-gray-200 transition-colors"
+                                        aria-label="Cycle expansion"
+                                    >
+                                        {expansionCycle === 0 && <ChevronUpIcon className="w-4 h-4" />}
+                                        {expansionCycle === 1 && <ChevronDownIcon className="w-4 h-4" />}
+                                        {expansionCycle === 2 && <ChevronsDownIcon className="w-4 h-4" />}
+                                    </button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    {expansionCycle === 0 && "Expand First Tier"}
+                                    {expansionCycle === 1 && "Expand All"}
+                                    {expansionCycle === 2 && "Collapse All"}
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
                     </div>
                 </th>
                 {columns.map(col => (

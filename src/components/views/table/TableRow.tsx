@@ -1,4 +1,4 @@
-import React, { Fragment, useEffect, useRef, useState, useLayoutEffect, useMemo } from 'react';
+import React, { Fragment, useEffect, useRef, useState, useLayoutEffect, useMemo, useId } from 'react';
 import { RowActionsMenu } from '../../shared/RowActionsMenu';
 import { Task, Status, Column, ColumnId, DisplayDensity, TaskStyle, FilterRule } from '../../../types';
 import { EyeIcon, ChevronRightIcon, ChevronDownIcon, DocumentIcon } from '../../common/Icons';
@@ -24,9 +24,10 @@ interface TableRowProps {
   displayDensity: DisplayDensity;
   showGridLines: boolean;
   onShowDetails: (taskId: number) => void;
-  activeDetailedTaskId: number | null;
-  taskStyles?: { [taskId: number]: TaskStyle };
+  activeDetailedTaskId: number | null | string;
+  taskStyles?: { [taskId: number | string]: TaskStyle };
   filters?: FilterRule[];
+  checkExpanded: (id: string | number) => boolean;
 }
 
 const getRowHeight = (density: DisplayDensity) => {
@@ -68,10 +69,19 @@ const SelectionCell: React.FC<{ task: Task, isSelected: boolean, onToggleRow: (i
   );
 };
 
-const NameCellContent: React.FC<{ task: Task, level: number, isEditing: boolean, onEdit: (cell: { taskId: number; column: string } | null) => void, onUpdateTask: TableRowProps['onUpdateTask'], onToggle: (id: number) => void, textColor?: string }> = ({ task, level, isEditing, onEdit, onUpdateTask, onToggle, textColor }) => {
-    const hasChildren = task.children && task.children.length > 0;
+const NameCellContent: React.FC<{ 
+    task: Task, 
+    level: number, 
+    isEditing: boolean, 
+    onEdit: (cell: { taskId: number; column: string } | null) => void, 
+    onUpdateTask: TableRowProps['onUpdateTask'], 
+    onToggle: TableRowProps['onToggle'], 
+    textColor?: string,
+    isExpanded: boolean 
+}> = ({ task, level, isEditing, onEdit, onUpdateTask, onToggle, textColor, isExpanded }) => {
+    const hasChildren = (task.children && task.children.length > 0);
+    const taskNameId = useId();
     const nameInputRef = useRef<HTMLInputElement>(null);
-    const taskNameId = `task-name-${task.id}`;
 
     useEffect(() => {
         if (isEditing) {
@@ -92,9 +102,10 @@ const NameCellContent: React.FC<{ task: Task, level: number, isEditing: boolean,
                     <button
                         onClick={(e) => { e.stopPropagation(); onToggle(task.id); }}
                         className="mr-1 p-0.5 rounded hover:bg-blue-100 text-blue-500 hover:text-blue-700 shrink-0 transition-colors"
-                        aria-expanded={task.isExpanded}
+                        aria-expanded={isExpanded}
+                        aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${task.name}`}
                     >
-                        {task.isExpanded ? <ChevronDownIcon className="w-3.5 h-3.5" /> : <ChevronRightIcon className="w-3.5 h-3.5" />}
+                        {isExpanded ? <ChevronDownIcon className="w-3.5 h-3.5" /> : <ChevronRightIcon className="w-3.5 h-3.5" />}
                     </button>
                 ) : (
                     <DocumentIcon className="w-4 h-4 text-gray-400"/>
@@ -174,10 +185,12 @@ const DateCellContent: React.FC<{ task: Task, isEditing: boolean, onEdit: (cell:
 };
 
 
-const TableRow: React.FC<TableRowProps> = ({ task, level, onToggle, rowNumberMap, selectedTaskIds, onToggleRow, editingCell, onEditCell, onUpdateTask, columns, isScrolled, displayDensity, showGridLines, onShowDetails, activeDetailedTaskId, taskStyles, filters = [] }) => {
-  const isSelected = selectedTaskIds.has(task.id);
+const TableRow: React.FC<TableRowProps> = ({ task, level, onToggle, rowNumberMap, selectedTaskIds, onToggleRow, editingCell, onEditCell, onUpdateTask, columns, isScrolled, displayDensity, showGridLines, onShowDetails, activeDetailedTaskId, taskStyles, filters = [], checkExpanded }) => {
+  const isSelected = selectedTaskIds.has(task.id as any);
   const rowNum = rowNumberMap.get(task.id);
   const rowHeightClass = getRowHeight(displayDensity);
+  const isExpanded = checkExpanded(task.id);
+  const isGroup = (task as any).isGroup;
   const [isLinked, setIsLinked] = useState(false);
 
   const highlightFilter = useMemo(() => {
@@ -195,14 +208,18 @@ const TableRow: React.FC<TableRowProps> = ({ task, level, onToggle, rowNumberMap
   
   let rowClasses = 'group';
   if (!customBg) {
-     rowClasses += isSelected ? ' bg-blue-50 hover:bg-blue-100' : ' bg-white hover:bg-gray-50';
+     if (isGroup) {
+        rowClasses += ' bg-gray-50/80 font-bold text-gray-800 border-t border-b border-gray-200';
+     } else {
+        rowClasses += isSelected ? ' bg-blue-50 hover:bg-blue-100' : ' bg-white hover:bg-gray-50';
+     }
   }
 
   const getCellContent = (columnId: ColumnId) => {
       const isEditing = editingCell?.taskId === task.id && editingCell?.column === columnId;
       switch (columnId) {
           case 'name':
-              return <NameCellContent task={task} level={level} isEditing={isEditing} onEdit={onEditCell} onUpdateTask={onUpdateTask} onToggle={onToggle} textColor={customText} />;
+              return <NameCellContent task={task} level={level} isEditing={isEditing} onEdit={onEditCell} onUpdateTask={onUpdateTask} onToggle={onToggle} textColor={customText} isExpanded={isExpanded} />;
           case 'status':
               return <StatusCellContent task={task} isEditing={isEditing} onEdit={onEditCell} onUpdateTask={onUpdateTask} />;
           case 'assignee':
@@ -231,7 +248,12 @@ const TableRow: React.FC<TableRowProps> = ({ task, level, onToggle, rowNumberMap
 
   return (
     <Fragment>
-      <tr className={rowClasses} style={rowStyle}>
+      <tr 
+        className={rowClasses} 
+        style={rowStyle}
+        aria-level={level + 1}
+        aria-expanded={task.children && task.children.length > 0 ? isExpanded : undefined}
+      >
         <SelectionCell 
             task={task} 
             isSelected={isSelected} 
@@ -313,7 +335,7 @@ const TableRow: React.FC<TableRowProps> = ({ task, level, onToggle, rowNumberMap
             )}
         </td>
       </tr>
-      {task.children && task.isExpanded && task.children?.map(child => (
+      {task.children && isExpanded && task.children?.map(child => (
         <TableRow 
             key={child.id} 
             task={child} 
@@ -330,10 +352,10 @@ const TableRow: React.FC<TableRowProps> = ({ task, level, onToggle, rowNumberMap
             displayDensity={displayDensity}
             showGridLines={showGridLines}
             onShowDetails={onShowDetails}
-            /* Fix: Use activeDetailedTaskId instead of detailedTaskId which was not in scope. */
             activeDetailedTaskId={activeDetailedTaskId}
             taskStyles={taskStyles}
             filters={filters}
+            checkExpanded={checkExpanded}
         />
       ))}
     </Fragment>

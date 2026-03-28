@@ -72,6 +72,7 @@ const SpreadsheetRowV2: React.FC<SpreadsheetRowV2Props> = ({
     showColoredRows
 }) => {
     const isRowFocused = focusedCell?.rowId === row.id && focusedCell?.type === rowType;
+    const isSyntheticGroup = row.id.startsWith('group-');
     const customStyle = row.style || {};
     const customBorder = customStyle.borderColor;
     const rowHeightClass = getRowHeightClass(displayDensity);
@@ -178,6 +179,7 @@ const SpreadsheetRowV2: React.FC<SpreadsheetRowV2Props> = ({
 
     const rowClasses = `group ${rowHeightClass} relative transition-colors ${
         isSelected ? 'bg-blue-100' : 
+        isSyntheticGroup ? 'bg-gray-50/80 font-bold border-t border-b border-gray-200 text-gray-800' :
         rowType === 'parent' ? `${statusColors} font-semibold border-t border-b` : 
         rowType === 'summary' ? 'bg-gray-100 text-gray-900 font-bold border-t border-gray-300' : 
         (rowStyle.backgroundColor ? '' : 'bg-white')
@@ -187,6 +189,7 @@ const SpreadsheetRowV2: React.FC<SpreadsheetRowV2Props> = ({
     const getStickyBg = () => {
         if (rowType === 'summary') return 'bg-gray-100';
         if (isSelected) return 'bg-[#dbeafe]'; // blue-100
+        if (isSyntheticGroup) return 'bg-gray-50';
         if (isRowFocused) return 'bg-[#eff6ff]'; // blue-50
         if (rowType === 'parent' && showColoredRows) {
             if (remaining < 0) return 'bg-[#fef2f2]';
@@ -199,7 +202,12 @@ const SpreadsheetRowV2: React.FC<SpreadsheetRowV2Props> = ({
     const stickyBgClass = getStickyBg();
 
     return (
-        <tr className={rowClasses} style={rowStyle}>
+        <tr 
+            className={rowClasses} 
+            style={rowStyle}
+            aria-level={level + 1}
+            aria-expanded={hasChildren ? isExpanded : undefined}
+        >
             {/* Locked Column 1 */}
             <td 
                 onClick={() => rowType !== 'summary' && onToggleRow(row.id)}
@@ -249,6 +257,15 @@ const SpreadsheetRowV2: React.FC<SpreadsheetRowV2Props> = ({
                     else if (col.isTotal && summaryTotals) {
                         const val = (summaryTotals as any)[col.id];
                         content = col.id === 'effortHours' ? val : formatCurrency(val);
+                    }
+                } else if (isSyntheticGroup) {
+                    if (col.id === 'name') {
+                        content = row.name;
+                    } else if (col.isTotal) {
+                        const val = (row as any)[col.id];
+                        content = (col.id === 'effortHours' || col.id === 'quantity') ? val : formatCurrency(val);
+                    } else {
+                        content = '';
                     }
                 } else if (rowType === 'parent') {
                     if (col.id === 'name') {
@@ -347,10 +364,12 @@ const SpreadsheetRowV2: React.FC<SpreadsheetRowV2Props> = ({
                                 className={`flex items-center h-full w-full relative z-10 ${col.align === 'right' ? 'justify-end' : 'justify-start'}`}
                                 style={{ paddingLeft: col.id === 'name' ? `${level * 16}px` : undefined }}
                             >
-                                {col.id === 'name' && rowType === 'parent' && hasChildren && (
+                                {col.id === 'name' && (rowType === 'parent' || isSyntheticGroup) && hasChildren && (
                                     <button 
                                         onClick={(e) => { e.stopPropagation(); onToggleExpand(); }}
                                         className="mr-1 p-0.5 rounded hover:bg-blue-100 text-blue-500 hover:text-blue-700 shrink-0 transition-colors"
+                                        aria-expanded={isExpanded}
+                                        aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${row.name}`}
                                     >
                                         {isExpanded ? <ChevronDownIcon className="w-3.5 h-3.5" /> : <ChevronRightIcon className="w-3.5 h-3.5" />}
                                     </button>

@@ -4,6 +4,9 @@ import { useProject } from '../../../context/ProjectContext';
 import { useProjectData } from '../../../hooks/useProjectData';
 import ViewControls from '../../layout/ViewControls';
 import TaskCard from './components/TaskCard';
+import FieldsMenu from '../../layout/FieldsMenu';
+import { Popover } from '../../common/ui/Popover';
+import { SettingsIcon } from '../../common/Icons';
 
 const flattenTasks = (tasks: Task[]): Task[] => {
   let allTasks: Task[] = [];
@@ -54,9 +57,24 @@ const BoardView: React.FC = () => {
     };
 
     return (
-        <div className="flex flex-col h-full p-4 gap-4 min-w-min bg-gray-50">
-            <ViewControls />
-            <div className="flex gap-6 flex-grow overflow-auto pb-2">
+        <div className="flex h-full flex-col p-4 gap-4 overflow-hidden">
+            <div className="flex items-center gap-2">
+                <ViewControls />
+                <div className="ml-auto flex items-center">
+                    <Popover
+                        trigger={
+                            <button className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors" aria-label="View settings">
+                                <SettingsIcon className="w-4 h-4" />
+                            </button>
+                        }
+                        content={
+                            <FieldsMenu onClose={() => {}} disableClickOutside className="right-0 mt-2" />
+                        }
+                        align="end"
+                    />
+                </div>
+            </div>
+            <div className="flex gap-6 flex-grow overflow-x-auto pb-4">
                 {statusColumns.map(status => (
                     <div key={status} className="w-80 bg-gray-100 rounded-lg flex-shrink-0 flex flex-col max-h-full border border-gray-200/60">
                         <div className="flex items-center justify-between p-3 sticky top-0 bg-gray-100 z-10 rounded-t-lg border-b border-gray-200/50">
