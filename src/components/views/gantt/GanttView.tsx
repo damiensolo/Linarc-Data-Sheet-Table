@@ -40,7 +40,7 @@ const GanttView: React.FC = () => {
     const allTasks = flatten(sortedTasks);
 
     if (allTasks.length === 0) return (
-        <div className="h-full flex flex-col p-4 gap-4">
+        <div className="h-full flex flex-col px-4 pt-2.5 pb-2.5 gap-2.5">
             <ViewControls />
             <div className="p-4">No tasks to display.</div>
         </div>
@@ -76,7 +76,7 @@ const GanttView: React.FC = () => {
     }
 
     return (
-        <div className="h-full flex flex-col p-4 gap-4">
+        <div className="h-full flex flex-col px-4 pt-2.5 pb-2.5 gap-2.5">
             <div className="flex items-center gap-2">
                 <ViewControls />
                 <div className="ml-auto flex items-center">

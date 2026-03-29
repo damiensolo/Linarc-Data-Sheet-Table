@@ -57,7 +57,7 @@ const BoardView: React.FC = () => {
     };
 
     return (
-        <div className="flex h-full flex-col p-4 gap-4 overflow-hidden">
+        <div className="flex h-full flex-col px-4 pt-2.5 pb-2.5 gap-2.5 overflow-hidden">
             <div className="flex items-center gap-2">
                 <ViewControls />
                 <div className="ml-auto flex items-center">

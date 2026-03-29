@@ -778,7 +778,7 @@ const SpreadsheetViewV2: React.FC = () => {
   return (
     <div 
         ref={containerRef}
-        className="flex flex-col h-full p-4 outline-none focus:ring-0 overflow-hidden gap-4" 
+        className="flex flex-col h-full px-4 pt-2.5 pb-2.5 outline-none focus:ring-0 overflow-hidden gap-2.5" 
         onKeyDown={handleKeyDown} 
         tabIndex={0}
     >

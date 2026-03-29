@@ -214,7 +214,7 @@ const TableView: React.FC<TableViewProps> = ({ isScrolled, density }) => {
   const hasSelection = selectedTaskIds.size > 0;
 
   return (
-    <div className="flex flex-col h-full p-4 gap-4">
+    <div className="flex flex-col h-full px-4 pt-2.5 pb-2.5 gap-2.5">
         {/* Floating Toolbar Design */}
         <div className="flex items-center gap-2">
             <AnimatePresence mode="wait">
