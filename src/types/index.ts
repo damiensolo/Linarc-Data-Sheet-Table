@@ -141,10 +141,32 @@ export interface SpreadsheetColumn {
 
 export type ViewMode = 'table' | 'spreadsheet' | 'spreadsheetV2' | 'board' | 'gantt' | 'lookahead' | 'dashboard';
 
+export enum ViewCategory {
+  System = 'system',
+  Personal = 'personal',
+  Shared = 'shared'
+}
+
+export type SharedWith = 'everyone' | string[];
+
+export interface ViewMetadata {
+  ownerId?: string;
+  ownerName: string;
+  createdAt: string;
+  sharedAt?: string;
+  sharedWith?: SharedWith;
+  isLocked?: boolean;
+  isDraft?: boolean;
+}
+
 export interface View {
   id: string;
   name: string;
   type: ViewMode;
+  category: ViewCategory;
+  isEnabled: boolean; // Controls whether this view shows up in the tab bar
+  isActive: boolean;  // Tracks currently active view
+  isDefault: boolean;
   filters: FilterRule[];
   sort: { columnId: ColumnId; direction: 'asc' | 'desc' } | null;
   columns: Column[];
@@ -157,4 +179,6 @@ export interface View {
   fontSize: number;
   highlights?: HighlightRule[];
   groupBy?: GroupByRule[] | null;
+  baseViewType?: ViewMode;
+  metadata: ViewMetadata;
 }

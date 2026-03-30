@@ -1,12 +1,12 @@
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { View, ViewMode } from '../../types';
+import { View, ViewMode, ViewCategory } from '../../types';
 import { useProject } from '../../context/ProjectContext';
 import FilterMenu from './FilterMenu';
 import HighlightMenu from './HighlightMenu';
 import GroupMenu from './GroupMenu';
-import { PlusIcon, MoreHorizontalIcon, MoreVerticalIcon, TableIcon, BoardIcon, GanttIcon, LookaheadIcon, SearchIcon, FilterIcon, SpreadsheetIcon, DashboardIcon, ShareIcon, FillColorIcon, CopyIcon, GroupIcon, ChevronDownIcon, ChevronUpIcon, ChevronsDownIcon, XIcon } from '../common/Icons';
+import { PlusIcon, MoreHorizontalIcon, MoreVerticalIcon, TableIcon, BoardIcon, GanttIcon, LookaheadIcon, SearchIcon, FilterIcon, SpreadsheetIcon, DashboardIcon, ShareIcon, FillColorIcon, CopyIcon, GroupIcon, ChevronDownIcon, ChevronUpIcon, ChevronsDownIcon, XIcon, SettingsIcon, ViewManagerIcon } from '../common/Icons';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../common/ui/Tooltip';
 
 const modes: { id: ViewMode; label: string; icon: React.FC<React.SVGProps<SVGSVGElement>> }[] = [
@@ -20,6 +20,7 @@ const modes: { id: ViewMode; label: string; icon: React.FC<React.SVGProps<SVGSVG
 
 const TabMenu: React.FC<{ view: View, isDefault: boolean, onRename: () => void, onDelete: () => void, onSetDefault: () => void, onShare: () => void, onClone: () => void, canDelete: boolean }> = 
 ({ view, isDefault, onRename, onDelete, onSetDefault, onShare, onClone, canDelete }) => {
+  const { toggleViewEnabled, handleSelectView } = useProject();
   const [isOpen, setIsOpen] = useState(false);
   const [coords, setCoords] = useState({ top: 0, left: 0 });
   const menuWrapperRef = useRef<HTMLDivElement>(null);
@@ -120,10 +121,18 @@ const TabMenu: React.FC<{ view: View, isDefault: boolean, onRename: () => void, 
             {canDelete && (
                 <li>
                     <button 
-                        onClick={() => { onDelete(); setIsOpen(false); }} 
+                        onClick={() => { 
+                            if (view.category === ViewCategory.System) {
+                                // For system views, "Delete" is actually "Hide" (disable toggle)
+                                toggleViewEnabled(view.id, false);
+                            } else {
+                                onDelete(); 
+                            }
+                            setIsOpen(false); 
+                        }} 
                         className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
                     >
-                        Delete
+                        {view.category === ViewCategory.System ? 'Hide' : 'Delete'}
                     </button>
                 </li>
             )}
@@ -253,9 +262,13 @@ const ViewControls: React.FC = () => {
   const {
     views, activeViewId, defaultViewId, handleSelectView, setModalState, handleDeleteView, setDefaultViewId, setViews,
     activeViewMode, handleViewModeChange,
-    searchTerm, setSearchTerm, showFilterMenu, setShowFilterMenu, showHighlightMenu, setShowHighlightMenu, showGroupMenu, setShowGroupMenu,    handleSort,
+    searchTerm, setSearchTerm, showFilterMenu, setShowFilterMenu, showHighlightMenu, setShowHighlightMenu, showGroupMenu, setShowGroupMenu,
+    handleSort,
     updateView,
-    activeView
+    activeView,
+    setIsViewManagerOpen,
+    setViewManagerShareId,
+    handleDuplicateView,
   } = useProject();
 
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
@@ -314,15 +327,7 @@ const ViewControls: React.FC = () => {
   };
 
   const handleCloneView = (viewId: string) => {
-      const viewToClone = views.find(v => v.id === viewId);
-      if (viewToClone) {
-          const newId = Math.random().toString(36).substring(2, 9);
-          const newView: View = JSON.parse(JSON.stringify(viewToClone));
-          newView.id = newId;
-          newView.name = `${newView.name} (Copy)`;
-          setViews([...views, newView]);
-          handleSelectView(newId);
-      }
+      handleDuplicateView(viewId);
   };
 
   const searchPlaceholder = activeViewMode === 'spreadsheet' || activeViewMode === 'spreadsheetV2' ? 'Search...' : 'Search tasks...';
@@ -334,11 +339,20 @@ const ViewControls: React.FC = () => {
       | { type: 'create'; isFirst: boolean; isLast: boolean }
       | { type: 'view'; view: View; index: number; isFirst: boolean; isLast: boolean };
 
+  const visibleViews = views.filter(v => v.isEnabled);
+  
+  // Sort visible views by category priority: System -> Personal -> Shared
+  const sortedViews = [
+      ...visibleViews.filter(v => v.category === ViewCategory.System),
+      ...visibleViews.filter(v => v.category === ViewCategory.Personal),
+      ...visibleViews.filter(v => v.category === ViewCategory.Shared),
+  ];
+
   const unifiedItems: ToolbarItem[] = [
       ...modes.map((mode, i) => ({ type: 'mode' as const, mode, isFirst: i === 0, isLast: i === modes.length - 1 })),
-      ...(views.length > 0 ? [{ type: 'divider' as const }] : []),
-      { type: 'create' as const, isFirst: true, isLast: views.length === 0 },
-      ...views.map((view, index) => ({ type: 'view' as const, view, index, isFirst: false, isLast: index === views.length - 1 }))
+      ...(sortedViews.length > 0 ? [{ type: 'divider' as const }] : []),
+      { type: 'create' as const, isFirst: true, isLast: sortedViews.length === 0 },
+      ...sortedViews.map((view, index) => ({ type: 'view' as const, view, index, isFirst: false, isLast: index === sortedViews.length - 1 }))
   ];
 
   const renderViewModeItem = (mode: typeof modes[0], isFirst: boolean, isLast: boolean, isDropdown: boolean, closeDropdown?: () => void) => {
@@ -400,7 +414,11 @@ const ViewControls: React.FC = () => {
                           onRename={() => { setModalState({ type: 'rename', view }); closeDropdown?.(); }}
                           onDelete={() => { handleDeleteView(view.id); closeDropdown?.(); }}
                           onSetDefault={() => { setDefaultViewId(view.id); closeDropdown?.(); }}
-                          onShare={() => { console.log('Share view:', view.id); closeDropdown?.(); }}
+                          onShare={() => { 
+                              setViewManagerShareId(view.id);
+                              setIsViewManagerOpen(true);
+                              closeDropdown?.(); 
+                          }}
                           onClone={() => { handleCloneView(view.id); closeDropdown?.(); }}
                           canDelete={true}
                       />
@@ -467,37 +485,76 @@ const ViewControls: React.FC = () => {
 
                     {/* Filter */}
                     <div className="relative flex-shrink-0">
-                        <button ref={filterButtonRef} onClick={() => setShowFilterMenu(p => !p)} className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 shadow-sm h-9 flex-shrink-0">
-                            <FilterIcon className="w-4 h-4" />
-                            <span>Filter</span>
-                            {activeView.filters.length > 0 && <span className="bg-blue-100 text-blue-700 text-xs font-bold px-1.5 py-0.5 rounded-full">{activeView.filters.length}</span>}
-                        </button>
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <button ref={filterButtonRef} onClick={() => setShowFilterMenu(p => !p)} className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 shadow-sm h-9 flex-shrink-0" aria-label="Filter tasks">
+                                        <FilterIcon className="w-4 h-4" />
+                                        <span>Filter</span>
+                                        {activeView.filters.length > 0 && <span className="bg-blue-100 text-blue-700 text-xs font-bold px-1.5 py-0.5 rounded-full">{activeView.filters.length}</span>}
+                                    </button>
+                                </TooltipTrigger>
+                                <TooltipContent>Filter</TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
                         {showFilterMenu && <FilterMenu onClose={() => setShowFilterMenu(false)} triggerRef={filterButtonRef} />}
                     </div>
 
                     {/* Group By */}
                     <div className="relative flex-shrink-0">
-                        <button ref={groupButtonRef} onClick={() => setShowGroupMenu(p => !p)} className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 shadow-sm h-9 flex-shrink-0">
-                            <GroupIcon className="w-4 h-4" />
-                            <span>Group</span>
-                            {(activeView.groupBy?.length || 0) > 0 && <span className="bg-blue-100 text-blue-700 text-xs font-bold px-1.5 py-0.5 rounded-full">{activeView.groupBy!.length}</span>}
-                        </button>
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <button ref={groupButtonRef} onClick={() => setShowGroupMenu(p => !p)} className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 shadow-sm h-9 flex-shrink-0" aria-label="Group tasks">
+                                        <GroupIcon className="w-4 h-4" />
+                                        <span>Group</span>
+                                        {(activeView.groupBy?.length || 0) > 0 && <span className="bg-blue-100 text-blue-700 text-xs font-bold px-1.5 py-0.5 rounded-full">{activeView.groupBy!.length}</span>}
+                                    </button>
+                                </TooltipTrigger>
+                                <TooltipContent>Group By</TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
                         {showGroupMenu && <GroupMenu onClose={() => setShowGroupMenu(false)} triggerRef={groupButtonRef} />}
                     </div>
 
-                    {/* Highlight */}
+                    {/* Highlight - Only show on Spreadsheet and Dashboard views as requested */}
+                    {activeViewMode !== 'table' && activeViewMode !== 'board' && (
+                        <div className="relative flex-shrink-0">
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger>
+                                        <button ref={highlightButtonRef} onClick={() => setShowHighlightMenu(p => !p)} className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 shadow-sm h-9 flex-shrink-0" aria-label="Highlight cells">
+                                            <FillColorIcon className="w-4 h-4" />
+                                            {(activeView.highlights?.length || 0) > 0 && <span className="bg-blue-100 text-blue-700 text-xs font-bold px-1.5 py-0.5 rounded-full">{activeView.highlights?.length}</span>}
+                                        </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Highlight</TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                            {showHighlightMenu && <HighlightMenu onClose={() => setShowHighlightMenu(false)} triggerRef={highlightButtonRef} />}
+                        </div>
+                    )}
+
+                    {/* Manage Views */}
                     <div className="relative flex-shrink-0">
                         <TooltipProvider>
                             <Tooltip>
-                                <TooltipTrigger>
-                                                                         <button ref={highlightButtonRef} onClick={() => setShowHighlightMenu(p => !p)} className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 shadow-sm h-9 flex-shrink-0" aria-label="Highlight cells">                                        <FillColorIcon className="w-4 h-4" />
-                                        {(activeView.highlights?.length || 0) > 0 && <span className="bg-blue-100 text-blue-700 text-xs font-bold px-1.5 py-0.5 rounded-full">{activeView.highlights?.length}</span>}
+                                <TooltipTrigger asChild>
+                                    <button 
+                                        onClick={() => setIsViewManagerOpen(true)}
+                                        className="relative flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 shadow-sm h-9 flex-shrink-0"
+                                        aria-label="Manage views"
+                                    >
+                                        <ViewManagerIcon className="w-4 h-4" />
+                                        <span>Manage</span>
+                                        {views.some(v => !v.isEnabled) && (
+                                            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-blue-500 border-2 border-white rounded-full"></span>
+                                        )}
                                     </button>
                                 </TooltipTrigger>
-                                <TooltipContent>Highlight</TooltipContent>
+                                <TooltipContent>Manage Views</TooltipContent>
                             </Tooltip>
                         </TooltipProvider>
-                        {showHighlightMenu && <HighlightMenu onClose={() => setShowHighlightMenu(false)} triggerRef={highlightButtonRef} />}
                     </div>
 
                     <div className="h-6 w-px bg-gray-300 mx-1 flex-shrink-0"></div>

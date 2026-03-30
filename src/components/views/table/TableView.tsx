@@ -265,26 +265,6 @@ const TableView: React.FC<TableViewProps> = ({ isScrolled, density }) => {
                                 <TooltipContent>Delete</TooltipContent>
                             </Tooltip>
                             
-                            <div className="w-px h-6 bg-gray-300 mx-1"></div>
-                            
-                            <ColorPicker 
-                                icon={<FillColorIcon className="w-5 h-5" />} 
-                                label="Background" 
-                                onColorSelect={(color) => handleBulkStyleUpdate({ backgroundColor: color })} 
-                                presets={BACKGROUND_COLORS}
-                            />
-                            <ColorPicker 
-                                icon={<BorderColorIcon className="w-5 h-5" />} 
-                                label="Border" 
-                                onColorSelect={(color) => handleBulkStyleUpdate({ borderColor: color })} 
-                                presets={TEXT_BORDER_COLORS}
-                            />
-                            <ColorPicker 
-                                icon={<TextColorIcon className="w-5 h-5" />} 
-                                label="Text" 
-                                onColorSelect={(color) => handleBulkStyleUpdate({ textColor: color })} 
-                                presets={TEXT_BORDER_COLORS}
-                            />
                         </div>
                     </TooltipProvider>
                     <span className="text-sm font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
@@ -352,7 +332,7 @@ const TableView: React.FC<TableViewProps> = ({ isScrolled, density }) => {
                         <th 
                             key={col.id} 
                             scope="col" 
-                            className={`${headerHeightClass} px-6 font-semibold relative group cursor-pointer align-middle text-gray-700 ${showGridLines && !isLastVisibleColumn ? 'border-r border-gray-200' : ''}`}
+                            className={`${headerHeightClass} px-4 font-semibold relative group cursor-pointer align-middle text-gray-700 ${showGridLines && !isLastVisibleColumn ? 'border-r border-gray-200' : ''}`}
                             style={{ width: col.width, zIndex: 30, boxShadow: 'inset 0 -1px 0 #e5e7eb' }}
                             onClick={() => {
                                 if (col.id === 'details') return;
@@ -367,9 +347,9 @@ const TableView: React.FC<TableViewProps> = ({ isScrolled, density }) => {
                             {dropIndicator?.id === col.id && (
                             <div className={`absolute top-0 h-full w-1 bg-blue-500 rounded-full ${dropIndicator.position === 'left' ? 'left-0' : 'right-0'}`} style={{ zIndex: 20 }} />
                             )}
-                            <div className={`flex items-center gap-1 ${col.id === 'details' ? 'justify-center' : ''} overflow-hidden`}>
+                            <div className={`flex items-center gap-1 ${col.id === 'details' ? 'justify-center' : ''}`}>
                             {isSecondColumn && (
-                                <div className="mr-2 flex items-center">
+                                <div className="mr-2 flex items-center flex-shrink-0">
                                     <TooltipProvider>
                                         <Tooltip>
                                             <TooltipTrigger asChild>
@@ -378,7 +358,7 @@ const TableView: React.FC<TableViewProps> = ({ isScrolled, density }) => {
                                                         e.stopPropagation();
                                                         handleCycleExpansion();
                                                     }}
-                                                    className="p-1 rounded hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                    className="p-1 rounded hover:bg-gray-200 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                                                     aria-label="Cycle expansion"
                                                 >
                                                     {expansionCycle === 0 && <ChevronUpIcon className="w-4 h-4" />}
@@ -422,13 +402,7 @@ const TableView: React.FC<TableViewProps> = ({ isScrolled, density }) => {
                         task={task} 
                         level={0} 
                         columns={visibleColumns}
-                        onToggle={(id) => {
-                           if (String(id).startsWith('group-')) {
-                               handleToggleLocal(id);
-                           } else {
-                               handleToggle(id as any);
-                           }
-                        }} 
+                        onToggle={(id) => handleToggleLocal(id)} 
                         rowNumberMap={rowNumberMap}
                         selectedTaskIds={selectedTaskIds as any}
                         onToggleRow={handleToggleRow as any}

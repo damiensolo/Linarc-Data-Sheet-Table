@@ -427,3 +427,17 @@ export const ChevronUpIcon: React.FC<IconProps> = ({ title, ...props }) => (
     <polyline points="18 15 12 9 6 15"></polyline>
   </svg>
 );
+export const LockIcon: React.FC<IconProps> = ({ title, ...props }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    {title && <title>{title}</title>}
+    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+  </svg>
+);
+
+export const ViewManagerIcon: React.FC<IconProps> = ({ title, ...props }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    {title && <title>{title}</title>}
+    <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/>
+  </svg>
+);

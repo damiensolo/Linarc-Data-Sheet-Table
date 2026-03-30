@@ -150,7 +150,7 @@ const SpreadsheetHeader: React.FC<SpreadsheetHeaderProps> = ({
                                                         e.stopPropagation();
                                                         handleCycleExpansion();
                                                     }}
-                                                    className="p-1 rounded hover:bg-gray-200 transition-colors"
+                                                    className="p-1 rounded hover:bg-gray-200 transition-colors focus:outline-none focus:ring-0 focus-visible:ring-2 focus-visible:ring-blue-500"
                                                     aria-label="Cycle expansion"
                                                 >
                                                     {expansionCycle === 0 && <ChevronUpIcon className="w-4 h-4" />}

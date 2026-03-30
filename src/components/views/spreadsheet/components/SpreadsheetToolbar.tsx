@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ScissorsIcon, CopyIcon, TrashIcon, ClipboardIcon, FillColorIcon, BorderColorIcon, TextColorIcon, ActivityIcon, DatabaseIcon, CalculatorIcon, SettingsIcon } from '../../../common/Icons';
+import { ScissorsIcon, CopyIcon, TrashIcon, ClipboardIcon, FillColorIcon, BorderColorIcon, TextColorIcon, SettingsIcon } from '../../../common/Icons';
 import ViewControls from '../../../layout/ViewControls';
 import FieldsMenu from '../../../layout/FieldsMenu';
 import { Popover } from '../../../common/ui/Popover';
@@ -135,36 +135,6 @@ const SpreadsheetToolbar: React.FC<SpreadsheetToolbarProps> = ({
                     >
                     <ViewControls />
                     <div className="w-px h-6 bg-gray-300"></div>
-                    
-                    {/* Mini Actions */}
-                    <div className="flex items-center gap-1">
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger>
-                                    <button className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors">
-                                        <ActivityIcon className="w-4 h-4" />
-                                    </button>
-                                </TooltipTrigger>
-                                <TooltipContent>Toggle Critical Path</TooltipContent>
-                            </Tooltip>
-                            <Tooltip>
-                                <TooltipTrigger>
-                                    <button className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors">
-                                        <CalculatorIcon className="w-4 h-4" />
-                                    </button>
-                                </TooltipTrigger>
-                                <TooltipContent>Compute Critical Path</TooltipContent>
-                            </Tooltip>
-                            <Tooltip>
-                                <TooltipTrigger>
-                                    <button className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors">
-                                        <DatabaseIcon className="w-4 h-4" />
-                                    </button>
-                                </TooltipTrigger>
-                                <TooltipContent>Create Baseline</TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
-                    </div>
 
                     {/* Settings Menu */}
                     <div className="ml-auto flex items-center">

@@ -6,6 +6,7 @@ import ItemDetailsPanel from '../shared/ItemDetailsPanel';
 import CreateViewModal from '../shared/CreateViewModal';
 import Header from '../../mainnav/new/v2/Header';
 import Sidebar from '../../mainnav/new/v2/Sidebar';
+import ViewManagerModal from '../shared/ViewManagerModal';
 
 /** Bookmarks data passed from Header (v2) for Sidebar integration */
 type BookmarksData = {
@@ -22,7 +23,16 @@ type BookmarksData = {
 };
 
 const AppLayout: React.FC = () => {
-    const { modalState, setModalState, handleSaveView, detailedTask, setDetailedTaskId, handlePriorityChange } = useProject();
+    const { 
+        modalState, 
+        setModalState, 
+        handleSaveView, 
+        detailedTask, 
+        setDetailedTaskId, 
+        handlePriorityChange,
+        isViewManagerOpen,
+        setIsViewManagerOpen
+    } = useProject();
     const mainContentRef = useRef<HTMLDivElement>(null);
     const [isScrolled, setIsScrolled] = useState(false);
     const [bookmarksData, setBookmarksData] = useState<BookmarksData | null>(null);
@@ -44,6 +54,10 @@ const AppLayout: React.FC = () => {
                     onSave={handleSaveView}
                     onCancel={() => setModalState(null)}
                 />
+            )}
+
+            {isViewManagerOpen && (
+                <ViewManagerModal onClose={() => setIsViewManagerOpen(false)} />
             )}
             
             {/* Header v2: exposes bookmarks to Sidebar via onBookmarksDataChange */}

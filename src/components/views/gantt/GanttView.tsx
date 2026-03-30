@@ -7,7 +7,8 @@ import { useProjectData } from '../../../hooks/useProjectData';
 import ViewControls from '../../layout/ViewControls';
 import FieldsMenu from '../../layout/FieldsMenu';
 import { Popover } from '../../common/ui/Popover';
-import { SettingsIcon } from '../../common/Icons';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../common/ui/Tooltip';
+import { ActivityIcon, CalculatorIcon, DatabaseIcon, SettingsIcon } from '../../common/Icons';
 
 const getRowHeight = (density: DisplayDensity): number => {
   switch (density) {
@@ -79,6 +80,35 @@ const GanttView: React.FC = () => {
         <div className="h-full flex flex-col px-4 pt-2.5 pb-2.5 gap-2.5">
             <div className="flex items-center gap-2">
                 <ViewControls />
+                <div className="h-6 w-px bg-gray-300 mx-1"></div>
+                <div className="flex items-center gap-1">
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <button className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors" aria-label="Toggle critical path">
+                                    <ActivityIcon className="w-4 h-4" />
+                                </button>
+                            </TooltipTrigger>
+                            <TooltipContent>Toggle Critical Path</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <button className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors" aria-label="Compute critical path">
+                                    <CalculatorIcon className="w-4 h-4" />
+                                </button>
+                            </TooltipTrigger>
+                            <TooltipContent>Compute Critical Path</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <button className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors" aria-label="Create baseline">
+                                    <DatabaseIcon className="w-4 h-4" />
+                                </button>
+                            </TooltipTrigger>
+                            <TooltipContent>Create Baseline</TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                </div>
                 <div className="ml-auto flex items-center">
                     <Popover
                         trigger={

@@ -1,6 +1,6 @@
 import React, { createContext, useState, useMemo, useCallback, useContext, useRef, useEffect, SetStateAction, ReactNode } from 'react';
 import { MOCK_TASKS, MOCK_BUDGET_DATA } from '../data';
-import { Task, View, FilterRule, HighlightRule, Priority, ColumnId, Status, DisplayDensity, Column, ViewMode } from '../types';
+import { Task, View, FilterRule, HighlightRule, Priority, ColumnId, Status, DisplayDensity, Column, ViewMode, ViewCategory } from '../types';
 import { getDefaultTableColumns, getDefaultSpreadsheetColumns } from '../constants';
 
 type SortConfig = {
@@ -8,7 +8,7 @@ type SortConfig = {
   direction: 'asc' | 'desc';
 } | null;
 
-const getDefaultViewConfig = (viewMode: ViewMode): Omit<View, 'id' | 'name'> => {
+const getDefaultViewConfig = (viewMode: ViewMode): Omit<View, 'id' | 'name' | 'category' | 'isEnabled' | 'isActive' | 'isDefault' | 'metadata'> => {
   const baseConfig = {
     filters: [],
     highlights: [],
@@ -29,15 +29,15 @@ const getDefaultViewConfig = (viewMode: ViewMode): Omit<View, 'id' | 'name'> => 
       return {
         ...baseConfig,
         type: viewMode,
-        displayDensity: 'compact',
+        displayDensity: 'compact' as DisplayDensity,
         columns: [],
         spreadsheetData: JSON.parse(JSON.stringify(MOCK_BUDGET_DATA)),
         spreadsheetColumns: getDefaultSpreadsheetColumns(),
       };
     case 'lookahead':
-       return { ...baseConfig, displayDensity: 'standard', type: 'lookahead', columns: JSON.parse(JSON.stringify(getDefaultTableColumns())) };
+       return { ...baseConfig, displayDensity: 'standard' as DisplayDensity, type: 'lookahead', columns: JSON.parse(JSON.stringify(getDefaultTableColumns())) };
     case 'gantt':
-      return { ...baseConfig, displayDensity: 'compact', type: 'gantt', columns: [] };
+      return { ...baseConfig, displayDensity: 'compact' as DisplayDensity, type: 'gantt', columns: [] };
     case 'board':
       return { ...baseConfig, type: viewMode, columns: [] };
     case 'table':
@@ -45,13 +45,38 @@ const getDefaultViewConfig = (viewMode: ViewMode): Omit<View, 'id' | 'name'> => 
       return {
         ...baseConfig,
         type: 'table',
-        displayDensity: 'standard',
+        displayDensity: 'standard' as DisplayDensity,
         columns: JSON.parse(JSON.stringify(getDefaultTableColumns())),
         spreadsheetData: [],
         spreadsheetColumns: [],
       };
   }
 };
+
+const createSystemView = (id: string, name: string, type: ViewMode, isDefault: boolean = false): View => ({
+    id,
+    name,
+    type,
+    category: ViewCategory.System,
+    isEnabled: true,
+    isActive: isDefault,
+    isDefault,
+    ...getDefaultViewConfig(type),
+    metadata: {
+        ownerId: 'system',
+        ownerName: 'Project System',
+        createdAt: new Date().toISOString(),
+        isLocked: true
+    }
+} as View);
+
+const INITIAL_SYSTEM_VIEWS: View[] = [
+    {
+        ...createSystemView('sys-completed-tasks', 'Completed Tasks', 'table'),
+        filters: [{ columnId: 'status', operator: 'is', value: Status.Completed }],
+        isEnabled: false,
+    },
+];
 
 
 interface ProjectContextType {
@@ -105,6 +130,19 @@ interface ProjectContextType {
   detailedTask: Task | null;
   expansionCycle: number;
   handleCycleExpansion: () => void;
+  isViewManagerOpen: boolean;
+  setIsViewManagerOpen: (open: boolean) => void;
+  toggleViewEnabled: (viewId: string, enabled: boolean) => void;
+  userRole: 'admin' | 'standard';
+  shareView: (viewId: string, sharedWith: 'everyone' | string[]) => void;
+  reorderViews: (newViews: View[]) => void;
+  viewManagerShareId: string | null;
+  setViewManagerShareId: (id: string | null) => void;
+  handleDuplicateView: (viewId: string) => void;
+  handleRenameView: (viewId: string, newName: string) => void;
+  saveSystemView: (view: Partial<View>) => void;
+  deleteSystemView: (viewId: string) => void;
+  handleSaveNewView: (view: Partial<View>) => void;
 }
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
@@ -117,6 +155,8 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [activeViewMode, setActiveViewMode] = useState<ViewMode>('spreadsheetV2');
   const [transientView, setTransientView] = useState<View | null>(null);
   
+  const [viewManagerShareId, setViewManagerShareId] = useState<string | null>(null);
+
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<number>>(new Set());
   const [editingCell, setEditingCell] = useState<{ taskId: number; column: string } | null>(null);
   const [detailedTaskId, setDetailedTaskId] = useState<number | null>(null);
@@ -129,6 +169,20 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [showFieldsMenu, setShowFieldsMenu] = useState(false);
   const [displayHighlights, setDisplayHighlights] = useState<HighlightRule[]>([]);
   const [expansionCycle, setExpansionCycle] = useState(2); // 0: Collapse All, 1: Expand First, 2: Expand All
+  const [isViewManagerOpen, setIsViewManagerOpen] = useState(false);
+
+  // Initialize with System Views
+  useEffect(() => {
+    if (views.length === 0) {
+        setViews(INITIAL_SYSTEM_VIEWS);
+        const defaultView = INITIAL_SYSTEM_VIEWS.find(v => v.isDefault);
+        if (defaultView) {
+            setActiveViewId(defaultView.id);
+            setActiveViewMode(defaultView.type);
+            setDefaultViewId(defaultView.id);
+        }
+    }
+  }, []);
 
   const activeView = useMemo<View>(() => {
     if (activeViewId === null) {
@@ -156,6 +210,10 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
   }, [activeViewId, activeViewMode]);
 
   const handleSelectView = (viewId: string) => {
+    setViews(prev => prev.map(v => ({
+        ...v,
+        isActive: v.id === viewId
+    })));
     const selectedView = views.find(v => v.id === viewId);
     if (selectedView) {
       setActiveViewId(selectedView.id);
@@ -164,6 +222,13 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
     setDetailedTaskId(null);
   };
+
+  const toggleViewEnabled = (viewId: string, enabled: boolean) => {
+      // Safety check: If disabling the current active view, we'll need confirmation (Prompt 6)
+      // For now, we just implement the state change stub.
+      setViews(prev => prev.map(v => v.id === viewId ? { ...v, isEnabled: enabled } : v));
+  };
+
 
   const updateView = useCallback((updatedProps: Partial<Omit<View, 'id' | 'name'>>) => {
     if (activeViewId === null) {
@@ -261,12 +326,24 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
              ...activeView,
              id: `view_${Date.now()}`,
              name,
+             category: ViewCategory.Personal,
+             isEnabled: true,
+             isActive: true,
+             baseViewType: activeView.type,
+             metadata: {
+                 ownerId: 'current-user',
+                 ownerName: 'You',
+                 createdAt: new Date().toISOString()
+             }
         };
-        const newViews = [...views, newView];
+        
+        // Deactivate other views
+        const updatedViews = views.map(v => ({ ...v, isActive: false }));
+        const newViews = [...updatedViews, newView];
+        
         setViews(newViews);
         setActiveViewId(newView.id);
-        setTransientView(null);
-
+        
         if (newViews.length === 1) {
             setDefaultViewId(newView.id);
         }
@@ -312,6 +389,119 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     return findTask(tasks);
   }, [tasks, detailedTaskId]);
 
+  const shareView = (viewId: string, sharedWith: 'everyone' | string[]) => {
+      setViews(prev => prev.map(v => {
+          if (v.id === viewId) {
+              return {
+                  ...v,
+                  metadata: {
+                      ...v.metadata,
+                      sharedWith,
+                      sharedAt: new Date().toISOString()
+                  }
+              };
+          }
+          return v;
+      }));
+  };
+
+  const handleDuplicateView = (viewId: string) => {
+      const original = views.find(v => v.id === viewId);
+      if (!original) return;
+
+      const newView: View = {
+          ...original,
+          id: `${original.id}-copy-${Date.now()}`,
+          name: `${original.name} (Copy)`,
+          category: ViewCategory.Personal,
+          baseViewType: original.baseViewType || original.type,
+          isDefault: false,
+          isActive: false,
+          metadata: {
+              ...original.metadata,
+              createdAt: new Date().toISOString(),
+              sharedWith: [], // Copy starts as private
+              sharedAt: undefined
+          }
+      };
+
+      setViews(prev => [...prev, newView]);
+      handleSelectView(newView.id);
+  };
+
+  const handleRenameView = (viewId: string, newName: string) => {
+      setViews(prev => prev.map(v => 
+          v.id === viewId ? { ...v, name: newName } : v
+      ));
+  };
+
+  const saveSystemView = (viewData: Partial<View>) => {
+      const isNew = !viewData.id || !views.find(v => v.id === viewData.id);
+      if (isNew) {
+          const newSystemView: View = {
+              id: `system-${Date.now()}`,
+              name: viewData.name || 'Untitled System View',
+              type: viewData.type || 'table',
+              category: ViewCategory.System,
+              isEnabled: false,
+              isActive: false,
+              filters: viewData.filters || [],
+              columns: viewData.columns || [],
+              groupBy: viewData.groupBy || [],
+              sort: (viewData.sort as any) || null,
+              isDefault: false,
+              displayDensity: 'standard',
+              showGridLines: true,
+              fontSize: 14,
+              metadata: {
+                  ownerName: 'System Admin',
+                  createdAt: new Date().toISOString(),
+                  sharedWith: 'everyone',
+                  isDraft: viewData.metadata?.isDraft ?? false
+              }
+          };
+          setViews(prev => [...prev, newSystemView]);
+      } else {
+          setViews(prev => prev.map(v => v.id === viewData.id ? { ...v, ...viewData } : v));
+      }
+  };
+
+  const deleteSystemView = (viewId: string) => {
+      setViews(prev => prev.filter(v => v.id !== viewId));
+  };
+
+  const handleSaveNewView = (viewData: Partial<View>) => {
+      const isNew = !viewData.id || !views.find(v => v.id === viewData.id);
+      if (isNew) {
+          const newView: View = {
+              id: `view-${Date.now()}`,
+              name: viewData.name || 'Untitled View',
+              type: viewData.type || 'table',
+              category: viewData.category || ViewCategory.Personal,
+              isEnabled: true,
+              isActive: true,
+              filters: viewData.filters || [],
+              columns: viewData.columns || (activeView?.columns || []),
+              groupBy: viewData.groupBy || [],
+              sort: (viewData.sort as any) || null,
+              isDefault: false,
+              displayDensity: 'standard',
+              showGridLines: true,
+              fontSize: 14,
+              metadata: {
+                  ownerId: 'current-user',
+                  ownerName: 'You',
+                  createdAt: new Date().toISOString(),
+                  isDraft: false
+              }
+          };
+          setViews(prev => [...prev.map(v => ({ ...v, isActive: false })), newView]);
+          setActiveViewId(newView.id);
+      } else {
+          setViews(prev => prev.map(v => v.id === viewData.id ? { ...v, ...viewData } : v));
+      }
+  };
+
   const value: ProjectContextType = {
     tasks, setTasks,
     views, setViews,
@@ -349,6 +539,19 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     expansionCycle,
     handleCycleExpansion,
     detailedTask,
+    isViewManagerOpen,
+    setIsViewManagerOpen,
+    toggleViewEnabled,
+    userRole: 'admin', // Changed to admin for testing the new flow
+    shareView,
+    reorderViews: (newViews: View[]) => setViews(newViews),
+    viewManagerShareId,
+    setViewManagerShareId,
+    handleDuplicateView,
+    handleRenameView,
+    saveSystemView,
+    deleteSystemView,
+    handleSaveNewView,
   };
 
   return <ProjectContext.Provider value={value}>{children}</ProjectContext.Provider>;

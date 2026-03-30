@@ -11,14 +11,25 @@ export const useProjectData = (tasks: Task[], activeView: View, searchTerm: stri
      }
   }, [expansionCycle]);
 
+  // Map of id -> boolean (true: expanded, false: collapsed)
+  const [manualOverrides, setManualOverrides] = useState<Map<string | number, boolean>>(new Map());
+
+  // Reset overrides when cycle changes significantly (optional, but keep for consistency)
+  useEffect(() => {
+    // We only reset if we WANT the cycle to be a hard reset.
+    // However, if the user toggled one thing and then clicked 'Expand All', they probably expect everything to expand.
+    // So we clear overrides on cycle change.
+    setManualOverrides(new Map());
+  }, [expansionCycle]);
+
   const handleToggleLocal = useCallback((id: string | number) => {
-      setLocalExpandedIds(prev => {
-          const newSet = new Set(prev);
-          if (newSet.has(id)) newSet.delete(id);
-          else newSet.add(id);
-          return newSet;
+      setManualOverrides(prev => {
+          const next = new Map(prev);
+          const current = isExpandedLocal(id);
+          next.set(id, !current);
+          return next;
       });
-  }, []);
+  }, [manualOverrides]);
 
   const filteredTasks = useMemo(() => {
     const filterNode = (task: Task): Task | null => {
@@ -149,6 +160,38 @@ export const useProjectData = (tasks: Task[], activeView: View, searchTerm: stri
     return groupRecursive(allItems, 0, 'root');
   }, [sortedTasks, activeView.groupBy, activeView.columns]);
 
+  const isExpandedLocal = useCallback((id: string | number) => {
+      // 1. Check manual overrides first (they always win)
+      if (manualOverrides.has(id)) {
+          return manualOverrides.get(id);
+      }
+
+      // 2. Fallback to cycle logic
+      if (expansionCycle === 2) return true;
+      if (expansionCycle === 0) return false;
+
+      // Cycle 1: Expand First Tier (Root groups or root tasks)
+      if (expansionCycle === 1) {
+          const isRootGroup = String(id).startsWith('group-root-');
+          const isRootTask = groupedItems.find(t => t.id === id);
+          if (isRootGroup || isRootTask) return true;
+      }
+      
+      // 3. Last fallback: Check task's own state if it's a real task
+      const findTaskRecursive = (items: Task[]): Task | undefined => {
+          for (const item of items) {
+              if (item.id === id) return item;
+              if (item.children) {
+                  const found = findTaskRecursive(item.children);
+                  if (found) return found;
+              }
+          }
+      };
+      
+      const task = findTaskRecursive(groupedItems);
+      return task?.isExpanded || false;
+  }, [groupedItems, manualOverrides, expansionCycle]);
+
   const { visibleTaskIds, rowNumberMap } = useMemo(() => {
     const ids: (number | string)[] = [];
     const map = new Map<number | string, number>();
@@ -169,18 +212,7 @@ export const useProjectData = (tasks: Task[], activeView: View, searchTerm: stri
     const determineVisible = (items: Task[]) => {
         items.forEach(task => {
             ids.push(task.id);
-            
-            let isExpanded = task.isGroup ? localExpandedIds.has(task.id) : (task.isExpanded ?? false);
-            
-            // Override with expansion cycle
-            if (expansionCycle === 2) {
-                isExpanded = true;
-            } else if (expansionCycle === 1 && (task as any).isGroup && String(task.id).startsWith('group-root-')) {
-                isExpanded = true;
-            } else if (expansionCycle === 0) {
-                isExpanded = false;
-            }
-            
+            const isExpanded = isExpandedLocal(task.id);
             if (isExpanded && task.children && task.children.length > 0) {
                 determineVisible(task.children);
             }
@@ -189,41 +221,7 @@ export const useProjectData = (tasks: Task[], activeView: View, searchTerm: stri
     determineVisible(groupedItems);
 
     return { visibleTaskIds: ids, rowNumberMap: map };
-  }, [groupedItems, localExpandedIds, expansionCycle]);
-
-  const rootIds = useMemo(() => new Set(groupedItems.map(t => t.id)), [groupedItems]);
-
-  const isExpandedLocal = useCallback((id: string | number) => {
-      // Cycle 2: Expand Everything
-      if (expansionCycle === 2) return true;
-      
-      // Cycle 0: Collapse everything
-      if (expansionCycle === 0) return false;
-
-      // Cycle 1: Expand First Tier (Root groups or root tasks)
-      if (expansionCycle === 1) {
-          if (rootIds.has(id)) return true;
-          // Also check for root groups specifically if IDs were somehow changed
-          if (String(id).startsWith('group-root-')) return true;
-      }
-      
-      // Check local state for specific toggles
-      if (localExpandedIds.has(id)) return true;
-
-      // Fallback for real tasks if they aren't in localExpandedIds
-      const findTaskRecursive = (items: Task[]): Task | undefined => {
-          for (const item of items) {
-              if (item.id === id) return item;
-              if (item.children) {
-                  const found = findTaskRecursive(item.children);
-                  if (found) return found;
-              }
-          }
-      };
-      
-      const task = findTaskRecursive(groupedItems);
-      return task?.isExpanded || false;
-  }, [groupedItems, localExpandedIds, expansionCycle, rootIds]);
+  }, [groupedItems, isExpandedLocal]);
 
   return { 
       sortedTasks: groupedItems, 
