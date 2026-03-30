@@ -78,37 +78,9 @@ const GanttView: React.FC = () => {
 
     return (
         <div className="h-full flex flex-col px-4 pt-2.5 pb-2.5 gap-2.5">
-            <div className="flex items-center gap-2">
+            {/* Tier 1: Global Toolbar */}
+            <div className="flex items-center gap-2 pr-0.5">
                 <ViewControls />
-                <div className="h-6 w-px bg-gray-300 mx-1"></div>
-                <div className="flex items-center gap-1">
-                    <TooltipProvider>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <button className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors" aria-label="Toggle critical path">
-                                    <ActivityIcon className="w-4 h-4" />
-                                </button>
-                            </TooltipTrigger>
-                            <TooltipContent>Toggle Critical Path</TooltipContent>
-                        </Tooltip>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <button className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors" aria-label="Compute critical path">
-                                    <CalculatorIcon className="w-4 h-4" />
-                                </button>
-                            </TooltipTrigger>
-                            <TooltipContent>Compute Critical Path</TooltipContent>
-                        </Tooltip>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <button className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors" aria-label="Create baseline">
-                                    <DatabaseIcon className="w-4 h-4" />
-                                </button>
-                            </TooltipTrigger>
-                            <TooltipContent>Create Baseline</TooltipContent>
-                        </Tooltip>
-                    </TooltipProvider>
-                </div>
                 <div className="ml-auto flex items-center">
                     <Popover
                         trigger={
@@ -121,6 +93,55 @@ const GanttView: React.FC = () => {
                         }
                         align="end"
                     />
+                </div>
+            </div>
+
+            {/* Tier 2: Specialty Specialty Toolbar (Schedule Tools) */}
+            <div className="flex items-center gap-3 px-3 py-1 bg-gray-50/50 border border-gray-200 rounded-lg backdrop-blur-sm shadow-sm transition-all duration-300 hover:shadow-md">
+                <div className="flex items-center gap-2 border-r border-gray-200 pr-4">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none select-none">Schedule Utilities</span>
+                    <TooltipProvider>
+                        <div className="flex items-center gap-1">
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <button className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all duration-200 group/tool" aria-label="Toggle critical path">
+                                        <ActivityIcon className="w-4 h-4 transition-transform group-hover/tool:scale-110" />
+                                    </button>
+                                </TooltipTrigger>
+                                <TooltipContent>Toggle Critical Path</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <button className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all duration-200 group/tool" aria-label="Compute critical path">
+                                        <CalculatorIcon className="w-4 h-4 transition-transform group-hover/tool:scale-110" />
+                                    </button>
+                                </TooltipTrigger>
+                                <TooltipContent>Compute Critical Path</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <button className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all duration-200 group/tool" aria-label="Create baseline">
+                                        <DatabaseIcon className="w-4 h-4 transition-transform group-hover/tool:scale-110" />
+                                    </button>
+                                </TooltipTrigger>
+                                <TooltipContent>Create Baseline</TooltipContent>
+                            </Tooltip>
+                        </div>
+                    </TooltipProvider>
+                </div>
+
+                <div className="flex items-center gap-3 pl-1">
+                     <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none select-none">Timeline Mode</span>
+                     <div className="flex items-center bg-gray-200/50 rounded-md p-0.5">
+                        <button className="px-2 py-1 text-[10px] font-bold text-blue-600 bg-white shadow-sm rounded border border-gray-200 uppercase tracking-wider">Daily</button>
+                        <button className="px-2 py-1 text-[10px] font-bold text-gray-400 hover:text-gray-600 uppercase tracking-wider">Weekly</button>
+                        <button className="px-2 py-1 text-[10px] font-bold text-gray-400 hover:text-gray-600 uppercase tracking-wider">Monthly</button>
+                     </div>
+                </div>
+
+                <div className="ml-auto text-[10px] font-medium text-gray-400 flex items-center gap-1 pr-1">
+                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></div>
+                    Auto-save active
                 </div>
             </div>
 
