@@ -77,10 +77,7 @@ const FilterMenu: React.FC<FilterMenuProps> = ({ onClose, triggerRef }) => {
     useLayoutEffect(() => {
         if (triggerRef.current) {
             const rect = triggerRef.current.getBoundingClientRect();
-            setPosition({
-                top: rect.bottom + 8, // 8px gap
-                left: rect.left
-            });
+            setPosition({ top: rect.bottom + 8, left: rect.left });
         }
     }, [triggerRef]);
 

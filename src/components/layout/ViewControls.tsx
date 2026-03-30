@@ -46,7 +46,7 @@ const TabMenu: React.FC<{ view: View, isDefault: boolean, onRename: () => void, 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
-        menuWrapperRef.current && 
+        menuWrapperRef.current &&
         !menuWrapperRef.current.contains(event.target as Node) &&
         menuContentRef.current &&
         !menuContentRef.current.contains(event.target as Node)

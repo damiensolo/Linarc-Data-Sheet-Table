@@ -49,8 +49,8 @@ const AppHeader: React.FC = () => {
         : 'bg-amber-50 text-amber-700 border-amber-200 shadow-[0_1px_2px_rgba(245,158,11,0.1)]';
 
     return (
-        <header className="flex-shrink-0 border-b border-gray-200 bg-white relative z-[90]">
-            <div className="flex items-center justify-between px-4 py-3">
+        <header className="h-14 flex-shrink-0 border-b border-gray-200 bg-white relative z-[90]">
+            <div className="flex items-center justify-between px-4 h-full">
                 <div className="flex items-center gap-6">
                     <h1 className="text-xl font-bold text-gray-900">{title}</h1>
                     
@@ -86,7 +86,7 @@ const AppHeader: React.FC = () => {
                 </div>
                 
                 <div className="flex items-center gap-2">
-                    <button className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 bg-white border-2 border-[#BDC3CC] rounded-md hover:bg-gray-50 shadow-none transition-colors">
+                    <button className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border-2 border-[#BDC3CC] rounded-md hover:bg-gray-50 shadow-none transition-colors">
                         <DownloadIcon className="w-4 h-4" />
                         <span>Download</span>
                     </button>
@@ -94,7 +94,7 @@ const AppHeader: React.FC = () => {
                     {isSpreadsheetView && (
                         <button 
                             disabled={!isReadyToLock}
-                            className={`flex items-center gap-1.5 px-4 py-2 text-sm font-bold rounded-md shadow-sm transition-all duration-300 transform active:scale-95 ${
+                            className={`flex items-center gap-1.5 px-4 py-1.5 text-sm font-bold rounded-md shadow-sm transition-all duration-300 transform active:scale-95 ${
                                 isReadyToLock 
                                 ? 'bg-green-600 hover:bg-green-700 text-white cursor-pointer ring-2 ring-green-500 ring-offset-2' 
                                 : 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200 opacity-60'
@@ -106,7 +106,7 @@ const AppHeader: React.FC = () => {
                     )}
 
                     {showCreateButton && (
-                        <button className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-zinc-800 border-2 border-[#121212] rounded-md hover:bg-zinc-700 shadow-sm transition-colors">
+                        <button className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium text-white bg-zinc-800 border-2 border-[#121212] rounded-md hover:bg-zinc-700 shadow-sm transition-colors">
                             <PlusIcon className="w-4 h-4" />
                             <span>Create</span>
                         </button>

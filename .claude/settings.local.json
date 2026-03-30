@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -E \"\\\\.\\(tsx|ts\\)$\")",
+      "Bash(find /c/Users/damie/Projects/Linarc-Data-Sheet-Table/src/mainnav -type f -name *.tsx)",
+      "mcp__plugin_figma_figma__use_figma",
+      "mcp__plugin_figma_figma__get_screenshot",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173)",
+      "mcp__plugin_figma_figma__generate_figma_design",
+      "Bash(start:*)",
+      "Bash(grep -r \"Settings\\\\|SettingsIcon\\\\|GearIcon\\\\|gear\\\\|cog\" C:UsersdamieProjectsLinarc-Data-Sheet-Table/src --include=*.tsx --include=*.ts --include=*.jsx --include=*.js)",
+      "Bash(node:*)"
+    ]
+  }
+}

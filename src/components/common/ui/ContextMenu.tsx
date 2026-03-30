@@ -42,15 +42,9 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ position, items, onClo
   }, [position]);
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        onClose();
-      }
-    };
-
-    // Handle scroll/resize to close
-    const handleScroll = () => onClose();
-    const handleResize = () => onClose();
+    const handleClickOutside = (_event: MouseEvent) => { onClose(); };
+    const handleScroll = () => { onClose(); };
+    const handleResize = () => { onClose(); };
 
     document.addEventListener('mousedown', handleClickOutside);
     window.addEventListener('scroll', handleScroll, true);

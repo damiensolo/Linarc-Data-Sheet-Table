@@ -76,7 +76,7 @@ const SpreadsheetView: React.FC = () => {
       position: { x: number; y: number };
       type: 'row' | 'column' | 'cell';
       targetId: string;
-      secondaryId?: string; // For cell context (columnId)
+      secondaryId?: string;
   } | null>(null);
 
   const isAllSelected = budgetData.length > 0 && budgetData.every(item => selectedRowIds.has(item.id));
