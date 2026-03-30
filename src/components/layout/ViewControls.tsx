@@ -356,7 +356,7 @@ const ViewControls: React.FC = () => {
   ];
 
   const renderViewModeItem = (mode: typeof modes[0], isFirst: boolean, isLast: boolean, isDropdown: boolean, closeDropdown?: () => void) => {
-      const isActive = activeViewMode === mode.id;
+      const isActive = activeViewMode === mode.id && activeViewId === null;
       const Icon = mode.icon;
       return (
           <div className={`flex items-center ${isDropdown ? 'rounded-md p-0.5 w-full my-0 shadow-none bg-transparent hover:bg-gray-200' : 'bg-gray-100 py-1 shadow-sm'} ${!isDropdown && isFirst ? 'rounded-l-lg pl-1' : ''} ${!isDropdown && isLast ? 'rounded-r-lg pr-1' : ''}`}>
