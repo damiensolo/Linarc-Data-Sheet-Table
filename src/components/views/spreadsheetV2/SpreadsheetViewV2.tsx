@@ -778,7 +778,7 @@ const SpreadsheetViewV2: React.FC = () => {
   return (
     <div 
         ref={containerRef}
-        className="flex flex-col h-full px-4 pt-2.5 pb-2.5 outline-none focus:ring-0 overflow-hidden gap-2.5" 
+        className="flex flex-col h-full px-4 pt-[7px] pb-[7px] outline-none focus:ring-0 overflow-hidden gap-[7px]" 
         onKeyDown={handleKeyDown} 
         tabIndex={0}
     >
@@ -795,6 +795,7 @@ const SpreadsheetViewV2: React.FC = () => {
                 onCopy={() => handleCopy()}
                 onPaste={() => handlePaste()}
                 onDelete={() => handleDeleteRow()}
+                onDeselectAll={() => setSelectedRowIds(new Set())}
             />
         </div>
 

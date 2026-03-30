@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ScissorsIcon, CopyIcon, TrashIcon, ClipboardIcon, FillColorIcon, BorderColorIcon, TextColorIcon, SettingsIcon } from '../../../common/Icons';
+import { ScissorsIcon, CopyIcon, TrashIcon, ClipboardIcon, FillColorIcon, BorderColorIcon, TextColorIcon, SettingsIcon, XIcon } from '../../../common/Icons';
 import ViewControls from '../../../layout/ViewControls';
 import FieldsMenu from '../../../layout/FieldsMenu';
 import { Popover } from '../../../common/ui/Popover';
@@ -22,6 +22,7 @@ interface SpreadsheetToolbarProps {
     onCopy: () => void;
     onPaste: () => void;
     onDelete: () => void;
+    onDeselectAll: () => void;
 }
 
 const SpreadsheetToolbar: React.FC<SpreadsheetToolbarProps> = ({
@@ -34,7 +35,8 @@ const SpreadsheetToolbar: React.FC<SpreadsheetToolbarProps> = ({
     onCut,
     onCopy,
     onPaste,
-    onDelete
+    onDelete,
+    onDeselectAll
 }) => {
     return (
         <div className="flex items-center flex-1 transition-all z-40 relative gap-2">
@@ -120,9 +122,18 @@ const SpreadsheetToolbar: React.FC<SpreadsheetToolbarProps> = ({
                             />
                         </div>
                     </TooltipProvider>
-                    <span className="text-sm font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
-                        {selectedCount} selected
-                    </span>
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
+                            {selectedCount} selected
+                        </span>
+                        <button 
+                            onClick={onDeselectAll}
+                            className="flex items-center gap-1.5 px-3 py-1 text-xs font-bold text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-all active:scale-95"
+                        >
+                            <XIcon className="w-3.5 h-3.5" />
+                            <span>Deselect</span>
+                        </button>
+                    </div>
                 </motion.div>
             ) : (
                     <motion.div

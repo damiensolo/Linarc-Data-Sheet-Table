@@ -385,7 +385,7 @@ const SpreadsheetView: React.FC = () => {
   }, [budgetData]);
 
   return (
-    <div className="flex flex-col h-full px-4 pt-2.5 pb-2.5 outline-none focus:outline-none" onKeyDown={handleKeyDown} tabIndex={0}>
+    <div className="flex flex-col h-full px-4 pt-[7px] pb-[7px] outline-none focus:outline-none" onKeyDown={handleKeyDown} tabIndex={0}>
         <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden relative flex flex-col flex-grow focus:outline-none">
             
             {/* Fix: Replace 'selectedCount' which was undefined with 'selectedRowIds.size' */}

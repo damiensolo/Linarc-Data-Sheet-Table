@@ -77,7 +77,7 @@ const GanttView: React.FC = () => {
     }
 
     return (
-        <div className="h-full flex flex-col px-4 pt-2.5 pb-2.5 gap-2.5">
+        <div className="h-full flex flex-col px-4 pt-[7px] pb-[7px] gap-[7px]">
             {/* Tier 1: Global Toolbar */}
             <div className="flex items-center gap-2 pr-0.5">
                 <ViewControls />

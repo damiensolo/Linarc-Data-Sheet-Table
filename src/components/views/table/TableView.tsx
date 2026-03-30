@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useCallback, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ColumnId, DisplayDensity, TaskStyle, Task } from '../../../types';
 import TableRow from './TableRow';
-import { ArrowDownIcon, ArrowUpIcon, SortIcon, ScissorsIcon, CopyIcon, TrashIcon, FillColorIcon, BorderColorIcon, TextColorIcon, ClipboardIcon, SettingsIcon, ChevronDownIcon, ChevronUpIcon, ChevronsDownIcon } from '../../common/Icons';
+import { ArrowDownIcon, ArrowUpIcon, SortIcon, ScissorsIcon, CopyIcon, TrashIcon, FillColorIcon, BorderColorIcon, TextColorIcon, ClipboardIcon, SettingsIcon, ChevronDownIcon, ChevronUpIcon, ChevronsDownIcon, XIcon } from '../../common/Icons';
 import { useProject } from '../../../context/ProjectContext';
 import { useProjectData } from '../../../hooks/useProjectData';
 import ViewControls from '../../layout/ViewControls';
@@ -214,7 +214,7 @@ const TableView: React.FC<TableViewProps> = ({ isScrolled, density }) => {
   const hasSelection = selectedTaskIds.size > 0;
 
   return (
-    <div className="flex flex-col h-full px-4 pt-2.5 pb-2.5 gap-2.5">
+    <div className="flex flex-col h-full px-4 pt-[7px] pb-[7px] gap-[7px]">
         {/* Floating Toolbar Design */}
         <div className="flex items-center gap-2">
             <AnimatePresence mode="wait">
@@ -267,9 +267,18 @@ const TableView: React.FC<TableViewProps> = ({ isScrolled, density }) => {
                             
                         </div>
                     </TooltipProvider>
-                    <span className="text-sm font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
-                        {selectedTaskIds.size} selected
-                    </span>
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
+                            {selectedTaskIds.size} selected
+                        </span>
+                        <button 
+                            onClick={() => setSelectedTaskIds(new Set())}
+                            className="flex items-center gap-1.5 px-3 py-1 text-xs font-bold text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-all active:scale-95"
+                        >
+                            <XIcon className="w-3.5 h-3.5" />
+                            <span>Deselect</span>
+                        </button>
+                    </div>
                 </motion.div>
             ) : (
                  <motion.div

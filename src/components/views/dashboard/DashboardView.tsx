@@ -253,8 +253,8 @@ const SafetyChart = () => {
 
 const DashboardView: React.FC = () => {
     return (
-        <div className="flex flex-col h-full bg-gray-50">
-            <div className="px-4 pt-2.5 pb-2.5 flex-shrink-0">
+        <div className="flex flex-col h-full bg-gray-50 gap-[7px]">
+            <div className="px-4 pt-[7px] pb-[7px] flex-shrink-0">
                 <ViewControls />
             </div>
             
