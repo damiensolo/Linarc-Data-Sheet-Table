@@ -321,7 +321,7 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({ projects, selectedPro
             <div className="relative" ref={selectorRef}>
                 <button 
                     onClick={() => setIsOpen(!isOpen)}
-                    className="flex items-center gap-1.5 px-2 py-1 text-[12.25px] bg-transparent hover:bg-gray-700/50 rounded-md transition-all border border-transparent hover:border-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-cyan-500 touch-manipulation group"
+                    className="flex items-center gap-1.5 px-2 py-1 text-[12.25px] bg-transparent hover:bg-gray-700/50 rounded-md transition-all border border-transparent hover:border-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-cyan-500 touch-manipulation group overflow-x-hidden"
                     aria-haspopup="listbox"
                     aria-expanded={isOpen}
                     aria-label="Select project"
@@ -342,7 +342,7 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({ projects, selectedPro
                         animate={{ opacity: 1, y: 5 }}
                         exit={{ opacity: 0, y: -5 }}
                         transition={{ duration: 0.15, ease: "easeOut" }}
-                        className="absolute z-[100] left-0 md:left-auto right-0 md:right-auto w-[calc(100vw-4rem)] md:w-max md:min-w-full mt-1 bg-[#2a2a2a] border border-gray-600 rounded-md shadow-lg max-w-[280px] md:max-w-none"
+                        className="absolute z-[100] left-0 md:left-auto right-0 md:right-auto w-full md:w-max md:min-w-full mt-1 bg-[#2a2a2a] border border-gray-600 rounded-md shadow-lg max-w-[280px] md:max-w-none"
                     >
                         <ul className="p-1" role="listbox">
                             {projects.map(project => (
@@ -476,13 +476,11 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
     const [isMenuVisible, setMenuVisible] = useState(false);
     const [isBookmarksMenuVisible, setBookmarksMenuVisible] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const [isMobileProjectSelectorOpen, setIsMobileProjectSelectorOpen] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
     const [activeCategoryKey, setActiveCategoryKey] = useState<StandardCategoryKey>('documentation');
     const [activeSubcategoryKey, setActiveSubcategoryKey] = useState<string>('document');
     const [selectedProject, setSelectedProject] = useState<Project>(projects[0]);
     const mobileMenuRef = useRef<HTMLDivElement>(null);
-    const mobileProjectSelectorRef = useRef<HTMLDivElement>(null);
     const hoverMenuRef = useRef<HTMLDivElement>(null);
     const bookmarksMenuRef = useRef<HTMLDivElement>(null);
     const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -575,10 +573,6 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
             if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target as Node)) {
                 setIsMobileMenuOpen(false);
             }
-            // Close mobile project selector when clicking outside
-            if (mobileProjectSelectorRef.current && !mobileProjectSelectorRef.current.contains(event.target as Node)) {
-                setIsMobileProjectSelectorOpen(false);
-            }
             // Close hover menu on mobile when clicking outside
             if (isMobile && hoverMenuRef.current && !hoverMenuRef.current.contains(event.target as Node)) {
                 setMenuVisible(false);
@@ -592,14 +586,13 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
         const handleEscape = (event: KeyboardEvent) => {
             if (event.key === 'Escape') {
                 setIsMobileMenuOpen(false);
-                setIsMobileProjectSelectorOpen(false);
                 if (isMobile) {
                     setMenuVisible(false);
                 }
             }
         };
 
-        if (isMobileMenuOpen || isMobileProjectSelectorOpen) {
+        if (isMobileMenuOpen) {
             document.addEventListener('mousedown', handleClickOutside);
             document.addEventListener('keydown', handleEscape);
             if (isMobileMenuOpen) {
@@ -617,7 +610,7 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
                 document.body.style.overflow = '';
             }
         };
-    }, [isMobileMenuOpen, isMobileProjectSelectorOpen, isMobile, isMenuVisible, isBookmarksMenuVisible]);
+    }, [isMobileMenuOpen, isMobile, isMenuVisible, isBookmarksMenuVisible]);
 
     const activeCategory = navigationData[activeCategoryKey];
 
@@ -635,7 +628,7 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
     // Version-specific styling
     const headerClasses = version === 'v1' 
         ? "relative z-[100] bg-[#1e1e1e] text-white font-['Lato'] shadow-lg h-[72px] border-b-[2px] border-gray-600"
-        : "relative z-[100] bg-[#1a1a1a] text-white font-['Lato'] shadow-xl min-h-[72px] md:h-[72px] border-b-2 border-cyan-500/50";
+        : "relative z-[100] bg-[#1a1a1a] text-white font-['Lato'] shadow-xl min-h-[72px] lg:h-[72px] border-b-2 border-cyan-500/50";
     
     const hoverMenuClasses = version === 'v1'
         ? "bg-black -ml-2 -mt-3 -mb-[10px] self-stretch flex flex-col justify-center items-center rounded-none border-b-2 border-gray-600 pt-[7px]"
@@ -653,7 +646,7 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
         ? "bg-[#1e1e1e]"
         : "bg-[#1a1a1a]";
 
-    const containerPaddingClasses = "pl-2 pr-2 md:pr-0 pt-3 pb-2";
+    const containerPaddingClasses = "pl-2 pr-2 lg:pr-0 pt-3 pb-2";
 
     return (
         <header className={headerClasses}>
@@ -749,195 +742,39 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
                         </AnimatePresence>
                     </div>
                     )}
-                    <nav className="hidden md:block flex-1 min-w-0">
+                    <nav className="flex-1 min-w-0">
                         <ul className="flex items-center gap-x-[42px]">
-                            {navItems.map((item) => (
-                                <li key={item.key}>
-                                    <NavItem 
-                                        icon={item.navIcon} 
-                                        label={item.label}
-                                        isActive={item.key === activeSubcategoryKey}
-                                        activeColor={activeColor}
-                                        onClick={(e) => {
-                                            e.preventDefault();
-                                            setActiveSubcategoryKey(item.key);
-                                            onSelectionChange(`${activeCategory.title} / ${item.label}`);
-                                        }}
-                                    />
-                                </li>
-                            ))}
+                            {navItems.map((item, index) => {
+                                // First 2 items are robust, stay visible until md
+                                // Subsequent items hide progressively
+                                let responsiveClass = "hidden md:block";
+                                if (index >= 4) responsiveClass = "hidden 2xl:block";
+                                else if (index === 3) responsiveClass = "hidden xl:block";
+                                else if (index === 2) responsiveClass = "hidden lg:block";
+
+                                return (
+                                    <li key={item.key} className={responsiveClass}>
+                                        <NavItem 
+                                            icon={item.navIcon} 
+                                            label={item.label}
+                                            isActive={item.key === activeSubcategoryKey}
+                                            activeColor={activeColor}
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                setActiveSubcategoryKey(item.key);
+                                                onSelectionChange(`${activeCategory.title} / ${item.label}`);
+                                            }}
+                                        />
+                                    </li>
+                                );
+                            })}
                         </ul>
                     </nav>
                 </div>
 
-                {/* Mobile Project Selector Button */}
-                <div className="md:hidden relative" ref={mobileProjectSelectorRef}>
-                    <Tooltip content={`Project: ${selectedProject.name}`} position="bottom" delay={400} disabled={isMobileProjectSelectorOpen}>
-                        <button
-                            onClick={() => {
-                                setIsMobileProjectSelectorOpen(!isMobileProjectSelectorOpen);
-                                setIsMobileMenuOpen(false);
-                            }}
-                            className="text-gray-300 hover:text-white transition-colors duration-200 touch-manipulation p-2 -mr-2"
-                            aria-label="Select project"
-                            aria-expanded={isMobileProjectSelectorOpen}
-                        >
-                            <ProjectIcon />
-                        </button>
-                    </Tooltip>
-                    
-                    {/* Mobile Project Selector Dropdown */}
-                    <AnimatePresence>
-                        {isMobileProjectSelectorOpen && (
-                            <>
-                                {/* Backdrop */}
-                                <motion.div
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    exit={{ opacity: 0 }}
-                                    transition={{ duration: 0.2 }}
-                                    className="fixed inset-0 bg-black/50 z-40 md:hidden"
-                                    onClick={() => setIsMobileProjectSelectorOpen(false)}
-                                />
-                                
-                                {/* Dropdown Panel */}
-                                <motion.div
-                                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                                    transition={{ duration: 0.2, ease: "easeOut" }}
-                                    className="fixed right-2 top-[82px] w-[calc(100vw-1rem)] max-w-[320px] bg-[#2a2a2a] border border-gray-600 rounded-lg shadow-xl z-50 md:hidden max-h-[calc(100vh-102px)] overflow-y-auto"
-                                >
-                                    {/* Project Selection */}
-                                    <div className="p-3 border-b border-gray-700">
-                                        <div className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Select Project</div>
-                                        <ul className="space-y-1">
-                                            {projects.map(project => (
-                                                <li 
-                                                    key={project.id}
-                                                    className="text-sm text-gray-200 rounded-md hover:bg-cyan-600 hover:text-white cursor-pointer touch-manipulation min-h-[44px] flex items-center"
-                                                    onClick={() => {
-                                                        handleProjectSelect(project);
-                                                        setIsMobileProjectSelectorOpen(false);
-                                                    }}
-                                                    role="option"
-                                                    aria-selected={project.id === selectedProject.id}
-                                                >
-                                                    <div className="flex items-center justify-between px-3 py-2.5 w-full">
-                                                        <span className="font-medium">{project.name}</span>
-                                                        {project.id === selectedProject.id && <CheckIcon className="w-4 h-4 text-cyan-500"/>}
-                                                    </div>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    </div>
-                                    
-                                    {/* Project Details */}
-                                    <div className="p-3 space-y-3">
-                                        <div className="text-xs font-medium text-gray-400 uppercase tracking-wide">Project Details</div>
-                                        <div className="space-y-2.5 text-[12.25px]">
-                                            {selectedProject.details[0] && (
-                                                <div className="flex items-start gap-2.5">
-                                                    <div className="mt-0.5 text-gray-500 shrink-0">
-                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-                                                            <circle cx="12" cy="10" r="3"></circle>
-                                                        </svg>
-                                                    </div>
-                                                    <div className="text-gray-300 flex-1">
-                                                        <div className="font-medium text-gray-400 mb-0.5 text-[11px]">Address</div>
-                                                            <div className="text-[12px]">{selectedProject.details[0]}</div>
-                                                        </div>
-                                                </div>
-                                            )}
-                                            {selectedProject.details[1] && (
-                                                <div className="flex items-start gap-2.5">
-                                                    <div className="mt-0.5 text-gray-500 shrink-0">
-                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                            <path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"></path>
-                                                            <path d="M6 12h4"></path>
-                                                            <path d="M6 16h4"></path>
-                                                            <path d="M10 4h4"></path>
-                                                            <path d="M10 8h4"></path>
-                                                            <path d="M10 12h4"></path>
-                                                            <path d="M10 16h4"></path>
-                                                        </svg>
-                                                    </div>
-                                                    <div className="text-gray-300 flex-1">
-                                                        <div className="font-medium text-gray-400 mb-0.5 text-[11px]">Owner</div>
-                                                        <div className="text-[12px]">{selectedProject.details[1].replace('Owner - ', '')}</div>
-                                                    </div>
-                                                </div>
-                                            )}
-                                            {selectedProject.details[2] && (
-                                                <div className="flex items-start gap-2.5">
-                                                    <div className="mt-0.5 text-gray-500 shrink-0">
-                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                            <path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"></path>
-                                                            <path d="M6 12h4"></path>
-                                                            <path d="M6 16h4"></path>
-                                                            <path d="M10 4h4"></path>
-                                                            <path d="M10 8h4"></path>
-                                                            <path d="M10 12h4"></path>
-                                                            <path d="M10 16h4"></path>
-                                                        </svg>
-                                                    </div>
-                                                    <div className="text-gray-300 flex-1">
-                                                        <div className="font-medium text-gray-400 mb-0.5 text-[11px]">General Contractor</div>
-                                                        <div className="text-[12px]">{selectedProject.details[2].replace('GC - ', '')}</div>
-                                                    </div>
-                                                </div>
-                                            )}
-                                            {selectedProject.details[3] && (
-                                                <div className="flex items-start gap-2.5">
-                                                    <div className="mt-0.5 text-gray-500 shrink-0">
-                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                                                            <circle cx="12" cy="7" r="4"></circle>
-                                                        </svg>
-                                                    </div>
-                                                    <div className="text-gray-300 flex-1">
-                                                        <div className="font-medium text-gray-400 mb-0.5 text-[11px]">Project Manager</div>
-                                                        <div className="text-[12px]">{selectedProject.details[3].replace('PM - ', '')}</div>
-                                                    </div>
-                                                </div>
-                                            )}
-                                            {selectedProject.details[4] && (
-                                                <div className="flex items-start gap-2.5">
-                                                    <div className="mt-0.5 text-gray-500 shrink-0">
-                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
-                                                        </svg>
-                                                    </div>
-                                                    <div className="text-gray-300 flex-1">
-                                                        <div className="font-medium text-gray-400 mb-0.5 text-[11px]">Phone</div>
-                                                        <div className="text-[12px]">{selectedProject.details[4]}</div>
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </motion.div>
-                            </>
-                        )}
-                    </AnimatePresence>
-                </div>
 
-                {/* Hamburger Menu Button - Mobile Only */}
-                <button
-                    onClick={() => {
-                        setIsMobileMenuOpen(true);
-                        setIsMobileProjectSelectorOpen(false);
-                    }}
-                    className="md:hidden text-gray-300 hover:text-white transition-colors duration-200 touch-manipulation p-2 -mr-2"
-                    aria-label="Open menu"
-                    aria-expanded={isMobileMenuOpen}
-                >
-                    <MenuIcon />
-                </button>
-
-                {/* Right Section: Action Icons + Project Panel */}
-                <div className="hidden md:flex items-center h-full shrink-0">
+                <div className="hidden lg:flex items-center h-full shrink-0">
+                    <div className="h-7 w-px bg-gray-700 ml-3 lg:ml-4 mr-3 lg:mr-4"></div>
                     {/* Project Panel */}
                     <div className={`flex items-center gap-2 pr-3 lg:pr-4 pl-2.5 ${projectPanelClasses} py-1.5`}>
                         <ProjectSelector
@@ -947,7 +784,9 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
                         />
                         <ProjectDetailsCard project={selectedProject} />
                     </div>
+                </div>
 
+                <div className="hidden xl:flex items-center h-full shrink-0">
                     {/* Vertical Divider */}
                     <div className="h-7 w-px bg-gray-700 ml-3 lg:ml-4 mr-3 lg:mr-4"></div>
 
@@ -982,6 +821,18 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
                         </Tooltip>
                     </div>
                 </div>
+
+                {/* Hamburger Menu Button - Always Rightmost when visible */}
+                <button
+                    onClick={() => {
+                        setIsMobileMenuOpen(true);
+                    }}
+                    className="xl:hidden text-gray-300 hover:text-white transition-colors duration-200 touch-manipulation p-2 pr-4 focus:outline-none ml-auto xl:ml-0"
+                    aria-label="Open menu"
+                    aria-expanded={isMobileMenuOpen}
+                >
+                    <MenuIcon />
+                </button>
             </div>
 
             {/* Mobile Menu Slide-Out Panel */}
@@ -994,7 +845,7 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
                             transition={{ duration: 0.2 }}
-                            className="fixed inset-0 bg-black/50 z-40 md:hidden"
+                            className="fixed inset-0 bg-black/50 z-40 xl:hidden"
                             onClick={() => setIsMobileMenuOpen(false)}
                         />
                         
@@ -1005,7 +856,7 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
                             animate={{ x: 0 }}
                             exit={{ x: '100%' }}
                             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                            className="fixed top-0 right-0 h-full w-[280px] max-w-[85vw] bg-[#1e1e1e] shadow-2xl z-50 md:hidden flex flex-col"
+                            className="fixed top-0 right-0 h-full w-[280px] max-w-[85vw] bg-[#1e1e1e] shadow-2xl z-50 xl:hidden flex flex-col overflow-x-hidden"
                         >
                             {/* Header with Close Button */}
                             <div className="flex items-center justify-between p-4 border-b border-gray-700">
@@ -1020,7 +871,7 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
                             </div>
 
                             {/* Menu Items */}
-                            <div className="flex-1 overflow-y-auto py-4">
+                            <div className="flex-1 overflow-y-auto overflow-x-hidden py-4">
                                 <div className="space-y-1 px-2">
                                     {/* Project Selector Section */}
                                     <div className="mb-4 pb-4 border-b border-gray-700">
@@ -1039,6 +890,46 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
                                         <div className="px-2 mt-2">
                                             <ProjectDetailsCard project={selectedProject} />
                                         </div>
+                                    </div>
+                                    
+                                    {/* Active Category Tools Section */}
+                                    <div className="mb-4 pb-4 border-b border-gray-700">
+                                        <div className="px-4 mb-2 flex items-center justify-between">
+                                            <div className="text-xs font-medium text-gray-400 uppercase tracking-wide">{activeCategory.title}</div>
+                                            <div className={`w-1.5 h-1.5 rounded-full ${activeColor.replace('text-', 'bg-')}`}></div>
+                                        </div>
+                                        <div className="space-y-1 px-2">
+                                            {navItems.map((item) => (
+                                                <button
+                                                    key={item.key}
+                                                    onClick={() => {
+                                                        setActiveSubcategoryKey(item.key);
+                                                        onSelectionChange(`${activeCategory.title} / ${item.label}`);
+                                                        setIsMobileMenuOpen(false);
+                                                    }}
+                                                    className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all duration-200 touch-manipulation text-left group ${
+                                                        item.key === activeSubcategoryKey 
+                                                            ? `${activeColor} bg-white/5 font-semibold` 
+                                                            : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+                                                    }`}
+                                                >
+                                                    <div className={`transition-transform duration-200 group-active:scale-95 ${item.key === activeSubcategoryKey ? 'opacity-100' : 'opacity-70 group-hover:opacity-100'}`}>
+                                                        {item.navIcon}
+                                                    </div>
+                                                    <span className="text-[14px]">{item.label}</span>
+                                                    {item.key === activeSubcategoryKey && (
+                                                        <div className="ml-auto">
+                                                            <div className={`w-2 h-2 rounded-full ${activeColor.replace('text-', 'bg-')}`}></div>
+                                                        </div>
+                                                    )}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Actions Section */}
+                                    <div className="px-4 mb-2">
+                                        <div className="text-xs font-medium text-gray-400 uppercase tracking-wide">Actions</div>
                                     </div>
                                     
                                     <button

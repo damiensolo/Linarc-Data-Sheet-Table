@@ -569,7 +569,7 @@ const CardMenuPortal: React.FC<{
                         <ShareIcon className="w-3.5 h-3.5 text-blue-600" /> Share
                     </button>
                     <button onClick={() => { onEdit?.(); onClose(); }} className="w-full px-3 py-2 text-left text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2.5 transition-colors">
-                        <SettingsIcon className="w-3.5 h-3.5 text-zinc-600" /> Edit Config
+                        <SettingsIcon className="w-3.5 h-3.5 text-zinc-600" /> Edit View
                     </button>
                     <button onClick={() => { onRename(); onClose(); }} className="w-full px-3 py-2 text-left text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2.5 transition-colors">
                         <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -592,14 +592,14 @@ const CardMenuPortal: React.FC<{
             {isSystem && isAdmin && (
                 <>
                     <button onClick={() => { onEdit?.(); onClose(); }} className="w-full px-3 py-2 text-left text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2.5 transition-colors">
-                        <SettingsIcon className="w-3.5 h-3.5 text-zinc-600" /> Edit Config
+                        <SettingsIcon className="w-3.5 h-3.5 text-zinc-600" /> Edit View
                     </button>
                     <button onClick={() => { onDuplicate(); onClose(); }} className="w-full px-3 py-2 text-left text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2.5 transition-colors">
                         <CopyIcon className="w-3.5 h-3.5 text-gray-400" /> Duplicate
                     </button>
                     <div className="h-px bg-gray-100 my-1.5 mx-2" />
                     <button onClick={() => { onDelete(); onClose(); }} className="w-full px-3 py-2 text-left text-sm font-medium text-red-600 hover:bg-red-50 flex items-center gap-2.5 transition-colors">
-                        <TrashIcon className="w-3.5 h-3.5" /> Delete Config
+                        <TrashIcon className="w-3.5 h-3.5" /> Delete View
                     </button>
                 </>
             )}

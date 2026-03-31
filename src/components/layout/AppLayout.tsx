@@ -7,6 +7,7 @@ import CreateViewModal from '../shared/CreateViewModal';
 import Header from '../../mainnav/new/v2/Header';
 import Sidebar from '../../mainnav/new/v2/Sidebar';
 import ViewManagerModal from '../shared/ViewManagerModal';
+import DownloadModal from '../shared/DownloadModal';
 
 /** Bookmarks data passed from Header (v2) for Sidebar integration */
 type BookmarksData = {
@@ -31,7 +32,9 @@ const AppLayout: React.FC = () => {
         setDetailedTaskId, 
         handlePriorityChange,
         isViewManagerOpen,
-        setIsViewManagerOpen
+        setIsViewManagerOpen,
+        isDownloadModalOpen,
+        setIsDownloadModalOpen
     } = useProject();
     const mainContentRef = useRef<HTMLDivElement>(null);
     const [isScrolled, setIsScrolled] = useState(false);
@@ -58,6 +61,10 @@ const AppLayout: React.FC = () => {
 
             {isViewManagerOpen && (
                 <ViewManagerModal onClose={() => setIsViewManagerOpen(false)} />
+            )}
+
+            {isDownloadModalOpen && (
+                <DownloadModal />
             )}
             
             {/* Header v2: exposes bookmarks to Sidebar via onBookmarksDataChange */}

@@ -143,6 +143,8 @@ interface ProjectContextType {
   saveSystemView: (view: Partial<View>) => void;
   deleteSystemView: (viewId: string) => void;
   handleSaveNewView: (view: Partial<View>) => void;
+  isDownloadModalOpen: boolean;
+  setIsDownloadModalOpen: (open: boolean) => void;
 }
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
@@ -170,6 +172,7 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [displayHighlights, setDisplayHighlights] = useState<HighlightRule[]>([]);
   const [expansionCycle, setExpansionCycle] = useState(2); // 0: Collapse All, 1: Expand First, 2: Expand All
   const [isViewManagerOpen, setIsViewManagerOpen] = useState(false);
+  const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
 
   // Initialize with System Views
   useEffect(() => {
@@ -552,6 +555,8 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     saveSystemView,
     deleteSystemView,
     handleSaveNewView,
+    isDownloadModalOpen,
+    setIsDownloadModalOpen
   };
 
   return <ProjectContext.Provider value={value}>{children}</ProjectContext.Provider>;

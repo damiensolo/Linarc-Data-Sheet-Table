@@ -15,7 +15,7 @@ import { DisplayDensity } from '../../../types';
 import ViewControls from '../../layout/ViewControls';
 import FieldsMenu from '../../layout/FieldsMenu';
 import { Popover } from '../../common/ui/Popover';
-import { SettingsIcon } from '../../common/Icons';
+import { SettingsIcon, DownloadIcon } from '../../common/Icons';
 
 const WeatherIcon: React.FC<{ icon: 'sun' | 'cloud' | 'rain' }> = ({ icon }) => {
     switch (icon) {
@@ -51,7 +51,7 @@ const COLUMN_MAPPING: Record<string, LookaheadColumnType> = {
 
 const LookaheadView: React.FC = () => {
     const { 
-        activeView, setColumns
+        activeView, setColumns, setIsDownloadModalOpen
     } = useProject();
     const { columns, displayDensity, fontSize } = activeView;
 
@@ -356,7 +356,15 @@ const LookaheadView: React.FC = () => {
         <div className="flex h-full flex-col px-4 pt-[7px] pb-[7px] gap-[7px]">
             <div className="flex items-center gap-2">
                 <ViewControls />
-                <div className="ml-auto flex items-center">
+                <div className="ml-auto flex items-center gap-1.5">
+                    <button 
+                        onClick={() => setIsDownloadModalOpen(true)}
+                        className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                        aria-label="Download view"
+                    >
+                        <DownloadIcon className="w-4 h-4" />
+                    </button>
+
                     <Popover
                         trigger={
                             <button className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors" aria-label="View settings">

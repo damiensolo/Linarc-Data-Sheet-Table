@@ -24,6 +24,8 @@ import {
 } from '../../../data';
 import ViewControls from '../../layout/ViewControls';
 import { Card, CardContent } from '../../common/ui/Card';
+import { useProject } from '../../../context/ProjectContext';
+import { DownloadIcon } from '../../common/Icons';
 
 // --- Theme & Palette Constants (Carbon Design System & Custom) ---
 const THEME = 'white';
@@ -252,10 +254,18 @@ const SafetyChart = () => {
 
 
 const DashboardView: React.FC = () => {
+    const { setIsDownloadModalOpen } = useProject();
     return (
         <div className="flex flex-col h-full bg-gray-50 gap-[7px]">
-            <div className="px-4 pt-[7px] pb-[7px] flex-shrink-0">
+            <div className="px-4 pt-[7px] pb-[7px] flex-shrink-0 flex items-center justify-between">
                 <ViewControls />
+                <button 
+                    onClick={() => setIsDownloadModalOpen(true)}
+                    className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors ml-auto"
+                    aria-label="Download dashboard"
+                >
+                    <DownloadIcon className="w-4 h-4" />
+                </button>
             </div>
             
             <div className="flex-grow overflow-y-auto px-4 pb-8">

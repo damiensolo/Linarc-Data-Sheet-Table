@@ -1,7 +1,8 @@
 
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ScissorsIcon, CopyIcon, TrashIcon, ClipboardIcon, FillColorIcon, BorderColorIcon, TextColorIcon, SettingsIcon, XIcon } from '../../../common/Icons';
+import { ScissorsIcon, CopyIcon, TrashIcon, ClipboardIcon, FillColorIcon, BorderColorIcon, TextColorIcon, SettingsIcon, XIcon, DownloadIcon } from '../../../common/Icons';
+import { useProject } from '../../../../context/ProjectContext';
 import ViewControls from '../../../layout/ViewControls';
 import FieldsMenu from '../../../layout/FieldsMenu';
 import { Popover } from '../../../common/ui/Popover';
@@ -38,6 +39,7 @@ const SpreadsheetToolbar: React.FC<SpreadsheetToolbarProps> = ({
     onDelete,
     onDeselectAll
 }) => {
+    const { setIsDownloadModalOpen } = useProject();
     return (
         <div className="flex items-center flex-1 transition-all z-40 relative gap-2">
             <AnimatePresence mode="wait">
@@ -148,7 +150,15 @@ const SpreadsheetToolbar: React.FC<SpreadsheetToolbarProps> = ({
                     <div className="w-px h-6 bg-gray-300"></div>
 
                     {/* Settings Menu */}
-                    <div className="ml-auto flex items-center">
+                    <div className="ml-auto flex items-center gap-1.5">
+                        <button 
+                            onClick={() => setIsDownloadModalOpen(true)}
+                            className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                            aria-label="Download view"
+                        >
+                            <DownloadIcon className="w-4 h-4" />
+                        </button>
+
                         <Popover
                             trigger={
                                 <button className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors">

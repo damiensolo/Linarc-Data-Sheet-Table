@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useCallback, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ColumnId, DisplayDensity, TaskStyle, Task } from '../../../types';
 import TableRow from './TableRow';
-import { ArrowDownIcon, ArrowUpIcon, SortIcon, ScissorsIcon, CopyIcon, TrashIcon, FillColorIcon, BorderColorIcon, TextColorIcon, ClipboardIcon, SettingsIcon, ChevronDownIcon, ChevronUpIcon, ChevronsDownIcon, XIcon } from '../../common/Icons';
+import { ArrowDownIcon, ArrowUpIcon, SortIcon, ScissorsIcon, CopyIcon, TrashIcon, FillColorIcon, BorderColorIcon, TextColorIcon, ClipboardIcon, SettingsIcon, ChevronDownIcon, ChevronUpIcon, ChevronsDownIcon, XIcon, DownloadIcon } from '../../common/Icons';
 import { useProject } from '../../../context/ProjectContext';
 import { useProjectData } from '../../../hooks/useProjectData';
 import ViewControls from '../../layout/ViewControls';
@@ -44,6 +44,7 @@ const TableView: React.FC<TableViewProps> = ({ isScrolled, density }) => {
     updateView,
     expansionCycle,
     handleCycleExpansion,
+    setIsDownloadModalOpen,
   } = useProject();
 
   const { 
@@ -290,7 +291,15 @@ const TableView: React.FC<TableViewProps> = ({ isScrolled, density }) => {
                     className="flex items-center gap-2 flex-1"
                  >
                     <ViewControls />
-                    <div className="ml-auto flex items-center">
+                    <div className="ml-auto flex items-center gap-1.5">
+                        <button 
+                            onClick={() => setIsDownloadModalOpen(true)}
+                            className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                            aria-label="Download view"
+                        >
+                            <DownloadIcon className="w-4 h-4" />
+                        </button>
+
                         <Popover
                             trigger={
                                 <button className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors" aria-label="View settings">

@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Task, DisplayDensity } from '../../../types';
 import GanttRow from './GanttRow';
 import { parseDate, getDaysDiff, addDays } from '../../../lib/dateUtils';
@@ -8,7 +9,7 @@ import ViewControls from '../../layout/ViewControls';
 import FieldsMenu from '../../layout/FieldsMenu';
 import { Popover } from '../../common/ui/Popover';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../common/ui/Tooltip';
-import { ActivityIcon, CalculatorIcon, DatabaseIcon, SettingsIcon } from '../../common/Icons';
+import { ActivityIcon, CalculatorIcon, DatabaseIcon, SettingsIcon, DownloadIcon, ChevronDownIcon, ChevronUpIcon } from '../../common/Icons';
 
 const getRowHeight = (density: DisplayDensity): number => {
   switch (density) {
@@ -26,8 +27,9 @@ const GANTT_HEADER_HEIGHT = GANTT_HEADER_MONTH_ROW_HEIGHT + GANTT_HEADER_DAY_ROW
 
 const GanttView: React.FC = () => {
     const { 
-        tasks, activeView, searchTerm, handleToggle, handlePriorityChange
+        tasks, activeView, searchTerm, handleToggle, handlePriorityChange, setIsDownloadModalOpen
     } = useProject();
+    const [isToolbarCollapsed, setIsToolbarCollapsed] = React.useState(false);
     const { displayDensity, fontSize } = activeView;
     const { sortedTasks } = useProjectData(tasks, activeView, searchTerm);
     const rowHeight = getRowHeight(displayDensity);
@@ -81,7 +83,15 @@ const GanttView: React.FC = () => {
             {/* Tier 1: Global Toolbar */}
             <div className="flex items-center gap-2 pr-0.5">
                 <ViewControls />
-                <div className="ml-auto flex items-center">
+                <div className="ml-auto flex items-center gap-1.5">
+                    <button 
+                        onClick={() => setIsDownloadModalOpen(true)}
+                        className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                        aria-label="Download view"
+                    >
+                        <DownloadIcon className="w-4 h-4" />
+                    </button>
+
                     <Popover
                         trigger={
                             <button className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors" aria-label="View settings">
@@ -93,57 +103,79 @@ const GanttView: React.FC = () => {
                         }
                         align="end"
                     />
+
+                    <div className="w-px h-4 bg-gray-200 mx-1"></div>
+
+                    <button 
+                        onClick={() => setIsToolbarCollapsed(!isToolbarCollapsed)}
+                        className={`p-1.5 rounded-md transition-all ${isToolbarCollapsed ? 'bg-blue-50 text-blue-600' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'}`}
+                        aria-label={isToolbarCollapsed ? "Expand utilities" : "Collapse utilities"}
+                    >
+                        {isToolbarCollapsed ? <ChevronDownIcon className="w-4 h-4" /> : <ChevronUpIcon className="w-4 h-4" />}
+                    </button>
                 </div>
             </div>
 
-            {/* Tier 2: Specialty Specialty Toolbar (Schedule Tools) */}
-            <div className="flex items-center gap-3 px-3 py-1 bg-gray-50/50 border border-gray-200 rounded-lg backdrop-blur-sm shadow-sm transition-all duration-300 hover:shadow-md">
-                <div className="flex items-center gap-2 border-r border-gray-200 pr-4">
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none select-none">Schedule Utilities</span>
-                    <TooltipProvider>
-                        <div className="flex items-center gap-1">
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <button className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all duration-200 group/tool" aria-label="Toggle critical path">
-                                        <ActivityIcon className="w-4 h-4 transition-transform group-hover/tool:scale-110" />
-                                    </button>
-                                </TooltipTrigger>
-                                <TooltipContent>Toggle Critical Path</TooltipContent>
-                            </Tooltip>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <button className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all duration-200 group/tool" aria-label="Compute critical path">
-                                        <CalculatorIcon className="w-4 h-4 transition-transform group-hover/tool:scale-110" />
-                                    </button>
-                                </TooltipTrigger>
-                                <TooltipContent>Compute Critical Path</TooltipContent>
-                            </Tooltip>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <button className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all duration-200 group/tool" aria-label="Create baseline">
-                                        <DatabaseIcon className="w-4 h-4 transition-transform group-hover/tool:scale-110" />
-                                    </button>
-                                </TooltipTrigger>
-                                <TooltipContent>Create Baseline</TooltipContent>
-                            </Tooltip>
+            <AnimatePresence>
+                {!isToolbarCollapsed && (
+                    <motion.div 
+                        initial={{ height: 0, opacity: 0, marginTop: -7 }}
+                        animate={{ height: 'auto', opacity: 1, marginTop: 0 }}
+                        exit={{ height: 0, opacity: 0, marginTop: -7 }}
+                        transition={{ duration: 0.2, ease: "easeInOut" }}
+                        className="overflow-hidden"
+                    >
+                        {/* Tier 2: Specialty Specialty Toolbar (Schedule Tools) */}
+                        <div className="flex items-center gap-3 px-3 py-1 bg-gray-50/50 border border-gray-200 rounded-lg backdrop-blur-sm shadow-sm transition-all duration-300 hover:shadow-md">
+                            <div className="flex items-center gap-2 border-r border-gray-200 pr-4">
+                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none select-none">Schedule Utilities</span>
+                                <TooltipProvider>
+                                    <div className="flex items-center gap-1">
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <button className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all duration-200 group/tool" aria-label="Toggle critical path">
+                                                    <ActivityIcon className="w-4 h-4 transition-transform group-hover/tool:scale-110" />
+                                                </button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>Toggle Critical Path</TooltipContent>
+                                        </Tooltip>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <button className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all duration-200 group/tool" aria-label="Compute critical path">
+                                                    <CalculatorIcon className="w-4 h-4 transition-transform group-hover/tool:scale-110" />
+                                                </button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>Compute Critical Path</TooltipContent>
+                                        </Tooltip>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <button className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all duration-200 group/tool" aria-label="Create baseline">
+                                                    <DatabaseIcon className="w-4 h-4 transition-transform group-hover/tool:scale-110" />
+                                                </button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>Create Baseline</TooltipContent>
+                                        </Tooltip>
+                                    </div>
+                                </TooltipProvider>
+                            </div>
+
+                            <div className="flex items-center gap-3 pl-1 border-r border-gray-200 pr-4">
+                                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none select-none">Timeline Mode</span>
+                                 <div className="flex items-center bg-gray-200/50 rounded-md p-0.5">
+                                    <button className="px-2 py-1 text-[10px] font-bold text-blue-600 bg-white shadow-sm rounded border border-gray-200 uppercase tracking-wider">Daily</button>
+                                    <button className="px-2 py-1 text-[10px] font-bold text-gray-400 hover:text-gray-600 uppercase tracking-wider">Weekly</button>
+                                    <button className="px-2 py-1 text-[10px] font-bold text-gray-400 hover:text-gray-600 uppercase tracking-wider">Monthly</button>
+                                 </div>
+                            </div>
+
+                            <div className="ml-auto text-[10px] font-medium text-gray-400 flex items-center gap-1 pr-1">
+                                <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></div>
+                                Auto-save active
+                            </div>
                         </div>
-                    </TooltipProvider>
-                </div>
-
-                <div className="flex items-center gap-3 pl-1">
-                     <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none select-none">Timeline Mode</span>
-                     <div className="flex items-center bg-gray-200/50 rounded-md p-0.5">
-                        <button className="px-2 py-1 text-[10px] font-bold text-blue-600 bg-white shadow-sm rounded border border-gray-200 uppercase tracking-wider">Daily</button>
-                        <button className="px-2 py-1 text-[10px] font-bold text-gray-400 hover:text-gray-600 uppercase tracking-wider">Weekly</button>
-                        <button className="px-2 py-1 text-[10px] font-bold text-gray-400 hover:text-gray-600 uppercase tracking-wider">Monthly</button>
-                     </div>
-                </div>
-
-                <div className="ml-auto text-[10px] font-medium text-gray-400 flex items-center gap-1 pr-1">
-                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></div>
-                    Auto-save active
-                </div>
-            </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             <div className="flex-grow bg-white border border-gray-200 rounded-lg shadow-sm overflow-auto relative" style={{ fontSize: `${fontSize}px` }}>
                 <div className="relative" style={{ minWidth: `${totalDays * dayWidth + taskListWidth}px` }}>

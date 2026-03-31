@@ -6,7 +6,7 @@ import ViewControls from '../../layout/ViewControls';
 import TaskCard from './components/TaskCard';
 import FieldsMenu from '../../layout/FieldsMenu';
 import { Popover } from '../../common/ui/Popover';
-import { SettingsIcon } from '../../common/Icons';
+import { SettingsIcon, DownloadIcon } from '../../common/Icons';
 
 const flattenTasks = (tasks: Task[]): Task[] => {
   let allTasks: Task[] = [];
@@ -35,7 +35,7 @@ const getStatusLabel = (status: Status) => {
 
 const BoardView: React.FC = () => {
     const { 
-        tasks, activeView, searchTerm, handlePriorityChange
+        tasks, activeView, searchTerm, handlePriorityChange, setIsDownloadModalOpen
     } = useProject();
     const { sortedTasks } = useProjectData(tasks, activeView, searchTerm);
     const allTasks = flattenTasks(sortedTasks);
@@ -60,7 +60,15 @@ const BoardView: React.FC = () => {
         <div className="flex h-full flex-col px-4 pt-[7px] pb-[7px] gap-[7px] overflow-hidden">
             <div className="flex items-center gap-2">
                 <ViewControls />
-                <div className="ml-auto flex items-center">
+                <div className="ml-auto flex items-center gap-1.5">
+                    <button 
+                        onClick={() => setIsDownloadModalOpen(true)}
+                        className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                        aria-label="Download view"
+                    >
+                        <DownloadIcon className="w-4 h-4" />
+                    </button>
+
                     <Popover
                         trigger={
                             <button className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors" aria-label="View settings">
