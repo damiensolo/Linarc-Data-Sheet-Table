@@ -294,7 +294,7 @@ const TableView: React.FC<TableViewProps> = ({ isScrolled, density }) => {
                     <div className="ml-auto flex items-center gap-1.5">
                         <button 
                             onClick={() => setIsDownloadModalOpen(true)}
-                            className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                            className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
                             aria-label="Download view"
                         >
                             <DownloadIcon className="w-4 h-4" />
@@ -302,7 +302,7 @@ const TableView: React.FC<TableViewProps> = ({ isScrolled, density }) => {
 
                         <Popover
                             trigger={
-                                <button className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors" aria-label="View settings">
+                                <button className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors" aria-label="View settings">
                                     <SettingsIcon className="w-4 h-4" />
                                 </button>
                             }

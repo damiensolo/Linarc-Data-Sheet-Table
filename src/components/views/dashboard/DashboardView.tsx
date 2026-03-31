@@ -261,7 +261,7 @@ const DashboardView: React.FC = () => {
                 <ViewControls />
                 <button 
                     onClick={() => setIsDownloadModalOpen(true)}
-                    className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors ml-auto"
+                    className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors ml-auto"
                     aria-label="Download dashboard"
                 >
                     <DownloadIcon className="w-4 h-4" />

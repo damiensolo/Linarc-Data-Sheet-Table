@@ -16,9 +16,9 @@ const getDefaultViewConfig = (viewMode: ViewMode): Omit<View, 'id' | 'name' | 'c
     displayDensity: 'comfortable' as DisplayDensity,
     showGridLines: false,
     showColoredRows: false,
-    taskStyles: {},
     fontSize: 12,
     groupBy: [],
+    showToolbarLabels: true,
   };
 
   switch (viewMode) {
@@ -121,6 +121,7 @@ interface ProjectContextType {
   setShowGridLines: (show: boolean) => void;
   setShowColoredRows: (show: boolean) => void;
   setFontSize: (size: number) => void;
+  setShowToolbarLabels: (show: boolean) => void;
   handleSort: (columnId: ColumnId) => void;
   handleUpdateTask: (taskId: number, updatedValues: Partial<Omit<Task, 'id' | 'children'>>) => void;
   handlePriorityChange: (taskId: number, priority: Priority) => void;
@@ -455,7 +456,8 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
               isDefault: false,
               displayDensity: 'standard',
               showGridLines: true,
-              fontSize: 14,
+              fontSize: 12,
+              showToolbarLabels: true,
               metadata: {
                   ownerName: 'System Admin',
                   createdAt: new Date().toISOString(),
@@ -490,7 +492,8 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
               isDefault: false,
               displayDensity: 'standard',
               showGridLines: true,
-              fontSize: 14,
+              fontSize: 12,
+              showToolbarLabels: true,
               metadata: {
                   ownerId: 'current-user',
                   ownerName: 'You',
@@ -533,6 +536,7 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     setShowGridLines,
     setShowColoredRows,
     setFontSize,
+    setShowToolbarLabels: (show: boolean) => updateView({ showToolbarLabels: show }),
     handleSort,
     handleUpdateTask,
     handlePriorityChange,

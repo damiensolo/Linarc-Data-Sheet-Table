@@ -180,5 +180,6 @@ export interface View {
   highlights?: HighlightRule[];
   groupBy?: GroupByRule[] | null;
   baseViewType?: ViewMode;
+  showToolbarLabels: boolean;
   metadata: ViewMetadata;
 }

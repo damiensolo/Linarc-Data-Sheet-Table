@@ -30,6 +30,9 @@ const GanttView: React.FC = () => {
         tasks, activeView, searchTerm, handleToggle, handlePriorityChange, setIsDownloadModalOpen
     } = useProject();
     const [isToolbarCollapsed, setIsToolbarCollapsed] = React.useState(false);
+    const [isCriticalPathActive, setIsCriticalPathActive] = React.useState(false);
+    const [isBaselineActive, setIsBaselineActive] = React.useState(false);
+    const [timelineMode, setTimelineMode] = React.useState<'day' | 'week' | 'month'>('day');
     const { displayDensity, fontSize } = activeView;
     const { sortedTasks } = useProjectData(tasks, activeView, searchTerm);
     const rowHeight = getRowHeight(displayDensity);
@@ -86,7 +89,7 @@ const GanttView: React.FC = () => {
                 <div className="ml-auto flex items-center gap-1.5">
                     <button 
                         onClick={() => setIsDownloadModalOpen(true)}
-                        className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                        className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
                         aria-label="Download view"
                     >
                         <DownloadIcon className="w-4 h-4" />
@@ -94,7 +97,7 @@ const GanttView: React.FC = () => {
 
                     <Popover
                         trigger={
-                            <button className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors" aria-label="View settings">
+                            <button className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors" aria-label="View settings">
                                 <SettingsIcon className="w-4 h-4" />
                             </button>
                         }
@@ -133,7 +136,11 @@ const GanttView: React.FC = () => {
                                     <div className="flex items-center gap-1">
                                         <Tooltip>
                                             <TooltipTrigger asChild>
-                                                <button className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all duration-200 group/tool" aria-label="Toggle critical path">
+                                                <button 
+                                                    onClick={() => setIsCriticalPathActive(!isCriticalPathActive)}
+                                                    className={`p-1.5 rounded-md transition-all duration-200 group/tool ${isCriticalPathActive ? 'text-blue-600 bg-blue-50 border-blue-100' : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50'}`} 
+                                                    aria-label="Toggle critical path"
+                                                >
                                                     <ActivityIcon className="w-4 h-4 transition-transform group-hover/tool:scale-110" />
                                                 </button>
                                             </TooltipTrigger>
@@ -149,11 +156,15 @@ const GanttView: React.FC = () => {
                                         </Tooltip>
                                         <Tooltip>
                                             <TooltipTrigger asChild>
-                                                <button className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all duration-200 group/tool" aria-label="Create baseline">
+                                                <button 
+                                                    onClick={() => setIsBaselineActive(!isBaselineActive)}
+                                                    className={`p-1.5 rounded-md transition-all duration-200 group/tool ${isBaselineActive ? 'text-blue-600 bg-blue-50 border-blue-100' : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50'}`} 
+                                                    aria-label="Create baseline"
+                                                >
                                                     <DatabaseIcon className="w-4 h-4 transition-transform group-hover/tool:scale-110" />
                                                 </button>
                                             </TooltipTrigger>
-                                            <TooltipContent>Create Baseline</TooltipContent>
+                                            <TooltipContent>{isBaselineActive ? 'Disable Baseline' : 'Create Baseline'}</TooltipContent>
                                         </Tooltip>
                                     </div>
                                 </TooltipProvider>
@@ -162,9 +173,24 @@ const GanttView: React.FC = () => {
                             <div className="flex items-center gap-3 pl-1 border-r border-gray-200 pr-4">
                                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none select-none">Timeline Mode</span>
                                  <div className="flex items-center bg-gray-200/50 rounded-md p-0.5">
-                                    <button className="px-2 py-1 text-[10px] font-bold text-blue-600 bg-white shadow-sm rounded border border-gray-200 uppercase tracking-wider">Daily</button>
-                                    <button className="px-2 py-1 text-[10px] font-bold text-gray-400 hover:text-gray-600 uppercase tracking-wider">Weekly</button>
-                                    <button className="px-2 py-1 text-[10px] font-bold text-gray-400 hover:text-gray-600 uppercase tracking-wider">Monthly</button>
+                                    <button 
+                                        onClick={() => setTimelineMode('day')}
+                                        className={`px-2 py-1 text-[10px] font-bold uppercase tracking-wider rounded transition-all duration-200 ${timelineMode === 'day' ? 'text-blue-600 bg-white shadow-sm border border-gray-200' : 'text-gray-400 hover:text-gray-600'}`}
+                                    >
+                                        Daily
+                                    </button>
+                                    <button 
+                                        onClick={() => setTimelineMode('week')}
+                                        className={`px-2 py-1 text-[10px] font-bold uppercase tracking-wider rounded transition-all duration-200 ${timelineMode === 'week' ? 'text-blue-600 bg-white shadow-sm border border-gray-200' : 'text-gray-400 hover:text-gray-600'}`}
+                                    >
+                                        Weekly
+                                    </button>
+                                    <button 
+                                        onClick={() => setTimelineMode('month')}
+                                        className={`px-2 py-1 text-[10px] font-bold uppercase tracking-wider rounded transition-all duration-200 ${timelineMode === 'month' ? 'text-blue-600 bg-white shadow-sm border border-gray-200' : 'text-gray-400 hover:text-gray-600'}`}
+                                    >
+                                        Monthly
+                                    </button>
                                  </div>
                             </div>
 

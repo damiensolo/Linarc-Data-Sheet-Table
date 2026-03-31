@@ -323,7 +323,7 @@ const ViewConfigPanel: React.FC<{
                 </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-8 custom-scrollbar">
+            <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6 custom-scrollbar">
                 <section className="space-y-4">
                     <div>
                         <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 block">View Title</label>
@@ -342,10 +342,15 @@ const ViewConfigPanel: React.FC<{
                             {viewModes.map(mode => (
                                 <button 
                                     key={mode.id}
+                                    disabled={!!initialView}
                                     onClick={() => setType(mode.id)}
-                                    className={`flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium border transition-all ${type === mode.id ? 'bg-zinc-900 text-white border-zinc-900 shadow-sm' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'}`}
+                                    className={`flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium border transition-all ${
+                                        type === mode.id 
+                                            ? (initialView ? 'bg-gray-100 text-gray-800 border-gray-300 shadow-none' : 'bg-zinc-900 text-white border-zinc-900 shadow-sm') 
+                                            : (initialView ? 'bg-gray-50 text-gray-400 border-gray-100 opacity-60' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300')
+                                    } ${initialView ? 'cursor-not-allowed' : ''}`}
                                 >
-                                    <mode.icon className={`w-3.5 h-3.5 ${type === mode.id ? 'text-white' : 'text-gray-400'}`} />
+                                    <ViewIcon type={mode.id} className={`w-3.5 h-3.5 ${type === mode.id ? (initialView ? 'text-gray-600' : 'text-white') : (initialView ? 'text-gray-300' : 'text-gray-400')}`} />
                                     {mode.label}
                                 </button>
                             ))}
@@ -353,7 +358,7 @@ const ViewConfigPanel: React.FC<{
                     </div>
                 </section>
 
-                <section className="space-y-4 pt-6 border-t border-gray-100">
+                <section className="space-y-3">
                     <div className="flex items-center justify-between">
                         <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Rules</label>
                     </div>
@@ -420,7 +425,7 @@ const ViewConfigPanel: React.FC<{
                     </div>
                 </section>
 
-                <section className="space-y-4 pt-6 border-t border-gray-100">
+                <section className="space-y-3">
                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Grouping</label>
                     <div className="space-y-2">
                         {groupBy.map((g, i) => (
@@ -453,7 +458,7 @@ const ViewConfigPanel: React.FC<{
                 </section>
 
                 {isSystem && (
-                    <section className="pt-6 border-t border-gray-100">
+                    <section className="pt-2">
                         <div className="flex items-center justify-between p-3 bg-zinc-50 rounded-xl border border-zinc-100">
                             <div>
                                 <p className="text-xs font-bold text-zinc-900">Publish Changes</p>

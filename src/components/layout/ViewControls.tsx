@@ -365,8 +365,8 @@ const ViewControls: React.FC = () => {
                       <TooltipTrigger asChild>
                           <button
                               onClick={() => { handleViewModeChange(mode.id); closeDropdown?.(); }}
-                              className={`text-sm font-medium rounded-md transition-colors w-full flex items-center justify-start h-9 ${
-                                  isActive ? 'bg-white shadow-sm border border-gray-200 text-gray-800' : isDropdown ? 'text-gray-700' : 'text-gray-500 hover:bg-gray-200 hover:text-gray-700'
+                              className={`text-xs font-medium rounded-md transition-colors w-full flex items-center justify-start h-9 ${
+                                  isActive ? 'bg-white shadow-sm border border-gray-200 text-blue-600' : isDropdown ? 'text-gray-700' : 'text-gray-500 hover:bg-gray-200 hover:text-gray-700'
                               } ${!isDropdown ? 'px-2' : 'px-1.5'}`}
                               aria-label={`Switch to ${mode.label} view`}
                               aria-pressed={isActive}
@@ -402,9 +402,9 @@ const ViewControls: React.FC = () => {
               >
                   <button
                       onClick={() => { handleSelectView(view.id); closeDropdown?.(); }}
-                      className={`pl-2 pr-2 py-1.5 text-sm font-medium text-gray-800 rounded-l-md flex items-center gap-1 whitespace-nowrap w-full h-full`}
+                      className={`pl-2 pr-2 py-1.5 text-xs font-medium ${isActive ? 'text-blue-600' : 'text-gray-800'} rounded-l-md flex items-center gap-1 whitespace-nowrap w-full h-full`}
                   >
-                      <IconComponent className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                      <IconComponent className={`w-4 h-4 ${isActive ? 'text-blue-600' : 'text-gray-500'} flex-shrink-0`} />
                       {view.name}
                   </button>
                   <div className="pr-1 flex items-center h-full">
@@ -434,53 +434,60 @@ const ViewControls: React.FC = () => {
                 <>
                     {/* Search */}
                     <div className="relative flex-shrink-0 flex items-center justify-end">
-                        <motion.div 
-                            initial={false}
-                            animate={{ 
-                                width: (isSearchFocused || searchTerm) ? 260 : 40,
-                                backgroundColor: isSearchFocused ? '#ffffff' : (searchTerm ? '#ffffff' : '#ffffff'),
-                                borderColor: isSearchFocused ? '#3b82f6' : '#d1d5db',
-                                boxShadow: isSearchFocused ? '0 0 0 2px rgba(59, 130, 246, 0.1)' : '0 1px 2px 0 rgba(0, 0, 0, 0.05)'
-                             }}
-                            transition={{ type: 'spring', stiffness: 450, damping: 30 }}
-                            className={`relative flex items-center h-9 rounded-md border group/search cursor-pointer ${ (isSearchFocused || searchTerm) ? '' : 'hover:bg-gray-50' }`}
-                            onClick={() => setIsSearchFocused(true)}
-                        >
-                            <div className={`absolute left-0 w-10 h-full flex items-center justify-center transition-colors ${ isSearchFocused ? 'text-blue-500' : 'text-gray-700 group-hover/search:text-gray-900' }`}>
-                                <SearchIcon className="w-4 h-4 transition-colors" />
-                            </div>
-                            <input 
-                                ref={searchInputRef}
-                                id="global-search-input"
-                                type="text" 
-                                placeholder={searchPlaceholder} 
-                                value={searchTerm}
-                                onChange={e => setSearchTerm(e.target.value)}
-                                onFocus={() => setIsSearchFocused(true)}
-                                onBlur={() => {
-                                    // Slight delay to allow clicking the clear button
-                                    setTimeout(() => setIsSearchFocused(false), 150);
-                                }}
-                                className={`w-full h-full bg-transparent border-none focus:ring-0 text-sm pl-10 pr-8 outline-none transition-opacity duration-200 font-medium text-gray-900 placeholder-gray-400 ${ (isSearchFocused || searchTerm) ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none' }`}
-                            />
-                            <AnimatePresence>
-                                {searchTerm && (
-                                    <motion.button 
-                                        initial={{ opacity: 0, scale: 0.8 }}
-                                        animate={{ opacity: 1, scale: 1 }}
-                                        exit={{ opacity: 0, scale: 0.8 }}
-                                        onClick={(e) => { 
-                                            e.stopPropagation();
-                                            setSearchTerm(''); 
-                                            searchInputRef.current?.focus(); 
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <motion.div 
+                                        initial={false}
+                                        animate={{ 
+                                            width: (isSearchFocused || searchTerm) ? 260 : 40,
+                                            backgroundColor: isSearchFocused ? '#ffffff' : (searchTerm ? '#ffffff' : '#ffffff'),
+                                            borderColor: isSearchFocused ? '#3b82f6' : '#d1d5db',
+                                            boxShadow: isSearchFocused ? '0 0 0 2px rgba(59, 130, 246, 0.1)' : '0 1px 2px 0 rgba(0, 0, 0, 0.05)'
                                         }}
-                                        className="absolute right-2 text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition-colors"
+                                        transition={{ type: 'spring', stiffness: 450, damping: 30 }}
+                                        className={`relative flex items-center h-9 rounded-md border group/search cursor-pointer ${ (isSearchFocused || searchTerm) ? '' : 'hover:bg-gray-50' }`}
+                                        onClick={() => setIsSearchFocused(true)}
                                     >
-                                        <XIcon className="w-3.5 h-3.5" />
-                                    </motion.button>
-                                )}
-                            </AnimatePresence>
-                        </motion.div>
+                                        <div className={`absolute left-0 w-10 h-full flex items-center justify-center transition-colors ${ isSearchFocused ? 'text-blue-500' : 'text-gray-700 group-hover/search:text-gray-900' }`}>
+                                            <SearchIcon className="w-4 h-4 transition-colors" />
+                                        </div>
+                                        <input 
+                                            ref={searchInputRef}
+                                            id="global-search-input"
+                                            type="text" 
+                                            placeholder={searchPlaceholder} 
+                                            value={searchTerm}
+                                            onChange={e => setSearchTerm(e.target.value)}
+                                            onFocus={() => setIsSearchFocused(true)}
+                                            onBlur={() => {
+                                                // Slight delay to allow clicking the clear button
+                                                setTimeout(() => setIsSearchFocused(false), 150);
+                                            }}
+                                            className={`w-full h-full bg-transparent border-none focus:ring-0 text-xs pl-10 pr-8 outline-none transition-opacity duration-200 font-medium text-gray-900 placeholder-gray-400 ${ (isSearchFocused || searchTerm) ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none' }`}
+                                        />
+                                        <AnimatePresence>
+                                            {searchTerm && (
+                                                <motion.button 
+                                                    initial={{ opacity: 0, scale: 0.8 }}
+                                                    animate={{ opacity: 1, scale: 1 }}
+                                                    exit={{ opacity: 0, scale: 0.8 }}
+                                                    onClick={(e) => { 
+                                                        e.stopPropagation();
+                                                        setSearchTerm(''); 
+                                                        searchInputRef.current?.focus(); 
+                                                    }}
+                                                    className="absolute right-2 text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition-colors"
+                                                >
+                                                    <XIcon className="w-3.5 h-3.5" />
+                                                </motion.button>
+                                            )}
+                                        </AnimatePresence>
+                                    </motion.div>
+                                </TooltipTrigger>
+                                {!(isSearchFocused || searchTerm) && <TooltipContent side="bottom">Search</TooltipContent>}
+                            </Tooltip>
+                        </TooltipProvider>
                     </div>
 
                     {/* Filter */}
@@ -488,10 +495,10 @@ const ViewControls: React.FC = () => {
                         <TooltipProvider>
                             <Tooltip>
                                 <TooltipTrigger asChild>
-                                    <button ref={filterButtonRef} onClick={() => setShowFilterMenu(p => !p)} className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 shadow-sm h-9 flex-shrink-0" aria-label="Filter tasks">
+                                    <button ref={filterButtonRef} onClick={() => setShowFilterMenu(p => !p)} className={`flex items-center ${activeView.showToolbarLabels ? 'gap-1.5 px-3' : 'w-9 justify-center p-0'} py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 shadow-sm h-9 flex-shrink-0 transition-all`} aria-label="Filter tasks">
                                         <FilterIcon className="w-4 h-4" />
-                                        <span>Filter</span>
-                                        {activeView.filters.length > 0 && <span className="bg-blue-100 text-blue-700 text-xs font-bold px-1.5 py-0.5 rounded-full">{activeView.filters.length}</span>}
+                                        {activeView.showToolbarLabels && <span>Filter</span>}
+                                        {activeView.filters.length > 0 && <span className={`absolute -top-1.5 -right-1.5 bg-blue-100 text-blue-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-white ${activeView.showToolbarLabels ? 'relative top-0 right-0 border-none' : ''}`}>{activeView.filters.length}</span>}
                                     </button>
                                 </TooltipTrigger>
                                 <TooltipContent>Filter</TooltipContent>
@@ -505,10 +512,10 @@ const ViewControls: React.FC = () => {
                         <TooltipProvider>
                             <Tooltip>
                                 <TooltipTrigger asChild>
-                                    <button ref={groupButtonRef} onClick={() => setShowGroupMenu(p => !p)} className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 shadow-sm h-9 flex-shrink-0" aria-label="Group tasks">
+                                    <button ref={groupButtonRef} onClick={() => setShowGroupMenu(p => !p)} className={`flex items-center ${activeView.showToolbarLabels ? 'gap-1.5 px-3' : 'w-9 justify-center p-0'} py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 shadow-sm h-9 flex-shrink-0 transition-all`} aria-label="Group tasks">
                                         <GroupIcon className="w-4 h-4" />
-                                        <span>Group</span>
-                                        {(activeView.groupBy?.length || 0) > 0 && <span className="bg-blue-100 text-blue-700 text-xs font-bold px-1.5 py-0.5 rounded-full">{activeView.groupBy!.length}</span>}
+                                        {activeView.showToolbarLabels && <span>Group</span>}
+                                        {(activeView.groupBy?.length || 0) > 0 && <span className={`absolute -top-1.5 -right-1.5 bg-blue-100 text-blue-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-white ${activeView.showToolbarLabels ? 'relative top-0 right-0 border-none' : ''}`}>{activeView.groupBy!.length}</span>}
                                     </button>
                                 </TooltipTrigger>
                                 <TooltipContent>Group By</TooltipContent>
@@ -523,9 +530,9 @@ const ViewControls: React.FC = () => {
                             <TooltipProvider>
                                 <Tooltip>
                                     <TooltipTrigger>
-                                        <button ref={highlightButtonRef} onClick={() => setShowHighlightMenu(p => !p)} className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 shadow-sm h-9 flex-shrink-0" aria-label="Highlight cells">
+                                        <button ref={highlightButtonRef} onClick={() => setShowHighlightMenu(p => !p)} className={`flex items-center ${activeView.showToolbarLabels ? 'gap-1.5 px-3' : 'w-9 justify-center p-0'} py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 shadow-sm h-9 flex-shrink-0 transition-all`} aria-label="Highlight cells">
                                             <FillColorIcon className="w-4 h-4" />
-                                            {(activeView.highlights?.length || 0) > 0 && <span className="bg-blue-100 text-blue-700 text-xs font-bold px-1.5 py-0.5 rounded-full">{activeView.highlights?.length}</span>}
+                                            {(activeView.highlights?.length || 0) > 0 && <span className={`absolute -top-1.5 -right-1.5 bg-blue-100 text-blue-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-white ${activeView.showToolbarLabels ? 'relative top-0 right-0 border-none' : ''}`}>{activeView.highlights?.length}</span>}
                                         </button>
                                     </TooltipTrigger>
                                     <TooltipContent>Highlight</TooltipContent>
@@ -542,14 +549,11 @@ const ViewControls: React.FC = () => {
                                 <TooltipTrigger asChild>
                                     <button 
                                         onClick={() => setIsViewManagerOpen(true)}
-                                        className="relative flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 shadow-sm h-9 flex-shrink-0"
+                                        className={`relative flex items-center ${activeView.showToolbarLabels ? 'gap-1.5 px-3' : 'w-9 justify-center p-0'} py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 shadow-sm h-9 flex-shrink-0 transition-all`}
                                         aria-label="Manage views"
                                     >
                                         <ViewManagerIcon className="w-4 h-4" />
-                                        <span>Manage</span>
-                                        {views.some(v => !v.isEnabled) && (
-                                            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-blue-500 border-2 border-white rounded-full"></span>
-                                        )}
+                                        {activeView.showToolbarLabels && <span>Manage</span>}
                                     </button>
                                 </TooltipTrigger>
                                 <TooltipContent>Manage Views</TooltipContent>
