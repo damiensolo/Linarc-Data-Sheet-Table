@@ -146,6 +146,8 @@ interface ProjectContextType {
   handleSaveNewView: (view: Partial<View>) => void;
   isDownloadModalOpen: boolean;
   setIsDownloadModalOpen: (open: boolean) => void;
+  isPDFModalOpen: boolean;
+  setIsPDFModalOpen: (open: boolean) => void;
 }
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
@@ -174,6 +176,7 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [expansionCycle, setExpansionCycle] = useState(2); // 0: Collapse All, 1: Expand First, 2: Expand All
   const [isViewManagerOpen, setIsViewManagerOpen] = useState(false);
   const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
+  const [isPDFModalOpen, setIsPDFModalOpen] = useState(false);
 
   // Initialize with System Views
   useEffect(() => {
@@ -537,6 +540,8 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     setShowColoredRows,
     setFontSize,
     setShowToolbarLabels: (show: boolean) => updateView({ showToolbarLabels: show }),
+    isPDFModalOpen,
+    setIsPDFModalOpen,
     handleSort,
     handleUpdateTask,
     handlePriorityChange,

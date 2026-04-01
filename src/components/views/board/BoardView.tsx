@@ -7,6 +7,7 @@ import TaskCard from './components/TaskCard';
 import FieldsMenu from '../../layout/FieldsMenu';
 import { Popover } from '../../common/ui/Popover';
 import { SettingsIcon, DownloadIcon } from '../../common/Icons';
+import { PDFIcon } from '../../shared/PDFExportModal';
 
 const flattenTasks = (tasks: Task[]): Task[] => {
   let allTasks: Task[] = [];
@@ -35,7 +36,7 @@ const getStatusLabel = (status: Status) => {
 
 const BoardView: React.FC = () => {
     const { 
-        tasks, activeView, searchTerm, handlePriorityChange, setIsDownloadModalOpen
+        tasks, activeView, searchTerm, handlePriorityChange, setIsDownloadModalOpen, setIsPDFModalOpen
     } = useProject();
     const { sortedTasks } = useProjectData(tasks, activeView, searchTerm);
     const allTasks = flattenTasks(sortedTasks);
@@ -61,6 +62,14 @@ const BoardView: React.FC = () => {
             <div className="flex items-center gap-2">
                 <ViewControls />
                 <div className="ml-auto flex items-center gap-1.5">
+                    <button 
+                        onClick={() => setIsPDFModalOpen(true)}
+                        className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                        aria-label="Export as PDF"
+                    >
+                        <PDFIcon className="w-4 h-4" />
+                    </button>
+
                     <button 
                         onClick={() => setIsDownloadModalOpen(true)}
                         className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"

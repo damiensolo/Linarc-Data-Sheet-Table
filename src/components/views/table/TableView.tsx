@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ColumnId, DisplayDensity, TaskStyle, Task } from '../../../types';
 import TableRow from './TableRow';
 import { ArrowDownIcon, ArrowUpIcon, SortIcon, ScissorsIcon, CopyIcon, TrashIcon, FillColorIcon, BorderColorIcon, TextColorIcon, ClipboardIcon, SettingsIcon, ChevronDownIcon, ChevronUpIcon, ChevronsDownIcon, XIcon, DownloadIcon } from '../../common/Icons';
+import { PDFIcon } from '../../shared/PDFExportModal';
 import { useProject } from '../../../context/ProjectContext';
 import { useProjectData } from '../../../hooks/useProjectData';
 import ViewControls from '../../layout/ViewControls';
@@ -45,6 +46,7 @@ const TableView: React.FC<TableViewProps> = ({ isScrolled, density }) => {
     expansionCycle,
     handleCycleExpansion,
     setIsDownloadModalOpen,
+    setIsPDFModalOpen,
   } = useProject();
 
   const { 
@@ -292,6 +294,14 @@ const TableView: React.FC<TableViewProps> = ({ isScrolled, density }) => {
                  >
                     <ViewControls />
                     <div className="ml-auto flex items-center gap-1.5">
+                        <button 
+                            onClick={() => setIsPDFModalOpen(true)}
+                            className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                            aria-label="Export as PDF"
+                        >
+                            <PDFIcon className="w-4 h-4" />
+                        </button>
+
                         <button 
                             onClick={() => setIsDownloadModalOpen(true)}
                             className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"

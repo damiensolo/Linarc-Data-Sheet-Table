@@ -26,6 +26,7 @@ import ViewControls from '../../layout/ViewControls';
 import { Card, CardContent } from '../../common/ui/Card';
 import { useProject } from '../../../context/ProjectContext';
 import { DownloadIcon } from '../../common/Icons';
+import { PDFIcon } from '../../shared/PDFExportModal';
 
 // --- Theme & Palette Constants (Carbon Design System & Custom) ---
 const THEME = 'white';
@@ -254,18 +255,27 @@ const SafetyChart = () => {
 
 
 const DashboardView: React.FC = () => {
-    const { setIsDownloadModalOpen } = useProject();
+    const { setIsDownloadModalOpen, setIsPDFModalOpen } = useProject();
     return (
         <div className="flex flex-col h-full bg-gray-50 gap-[7px]">
             <div className="px-4 pt-[7px] pb-[7px] flex-shrink-0 flex items-center justify-between">
                 <ViewControls />
-                <button 
-                    onClick={() => setIsDownloadModalOpen(true)}
-                    className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors ml-auto"
-                    aria-label="Download dashboard"
-                >
-                    <DownloadIcon className="w-4 h-4" />
-                </button>
+                <div className="ml-auto flex items-center gap-1.5 flex-shrink-0">
+                    <button 
+                        onClick={() => setIsPDFModalOpen(true)}
+                        className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                        aria-label="Export as PDF"
+                    >
+                        <PDFIcon className="w-4 h-4" />
+                    </button>
+                    <button 
+                        onClick={() => setIsDownloadModalOpen(true)}
+                        className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                        aria-label="Download dashboard"
+                    >
+                        <DownloadIcon className="w-4 h-4" />
+                    </button>
+                </div>
             </div>
             
             <div className="flex-grow overflow-y-auto px-4 pb-8">

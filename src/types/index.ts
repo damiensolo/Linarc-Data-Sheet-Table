@@ -124,6 +124,7 @@ export interface BudgetLineItem {
   remainingContract?: number | null;
   hasWarning?: boolean;
   style?: BudgetLineItemStyle;
+  cellStyles?: { [columnId: string]: BudgetLineItemStyle };
   children?: BudgetLineItem[];
   isExpanded?: boolean;
   isGroup?: boolean;

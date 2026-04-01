@@ -10,6 +10,7 @@ export interface ContextMenuItem {
   disabled?: boolean;
   danger?: boolean;
   separator?: boolean;
+  render?: (onClose: () => void) => React.ReactNode;
 }
 
 interface ContextMenuProps {
@@ -42,7 +43,11 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ position, items, onClo
   }, [position]);
 
   useEffect(() => {
-    const handleClickOutside = (_event: MouseEvent) => { onClose(); };
+    const handleClickOutside = (event: MouseEvent) => { 
+        if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+            onClose(); 
+        }
+    };
     const handleScroll = () => { onClose(); };
     const handleResize = () => { onClose(); };
 
@@ -69,6 +74,10 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ position, items, onClo
           return <div key={index} className="h-px bg-gray-200 my-1.5 mx-1" />;
         }
 
+        if (item.render) {
+          return <div key={index}>{item.render(onClose)}</div>;
+        }
+
         return (
           <button
             key={index}
@@ -81,7 +90,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ position, items, onClo
             }}
             disabled={item.disabled}
             className={cn(
-              "w-full flex items-center px-3 py-2 text-sm text-left transition-colors relative",
+              "w-full flex items-center px-3 py-2 text-xs text-left transition-colors relative",
               item.disabled ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-100",
               item.danger ? "text-red-600 hover:bg-red-50" : "text-gray-700"
             )}

@@ -289,11 +289,24 @@ const SpreadsheetRowV2: React.FC<SpreadsheetRowV2Props> = ({
                         }
                     }
                 }
-
+                const cellStyles = row.cellStyles?.[col.id] || {};
                 const isEditable = col.editable && (
                     (rowType === 'child' && col.id !== 'remainingContract') || 
                     (rowType === 'parent' && (col.id === 'name' || col.id === 'remainingContract'))
                 );
+
+                const cellStyle: React.CSSProperties = {
+                    width: `${col.width}px`, 
+                    minWidth: `${col.width}px`, 
+                    maxWidth: `${col.width}px`,
+                };
+
+                if (cellStyles.backgroundColor) {
+                    cellStyle.backgroundColor = cellStyles.backgroundColor;
+                }
+                if (cellStyles.textColor) {
+                    cellStyle.color = cellStyles.textColor;
+                }
 
                 // Check for cell highlighting based on Visual Filters (Highlights)
                 let highlightStyle: React.CSSProperties = {};
@@ -334,16 +347,15 @@ const SpreadsheetRowV2: React.FC<SpreadsheetRowV2Props> = ({
                         className={`border-r border-gray-200 px-2 relative transition-colors
                             ${col.id === 'name' && rowType === 'parent' && hasChildren ? 'cursor-pointer hover:bg-black/5' : 'cursor-default'}
                             ${col.align === 'right' ? 'text-right' : 'text-left'}
-                            ${rowType === 'summary' ? 'border-gray-300 bg-gray-100' : ''}
-                            ${isSelected && rowType !== 'summary' ? 'bg-blue-50' : ''}
-                            ${cellColorClass}
+                            ${(rowType === 'summary' && !cellStyles.backgroundColor) ? 'border-gray-300 bg-gray-100' : ''}
+                            ${(isSelected && rowType !== 'summary' && !cellStyles.backgroundColor) ? 'bg-blue-50' : ''}
+                            ${!cellStyles.textColor ? cellColorClass : ''}
                         `}
-                        style={{ 
-                            width: `${col.width}px`, 
-                            minWidth: `${col.width}px`, 
-                            maxWidth: `${col.width}px`
-                        }}
+                        style={cellStyle}
                     >
+                        {cellStyles.borderColor && (
+                            <div className="absolute inset-0 border-2 z-20 pointer-events-none" style={{ borderColor: cellStyles.borderColor }} />
+                        )}
                         {highlightStyle.backgroundColor ? (
                             <div
                                 key={highlightStyle.backgroundColor}
@@ -374,7 +386,11 @@ const SpreadsheetRowV2: React.FC<SpreadsheetRowV2Props> = ({
                                         {isExpanded ? <ChevronDownIcon className="w-3.5 h-3.5" /> : <ChevronRightIcon className="w-3.5 h-3.5" />}
                                     </button>
                                 )}
-                                <span className="truncate" title={typeof content === 'string' ? content : undefined}>
+                                <span 
+                                    className="truncate" 
+                                    title={typeof content === 'string' ? content : undefined}
+                                    style={{ color: cellStyles.textColor }}
+                                >
                                     {content}
                                 </span>
                             </div>

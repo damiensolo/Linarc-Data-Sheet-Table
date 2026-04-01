@@ -10,6 +10,7 @@ import FieldsMenu from '../../layout/FieldsMenu';
 import { Popover } from '../../common/ui/Popover';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../common/ui/Tooltip';
 import { ActivityIcon, CalculatorIcon, DatabaseIcon, SettingsIcon, DownloadIcon, ChevronDownIcon, ChevronUpIcon } from '../../common/Icons';
+import { PDFIcon } from '../../shared/PDFExportModal';
 
 const getRowHeight = (density: DisplayDensity): number => {
   switch (density) {
@@ -27,7 +28,7 @@ const GANTT_HEADER_HEIGHT = GANTT_HEADER_MONTH_ROW_HEIGHT + GANTT_HEADER_DAY_ROW
 
 const GanttView: React.FC = () => {
     const { 
-        tasks, activeView, searchTerm, handleToggle, handlePriorityChange, setIsDownloadModalOpen
+        tasks, activeView, searchTerm, handleToggle, handlePriorityChange, setIsDownloadModalOpen, setIsPDFModalOpen
     } = useProject();
     const [isToolbarCollapsed, setIsToolbarCollapsed] = React.useState(false);
     const [isCriticalPathActive, setIsCriticalPathActive] = React.useState(false);
@@ -87,6 +88,14 @@ const GanttView: React.FC = () => {
             <div className="flex items-center gap-2 pr-0.5">
                 <ViewControls />
                 <div className="ml-auto flex items-center gap-1.5">
+                    <button 
+                        onClick={() => setIsPDFModalOpen(true)}
+                        className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                        aria-label="Export as PDF"
+                    >
+                        <PDFIcon className="w-4 h-4" />
+                    </button>
+
                     <button 
                         onClick={() => setIsDownloadModalOpen(true)}
                         className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"

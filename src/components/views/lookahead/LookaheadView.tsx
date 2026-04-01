@@ -16,6 +16,7 @@ import ViewControls from '../../layout/ViewControls';
 import FieldsMenu from '../../layout/FieldsMenu';
 import { Popover } from '../../common/ui/Popover';
 import { SettingsIcon, DownloadIcon } from '../../common/Icons';
+import { PDFIcon } from '../../shared/PDFExportModal';
 
 const WeatherIcon: React.FC<{ icon: 'sun' | 'cloud' | 'rain' }> = ({ icon }) => {
     switch (icon) {
@@ -51,7 +52,7 @@ const COLUMN_MAPPING: Record<string, LookaheadColumnType> = {
 
 const LookaheadView: React.FC = () => {
     const { 
-        activeView, setColumns, setIsDownloadModalOpen
+        activeView, setColumns, setIsDownloadModalOpen, setIsPDFModalOpen
     } = useProject();
     const { columns, displayDensity, fontSize } = activeView;
 
@@ -357,6 +358,14 @@ const LookaheadView: React.FC = () => {
             <div className="flex items-center gap-2">
                 <ViewControls />
                 <div className="ml-auto flex items-center gap-1.5">
+                    <button 
+                        onClick={() => setIsPDFModalOpen(true)}
+                        className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                        aria-label="Export as PDF"
+                    >
+                        <PDFIcon className="w-4 h-4" />
+                    </button>
+
                     <button 
                         onClick={() => setIsDownloadModalOpen(true)}
                         className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"

@@ -5,9 +5,11 @@ import SpreadsheetToolbar from '../spreadsheet/components/SpreadsheetToolbar';
 import SpreadsheetHeader from '../spreadsheet/components/SpreadsheetHeader';
 import SpreadsheetRowV2 from './components/SpreadsheetRowV2';
 import { ContextMenu, ContextMenuItem } from '../../common/ui/ContextMenu';
-import { ScissorsIcon, CopyIcon, ClipboardIcon, TrashIcon, PlusIcon } from '../../common/Icons';
+import { ScissorsIcon, CopyIcon, ClipboardIcon, TrashIcon, PlusIcon, FillColorIcon, BorderColorIcon, TextColorIcon } from '../../common/Icons';
 import { SPREADSHEET_INDEX_COLUMN_WIDTH } from '../../../constants/spreadsheetLayout';
 import { checkFilterMatch } from '../../../lib/utils';
+import ColorPicker from '../../common/ui/ColorPicker';
+import { BACKGROUND_COLORS, TEXT_BORDER_COLORS } from '../../../constants/designTokens';
 
 const formatCurrency = (amount: number | null | undefined) => {
   if (amount === null || amount === undefined) return '';
@@ -517,6 +519,43 @@ const SpreadsheetViewV2: React.FC = () => {
     updateView({ spreadsheetData: updateRecursive(rawBudgetData) });
   };
 
+  const handleCellStyleUpdate = (rowId: string, colId: string, newStyle: Partial<BudgetLineItemStyle>) => {
+      // Create a deep copy to avoid any potential memoization/reference issues
+      const clonedData = JSON.parse(JSON.stringify(rawBudgetData));
+      
+      const updateRecursive = (items: BudgetLineItem[]): BudgetLineItem[] => items.map(item => {
+          if (item.id === rowId) {
+              const currentCellStyles = item.cellStyles || {};
+              const currentCellStyle = currentCellStyles[colId] || {};
+              const mergedStyle = { ...currentCellStyle, ...newStyle };
+              
+              // Filter out undefined if we want to remove styles
+              const finalMergedStyle: any = { ...mergedStyle };
+              Object.keys(newStyle).forEach(key => {
+                  if ((newStyle as any)[key] === undefined) delete finalMergedStyle[key];
+              });
+
+              return {
+                  ...item,
+                  cellStyles: {
+                      ...currentCellStyles,
+                      [colId]: finalMergedStyle
+                  }
+              };
+          }
+          if (item.children && item.children.length > 0) {
+              return { 
+                  ...item, 
+                  children: updateRecursive(item.children) 
+              };
+          }
+          return item;
+      });
+
+      const newData = updateRecursive(clonedData);
+      updateView({ spreadsheetData: newData });
+  };
+
   const handleAddSubRow = (parentId: string) => {
     const parentRow = rawBudgetData.find(r => r.id === parentId);
     if (parentRow) {
@@ -534,7 +573,8 @@ const SpreadsheetViewV2: React.FC = () => {
             material: 0,
             others: 0,
             remainingContract: 0,
-            style: {}
+            style: {},
+            cellStyles: {}
         };
         
         const updateRecursive = (items: BudgetLineItem[]): BudgetLineItem[] => items.map(item => {
@@ -629,18 +669,18 @@ const SpreadsheetViewV2: React.FC = () => {
 
       if (targetId) {
           const insertRecursive = (items: BudgetLineItem[]): BudgetLineItem[] => {
-              const targetIndex = items.findIndex(i => i.id === targetId);
-              if (targetIndex !== -1) {
-                  const newArr = [...items];
-                  newItems.forEach((newItem, i) => {
-                      newArr.splice(targetIndex + 1 + i, 0, newItem);
-                  });
-                  return newArr;
-              }
-              return items.map(item => ({
-                  ...item,
-                  children: item.children ? insertRecursive(item.children) : undefined
-              }));
+               const targetIndex = items.findIndex(i => i.id === targetId);
+               if (targetIndex !== -1) {
+                   const newArr = [...items];
+                   newItems.forEach((newItem, i) => {
+                       newArr.splice(targetIndex + 1 + i, 0, newItem);
+                   });
+                   return newArr;
+               }
+               return items.map(item => ({
+                   ...item,
+                   children: item.children ? insertRecursive(item.children) : undefined
+               }));
           };
           updateView({ spreadsheetData: insertRecursive(rawBudgetData) });
       } else {
@@ -650,10 +690,10 @@ const SpreadsheetViewV2: React.FC = () => {
 
   const getContextMenuItems = (): ContextMenuItem[] => {
       if (!contextMenu) return [];
-      const targetId = contextMenu.targetId;
+      const { targetId, secondaryId, type } = contextMenu;
       const isSyntheticGroup = targetId.startsWith('group-');
       
-      return [
+      const baseItems: ContextMenuItem[] = [
           { 
               label: 'Add Sub-row', 
               icon: <PlusIcon className="w-4 h-4"/>, 
@@ -688,6 +728,90 @@ const SpreadsheetViewV2: React.FC = () => {
               onClick: () => handleDeleteRow(new Set([targetId])) 
           },
       ];
+
+      if (type === 'cell' && secondaryId) {
+          const stylingItems: ContextMenuItem[] = [
+              { separator: true } as any,
+              {
+                  label: 'Cell Background Color',
+                  icon: <FillColorIcon className="w-4 h-4 text-zinc-400" />,
+                  render: (onClose) => (
+                      <div 
+                        className="flex items-center px-3 py-1.5 hover:bg-zinc-100 transition-colors cursor-default group" 
+                        onClick={e => e.stopPropagation()}
+                        onMouseDown={e => e.stopPropagation()}
+                      >
+                          <span className="mr-2 text-zinc-400 group-hover:text-zinc-600"><FillColorIcon className="w-4 h-4" /></span>
+                          <span className="flex-grow text-xs font-medium text-zinc-700">Cell Background</span>
+                          <div className="ml-2">
+                             <ColorPicker 
+                                icon={<div className="w-3.5 h-3.5 rounded-full border border-zinc-300" />}
+                                label="Pick color"
+                                onColorSelect={(color) => {
+                                    handleCellStyleUpdate(targetId, secondaryId, { backgroundColor: color });
+                                    onClose();
+                                }}
+                                presets={BACKGROUND_COLORS}
+                             />
+                          </div>
+                      </div>
+                  )
+              } as any,
+              {
+                label: 'Cell Text Color',
+                icon: <TextColorIcon className="w-4 h-4 text-zinc-400" />,
+                render: (onClose) => (
+                    <div 
+                        className="flex items-center px-3 py-1.5 hover:bg-zinc-100 transition-colors cursor-default group" 
+                        onClick={e => e.stopPropagation()}
+                        onMouseDown={e => e.stopPropagation()}
+                    >
+                        <span className="mr-2 text-zinc-400 group-hover:text-zinc-600"><TextColorIcon className="w-4 h-4" /></span>
+                        <span className="flex-grow text-xs font-medium text-zinc-700">Cell Text Color</span>
+                        <div className="ml-2">
+                           <ColorPicker 
+                              icon={<div className="w-3.5 h-3.5 rounded-full border border-zinc-300" />}
+                              label="Pick color"
+                              onColorSelect={(color) => {
+                                  handleCellStyleUpdate(targetId, secondaryId, { textColor: color });
+                                  onClose();
+                              }}
+                              presets={TEXT_BORDER_COLORS}
+                           />
+                        </div>
+                    </div>
+                )
+            } as any,
+            {
+                label: 'Cell Border Color',
+                icon: <BorderColorIcon className="w-4 h-4 text-zinc-400" />,
+                render: (onClose) => (
+                    <div 
+                        className="flex items-center px-3 py-1.5 hover:bg-zinc-100 transition-colors cursor-default group" 
+                        onClick={e => e.stopPropagation()}
+                        onMouseDown={e => e.stopPropagation()}
+                    >
+                        <span className="mr-2 text-zinc-400 group-hover:text-zinc-600"><BorderColorIcon className="w-4 h-4" /></span>
+                        <span className="flex-grow text-xs font-medium text-zinc-700">Cell Border Color</span>
+                        <div className="ml-2">
+                           <ColorPicker 
+                              icon={<div className="w-3.5 h-3.5 rounded-full border border-zinc-300" />}
+                              label="Pick color"
+                              onColorSelect={(color) => {
+                                  handleCellStyleUpdate(targetId, secondaryId, { borderColor: color });
+                                  onClose();
+                              }}
+                              presets={TEXT_BORDER_COLORS}
+                           />
+                        </div>
+                    </div>
+                )
+            } as any,
+          ];
+          return [...baseItems, ...stylingItems];
+      }
+
+      return baseItems;
   };
 
   const handleResize = (columnId: string, newWidth: number) => {

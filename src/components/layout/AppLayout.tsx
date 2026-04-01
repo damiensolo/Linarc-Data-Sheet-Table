@@ -8,6 +8,7 @@ import Header from '../../mainnav/new/v2/Header';
 import Sidebar from '../../mainnav/new/v2/Sidebar';
 import ViewManagerModal from '../shared/ViewManagerModal';
 import DownloadModal from '../shared/DownloadModal';
+import PDFExportModal from '../shared/PDFExportModal';
 
 /** Bookmarks data passed from Header (v2) for Sidebar integration */
 type BookmarksData = {
@@ -34,7 +35,9 @@ const AppLayout: React.FC = () => {
         isViewManagerOpen,
         setIsViewManagerOpen,
         isDownloadModalOpen,
-        setIsDownloadModalOpen
+        setIsDownloadModalOpen,
+        isPDFModalOpen,
+        setIsPDFModalOpen
     } = useProject();
     const mainContentRef = useRef<HTMLDivElement>(null);
     const [isScrolled, setIsScrolled] = useState(false);
@@ -65,6 +68,10 @@ const AppLayout: React.FC = () => {
 
             {isDownloadModalOpen && (
                 <DownloadModal />
+            )}
+
+            {isPDFModalOpen && (
+                <PDFExportModal />
             )}
             
             {/* Header v2: exposes bookmarks to Sidebar via onBookmarksDataChange */}
