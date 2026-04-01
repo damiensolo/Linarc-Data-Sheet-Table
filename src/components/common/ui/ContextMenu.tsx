@@ -22,6 +22,7 @@ interface ContextMenuProps {
 export const ContextMenu: React.FC<ContextMenuProps> = ({ position, items, onClose }) => {
   const menuRef = useRef<HTMLDivElement>(null);
   const [coords, setCoords] = useState(position);
+  const [isPositioned, setIsPositioned] = useState(false);
 
   useLayoutEffect(() => {
     if (menuRef.current) {
@@ -39,6 +40,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ position, items, onClo
       }
 
       setCoords({ x, y });
+      setIsPositioned(true);
     }
   }, [position]);
 
@@ -65,7 +67,10 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ position, items, onClo
   return createPortal(
     <div
       ref={menuRef}
-      className="fixed z-[9999] min-w-[220px] bg-white rounded-lg shadow-xl border border-gray-200 py-1.5 animate-in fade-in-0 zoom-in-95 origin-top-left"
+      className={cn(
+        "fixed z-[9999] min-w-[220px] bg-white rounded-lg shadow-xl border border-gray-200 py-1.5 transition-all duration-75 origin-top-left",
+        isPositioned ? "opacity-100 scale-100" : "opacity-0 scale-95"
+      )}
       style={{ top: coords.y, left: coords.x }}
       onContextMenu={(e) => e.preventDefault()}
     >

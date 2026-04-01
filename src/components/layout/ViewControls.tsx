@@ -495,10 +495,17 @@ const ViewControls: React.FC = () => {
                         <TooltipProvider>
                             <Tooltip>
                                 <TooltipTrigger asChild>
-                                    <button ref={filterButtonRef} onClick={() => setShowFilterMenu(p => !p)} className={`flex items-center ${activeView.showToolbarLabels ? 'gap-1.5 px-3' : 'w-9 justify-center p-0'} py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 shadow-sm h-9 flex-shrink-0 transition-all`} aria-label="Filter tasks">
+                                    <button ref={filterButtonRef} onClick={() => setShowFilterMenu(p => !p)} className={`flex items-center ${activeView.showToolbarLabels ? 'gap-1.5 px-3' : 'w-9 justify-center p-0'} text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 shadow-sm h-9 flex-shrink-0 transition-all relative`} aria-label="Filter tasks">
                                         <FilterIcon className="w-4 h-4" />
                                         {activeView.showToolbarLabels && <span>Filter</span>}
-                                        {activeView.filters.length > 0 && <span className={`absolute -top-1.5 -right-1.5 bg-blue-100 text-blue-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-white ${activeView.showToolbarLabels ? 'relative top-0 right-0 border-none' : ''}`}>{activeView.filters.length}</span>}
+                                        {activeView.filters.length > 0 && (
+                                            <span className={activeView.showToolbarLabels 
+                                                ? "flex items-center justify-center w-5 h-5 flex-shrink-0 bg-blue-100 text-blue-700 text-[10px] font-bold rounded-full leading-none" 
+                                                : "absolute -top-1.5 -right-1.5 flex items-center justify-center w-5 h-5 bg-blue-100 text-blue-700 text-[10px] font-bold rounded-full border border-white shadow-sm leading-none"
+                                            }>
+                                                {activeView.filters.length}
+                                            </span>
+                                        )}
                                     </button>
                                 </TooltipTrigger>
                                 <TooltipContent>Filter</TooltipContent>
@@ -512,10 +519,17 @@ const ViewControls: React.FC = () => {
                         <TooltipProvider>
                             <Tooltip>
                                 <TooltipTrigger asChild>
-                                    <button ref={groupButtonRef} onClick={() => setShowGroupMenu(p => !p)} className={`flex items-center ${activeView.showToolbarLabels ? 'gap-1.5 px-3' : 'w-9 justify-center p-0'} py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 shadow-sm h-9 flex-shrink-0 transition-all`} aria-label="Group tasks">
+                                    <button ref={groupButtonRef} onClick={() => setShowGroupMenu(p => !p)} className={`flex items-center ${activeView.showToolbarLabels ? 'gap-1.5 px-3' : 'w-9 justify-center p-0'} text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 shadow-sm h-9 flex-shrink-0 transition-all relative`} aria-label="Group tasks">
                                         <GroupIcon className="w-4 h-4" />
                                         {activeView.showToolbarLabels && <span>Group</span>}
-                                        {(activeView.groupBy?.length || 0) > 0 && <span className={`absolute -top-1.5 -right-1.5 bg-blue-100 text-blue-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-white ${activeView.showToolbarLabels ? 'relative top-0 right-0 border-none' : ''}`}>{activeView.groupBy!.length}</span>}
+                                        {(activeView.groupBy?.length || 0) > 0 && (
+                                            <span className={activeView.showToolbarLabels 
+                                                ? "flex items-center justify-center w-5 h-5 flex-shrink-0 bg-blue-100 text-blue-700 text-[10px] font-bold rounded-full leading-none" 
+                                                : "absolute -top-1.5 -right-1.5 flex items-center justify-center w-5 h-5 bg-blue-100 text-blue-700 text-[10px] font-bold rounded-full border border-white shadow-sm leading-none"
+                                            }>
+                                                {activeView.groupBy!.length}
+                                            </span>
+                                        )}
                                     </button>
                                 </TooltipTrigger>
                                 <TooltipContent>Group By</TooltipContent>
@@ -530,9 +544,16 @@ const ViewControls: React.FC = () => {
                             <TooltipProvider>
                                 <Tooltip>
                                     <TooltipTrigger>
-                                        <button ref={highlightButtonRef} onClick={() => setShowHighlightMenu(p => !p)} className={`flex items-center ${activeView.showToolbarLabels ? 'gap-1.5 px-3' : 'w-9 justify-center p-0'} py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 shadow-sm h-9 flex-shrink-0 transition-all`} aria-label="Highlight cells">
+                                        <button ref={highlightButtonRef} onClick={() => setShowHighlightMenu(p => !p)} className={`flex items-center ${activeView.showToolbarLabels ? 'gap-1.5 px-3' : 'w-9 justify-center p-0'} py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 shadow-sm h-9 flex-shrink-0 transition-all relative`} aria-label="Highlight cells">
                                             <FillColorIcon className="w-4 h-4" />
-                                            {(activeView.highlights?.length || 0) > 0 && <span className={`absolute -top-1.5 -right-1.5 bg-blue-100 text-blue-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-white ${activeView.showToolbarLabels ? 'relative top-0 right-0 border-none' : ''}`}>{activeView.highlights?.length}</span>}
+                                            {(activeView.highlights?.length || 0) > 0 && (
+                                                <span className={activeView.showToolbarLabels 
+                                                    ? "flex items-center justify-center w-5 h-5 flex-shrink-0 bg-blue-100 text-blue-700 text-[10px] font-bold rounded-full leading-none" 
+                                                    : "absolute -top-1.5 -right-1.5 flex items-center justify-center w-5 h-5 bg-blue-100 text-blue-700 text-[10px] font-bold rounded-full border border-white shadow-sm leading-none"
+                                                }>
+                                                    {activeView.highlights?.length}
+                                                </span>
+                                            )}
                                         </button>
                                     </TooltipTrigger>
                                     <TooltipContent>Highlight</TooltipContent>
