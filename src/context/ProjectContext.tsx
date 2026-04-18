@@ -34,6 +34,13 @@ const getDefaultViewConfig = (viewMode: ViewMode): Omit<View, 'id' | 'name' | 'c
         spreadsheetData: JSON.parse(JSON.stringify(MOCK_BUDGET_DATA)),
         spreadsheetColumns: getDefaultSpreadsheetColumns(),
       };
+    case 'spreadsheetV3':
+      return {
+        ...baseConfig,
+        type: 'spreadsheetV3',
+        displayDensity: 'standard' as DisplayDensity,
+        columns: [],
+      };
     case 'lookahead':
        return { ...baseConfig, displayDensity: 'standard' as DisplayDensity, type: 'lookahead', columns: JSON.parse(JSON.stringify(getDefaultTableColumns())) };
     case 'gantt':
@@ -157,7 +164,7 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [views, setViews] = useState<View[]>([]);
   const [activeViewId, setActiveViewId] = useState<string | null>(null);
   const [defaultViewId, setDefaultViewId] = useState<string>('');
-  const [activeViewMode, setActiveViewMode] = useState<ViewMode>('spreadsheetV2');
+  const [activeViewMode, setActiveViewMode] = useState<ViewMode>('spreadsheetV3');
   const [transientView, setTransientView] = useState<View | null>(null);
   
   const [viewManagerShareId, setViewManagerShareId] = useState<string | null>(null);

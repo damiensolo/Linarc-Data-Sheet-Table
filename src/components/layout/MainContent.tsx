@@ -7,6 +7,7 @@ import GanttView from '../views/gantt/GanttView';
 import LookaheadView from '../views/lookahead/LookaheadView';
 import SpreadsheetView from '../views/spreadsheet/SpreadsheetView';
 import SpreadsheetViewV2 from '../views/spreadsheetV2/SpreadsheetViewV2';
+import SpreadsheetViewV3 from '../views/spreadsheetV3/SpreadsheetViewV3';
 import DashboardView from '../views/dashboard/DashboardView';
 
 const MainContent: React.FC<{ isScrolled: boolean }> = ({ isScrolled }) => {
@@ -22,6 +23,8 @@ const MainContent: React.FC<{ isScrolled: boolean }> = ({ isScrolled }) => {
             return <SpreadsheetView key={activeView.id} />;
           case 'spreadsheetV2':
             return <SpreadsheetViewV2 key={activeView.id} />;
+          case 'spreadsheetV3':
+            return <SpreadsheetViewV3 key={activeView.id} />;
           case 'board':
             return <BoardView key={activeView.id} />;
           case 'gantt':

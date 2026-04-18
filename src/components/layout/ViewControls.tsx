@@ -13,6 +13,7 @@ const modes: { id: ViewMode; label: string; icon: React.FC<React.SVGProps<SVGSVG
   { id: 'dashboard', label: 'Dashboard', icon: DashboardIcon },
   { id: 'table', label: 'Table', icon: TableIcon },
   { id: 'spreadsheetV2', label: 'Spreadsheet', icon: SpreadsheetIcon },
+  { id: 'spreadsheetV3', label: 'Sheet V3', icon: SpreadsheetIcon },
   { id: 'board', label: 'Board', icon: BoardIcon },
   { id: 'gantt', label: 'Gantt', icon: GanttIcon },
   { id: 'lookahead', label: 'Lookahead', icon: LookaheadIcon },
@@ -330,7 +331,7 @@ const ViewControls: React.FC = () => {
       handleDuplicateView(viewId);
   };
 
-  const searchPlaceholder = activeViewMode === 'spreadsheet' || activeViewMode === 'spreadsheetV2' ? 'Search...' : 'Search tasks...';
+  const searchPlaceholder = activeViewMode === 'spreadsheet' || activeViewMode === 'spreadsheetV2' || activeViewMode === 'spreadsheetV3' ? 'Search...' : 'Search tasks...';
   const showSearchAndFilter = activeViewMode !== 'dashboard';
 
   type ToolbarItem = 

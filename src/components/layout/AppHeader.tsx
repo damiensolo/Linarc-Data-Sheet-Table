@@ -38,6 +38,7 @@ const AppHeader: React.FC = () => {
     const { total, distributed, unallocated } = budgetTotals;
 
     const isSpreadsheetView = activeViewMode === 'spreadsheet' || activeViewMode === 'spreadsheetV2';
+    const isSpreadsheetV3 = activeViewMode === 'spreadsheetV3';
     const isReadyToLock = isSpreadsheetView && unallocated === 0;
     const showCreateButton = !isSpreadsheetView && activeViewMode !== 'dashboard';
 

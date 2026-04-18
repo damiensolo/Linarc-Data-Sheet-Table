@@ -140,7 +140,7 @@ export interface SpreadsheetColumn {
     visible?: boolean;
 }
 
-export type ViewMode = 'table' | 'spreadsheet' | 'spreadsheetV2' | 'board' | 'gantt' | 'lookahead' | 'dashboard';
+export type ViewMode = 'table' | 'spreadsheet' | 'spreadsheetV2' | 'spreadsheetV3' | 'board' | 'gantt' | 'lookahead' | 'dashboard';
 
 export enum ViewCategory {
   System = 'system',
