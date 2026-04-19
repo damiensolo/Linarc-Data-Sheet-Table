@@ -59,7 +59,7 @@ const TEMPLATES: {
 
 const TemplatePicker: React.FC<TemplatePickerModalProps> = ({ onSelect }) => {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/55 backdrop-blur-[2px]">
       <div className="bg-white rounded-2xl shadow-2xl w-[860px] max-w-[95vw] overflow-hidden">
         {/* Header */}
         <div className="px-8 pt-8 pb-6 border-b border-gray-100">
@@ -75,11 +75,11 @@ const TemplatePicker: React.FC<TemplatePickerModalProps> = ({ onSelect }) => {
               <button
                 key={tpl.id}
                 onClick={() => onSelect(tpl.id)}
-                className="group text-left rounded-xl border border-gray-200 hover:border-transparent hover:shadow-xl transition-all duration-200 overflow-hidden focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="group flex h-full flex-col text-left rounded-xl border border-gray-200 hover:border-transparent hover:shadow-xl transition-all duration-200 overflow-hidden focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 {/* Mini preview grid */}
-                <div className={`bg-gradient-to-br ${tpl.accent} p-4 relative overflow-hidden`}>
-                  <div className="bg-white/10 rounded-lg overflow-hidden text-white">
+                <div className={`bg-gradient-to-br ${tpl.accent} relative overflow-hidden px-3 pb-3 pt-2`}>
+                  <div className="bg-white/10 rounded-md overflow-hidden text-white">
                     {/* Col headers */}
                     <div className="flex border-b border-white/20">
                       {tpl.preview.cols.map((col, i) => (
@@ -106,7 +106,7 @@ const TemplatePicker: React.FC<TemplatePickerModalProps> = ({ onSelect }) => {
                 </div>
 
                 {/* Card body */}
-                <div className="p-4 bg-white group-hover:bg-gray-50 transition-colors">
+                <div className="p-4 bg-white group-hover:bg-gray-50 transition-colors flex-1">
                   <div className="flex items-center gap-2 mb-1">
                     <Icon className="w-4 h-4 text-gray-500" />
                     <span className="font-semibold text-gray-900 text-sm">{tpl.label}</span>

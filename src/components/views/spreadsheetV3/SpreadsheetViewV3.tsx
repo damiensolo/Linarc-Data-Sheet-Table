@@ -6,16 +6,19 @@ import FormulaBar from './components/FormulaBar';
 import SheetTabs from './components/SheetTabs';
 import V3Header from './components/V3Header';
 import V3RowComponent from './components/V3Row';
-import V3Toolbar from './components/V3Toolbar';
+import SpreadsheetToolbar from '../spreadsheet/components/SpreadsheetToolbar';
 import AddColumnModal from './components/AddColumnModal';
 import { ContextMenu, ContextMenuItem } from '../../common/ui/ContextMenu';
 import {
   PlusIcon, ScissorsIcon, CopyIcon, ClipboardIcon, TrashIcon,
-  ArrowUpIcon, ArrowDownIcon, ChevronLeftIcon, ChevronRightIcon,
-  FillColorIcon, TextColorIcon, BorderColorIcon,
+  ArrowUpIcon, ArrowDownIcon, ChevronLeftIcon, ChevronRightIcon, XIcon,
+  FillColorIcon,
 } from '../../common/Icons';
 import { BACKGROUND_COLORS, TEXT_BORDER_COLORS } from '../../../constants/designTokens';
-import ColorPicker from '../../common/ui/ColorPicker';
+import { SPREADSHEET_INDEX_COLUMN_WIDTH } from '../../../constants/spreadsheetLayout';
+import { useProject } from '../../../context/ProjectContext';
+import { COLUMN_TYPES } from './components/AddColumnModal';
+import { V3ColumnType } from './types';
 
 // ─── Flat row representation for rendering ────────────────────────────────────
 interface FlatRow {
@@ -65,17 +68,30 @@ const uid = (prefix: string) => `${prefix}-${Date.now()}-${_uid++}`;
 
 // ─── Main component ──────────────────────────────────────────────────────────
 const SpreadsheetViewV3: React.FC = () => {
-  // ── Template picker ──────────────────────────────────────────────────────
-  const [showTemplatePicker, setShowTemplatePicker] = useState(true);
-  const [sheets, setSheets] = useState<V3Sheet[]>([]);
-  const [activeSheetId, setActiveSheetId] = useState<string>('');
+  const { activeView, updateView } = useProject();
+
+  // ── Sheets stored in the View object so duplication and persistence work ──
+  const sheets: V3Sheet[] = activeView.v3Sheets ?? [];
+  const showTemplatePicker = !activeView.v3Sheets || activeView.v3Sheets.length === 0;
+
+  const [activeSheetId, setActiveSheetId] = useState<string>(() => activeView.v3ActiveSheetId ?? '');
+
+  // Keep v3ActiveSheetId in sync with local selection
+  const handleSetActiveSheetId = useCallback((id: string) => {
+    setActiveSheetId(id);
+    updateView({ v3ActiveSheetId: id });
+  }, [updateView]);
 
   const handleSelectTemplate = (template: V3Template) => {
     const newSheets = createTemplateSheets(template);
-    setSheets(newSheets);
+    updateView({ v3Sheets: newSheets, v3ActiveSheetId: newSheets[0].id });
     setActiveSheetId(newSheets[0].id);
-    setShowTemplatePicker(false);
   };
+
+  const setSheets = useCallback((updater: V3Sheet[] | ((prev: V3Sheet[]) => V3Sheet[])) => {
+    const next = typeof updater === 'function' ? updater(activeView.v3Sheets ?? []) : updater;
+    updateView({ v3Sheets: next });
+  }, [activeView.v3Sheets, updateView]);
 
   const activeSheet = useMemo(() => sheets.find(s => s.id === activeSheetId) ?? sheets[0], [sheets, activeSheetId]);
 
@@ -103,19 +119,38 @@ const SpreadsheetViewV3: React.FC = () => {
   const [scrollState, setScrollState] = useState({ isAtStart: true, isAtEnd: false, isScrolledTop: false });
   const [resizingColId, setResizingColId] = useState<string | null>(null);
   const [sort, setSort] = useState<{ colId: string; dir: 'asc' | 'desc' } | null>(null);
-  const [density, setDensity] = useState<'compact' | 'standard' | 'comfortable'>('standard');
-  const [fontSize, setFontSize] = useState(12);
+  const density = (activeView?.displayDensity ?? 'compact') as 'compact' | 'standard' | 'comfortable';
+  const fontSize = activeView?.fontSize ?? 12;
   const [showAddColumn, setShowAddColumn] = useState(false);
+  const [editingColumnId, setEditingColumnId] = useState<string | null>(null);
+  const [addRowCount, setAddRowCount] = useState(10);
   const [contextMenu, setContextMenu] = useState<{
     visible: boolean; position: { x: number; y: number };
     type: 'row' | 'cell' | 'column';
     rowId?: string; colId?: string;
   } | null>(null);
 
+  // Column selection
+  const [selectedColId, setSelectedColId] = useState<string | null>(null);
+
+  // Cell-level clipboard (for cut/copy/paste of cell values)
+  const [cellClipboard, setCellClipboard] = useState<{ grid: (CellValue | null)[][]; colIds: string[] } | null>(null);
+
   // Range selection (shift-click / mouse drag)
   const [rangeAnchor, setRangeAnchor] = useState<{ rowId: string; colId: string } | null>(null);
   const [rangeEnd, setRangeEnd] = useState<{ rowId: string; colId: string } | null>(null);
   const isDragging = useRef(false);
+
+  // Fill handle
+  const [fillAnchor, setFillAnchor] = useState<{ rowId: string; colId: string } | null>(null);
+  const [fillRangeRowIds, setFillRangeRowIds] = useState<Set<string>>(new Set());
+  const isFillDragging = useRef(false);
+  const fillJustApplied = useRef(false);
+  const applyFillRef = useRef<() => void>(() => {});
+
+  // Undo / Redo
+  const undoStack = useRef<V3Row[][]>([]);
+  const redoStack = useRef<V3Row[][]>([]);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -156,6 +191,13 @@ const SpreadsheetViewV3: React.FC = () => {
     return () => el.removeEventListener('scroll', update);
   }, [flatRows, columns]);
 
+  // Restore keyboard focus to container whenever editing ends (fixes Tab-then-type)
+  useEffect(() => {
+    if (!editingCell && containerRef.current) {
+      containerRef.current.focus({ preventScroll: true });
+    }
+  }, [editingCell]);
+
   // ── Range selection helpers ───────────────────────────────────────────
   const rangeSet = useMemo(() => {
     if (!rangeAnchor || !rangeEnd) return null;
@@ -190,6 +232,63 @@ const SpreadsheetViewV3: React.FC = () => {
       s.id === activeSheetId ? { ...s, rows: updater(s.rows) } : s
     ));
   }, [activeSheetId]);
+
+  // ── Undo / Redo ────────────────────────────────────────────────────────
+  const handleUndo = useCallback(() => {
+    if (!undoStack.current.length || !activeSheet) return;
+    const prev = undoStack.current.pop()!;
+    redoStack.current.push(JSON.parse(JSON.stringify(activeSheet.rows)));
+    setSheets(s => s.map(sh => sh.id === activeSheetId ? { ...sh, rows: prev } : sh));
+  }, [activeSheet, activeSheetId]);
+
+  const handleRedo = useCallback(() => {
+    if (!redoStack.current.length || !activeSheet) return;
+    const next = redoStack.current.pop()!;
+    undoStack.current.push(JSON.parse(JSON.stringify(activeSheet.rows)));
+    setSheets(s => s.map(sh => sh.id === activeSheetId ? { ...sh, rows: next } : sh));
+  }, [activeSheet, activeSheetId]);
+
+  // ── Fill handle ────────────────────────────────────────────────────────
+  const handleFillHandleMouseDown = useCallback((rowId: string, colId: string) => {
+    isFillDragging.current = true;
+    setFillAnchor({ rowId, colId });
+    setFillRangeRowIds(new Set());
+  }, []);
+
+  const handleFillRowEnter = useCallback((rowId: string) => {
+    if (!isFillDragging.current || !fillAnchor) return;
+    const anchorIdx = flatRows.findIndex(f => f.row.id === fillAnchor.rowId);
+    const endIdx = flatRows.findIndex(f => f.row.id === rowId);
+    if (anchorIdx < 0 || endIdx <= anchorIdx) { setFillRangeRowIds(new Set()); return; }
+    const ids = new Set<string>();
+    for (let i = anchorIdx + 1; i <= endIdx; i++) {
+      if (!flatRows[i].isSummary) ids.add(flatRows[i].row.id);
+    }
+    setFillRangeRowIds(ids);
+  }, [fillAnchor, flatRows]);
+
+  // Keep applyFillRef up to date so the stable mouseup handler can call it
+  useEffect(() => {
+    applyFillRef.current = () => {
+      if (!fillAnchor || fillRangeRowIds.size === 0) return;
+      const { rowId, colId } = fillAnchor;
+      const sourceRow = flatRows.find(f => f.row.id === rowId);
+      if (!sourceRow) return;
+      const value = sourceRow.row.cells[colId] ?? null;
+      undoStack.current.push(JSON.parse(JSON.stringify(activeSheet?.rows ?? [])));
+      if (undoStack.current.length > 100) undoStack.current.shift();
+      redoStack.current = [];
+      updateRows(rows => {
+        const apply = (items: V3Row[]): V3Row[] => items.map(r => {
+          if (fillRangeRowIds.has(r.id)) return { ...r, cells: { ...r.cells, [colId]: value } };
+          return { ...r, children: r.children ? apply(r.children) : undefined };
+        });
+        return apply(rows);
+      });
+      setFillAnchor(null);
+      setFillRangeRowIds(new Set());
+    };
+  }, [fillAnchor, fillRangeRowIds, flatRows, activeSheet, updateRows]);
 
   // ── Row CRUD ────────────────────────────────────────────────────────────
   const handleAddRow = () => {
@@ -231,6 +330,13 @@ const SpreadsheetViewV3: React.FC = () => {
   };
 
   const handleUpdateCell = useCallback((rowId: string, colId: string, value: CellValue, direction?: 'up' | 'down' | 'left' | 'right') => {
+    // Snapshot for undo before applying change
+    if (activeSheet) {
+      undoStack.current.push(JSON.parse(JSON.stringify(activeSheet.rows)));
+      if (undoStack.current.length > 100) undoStack.current.shift();
+      redoStack.current = [];
+    }
+
     const update = (rows: V3Row[]): V3Row[] => rows.map(r => {
       if (r.id === rowId) return { ...r, cells: { ...r.cells, [colId]: value } };
       return { ...r, children: r.children ? update(r.children) : undefined };
@@ -250,23 +356,35 @@ const SpreadsheetViewV3: React.FC = () => {
         setFocusedCell({ rowId: flatRows[nr].row.id, colId: columns[nc].id });
       }
     }
-  }, [flatRows, columns, focusedCell, updateRows]);
+  }, [flatRows, columns, focusedCell, updateRows, activeSheet]);
 
   // ── Cell focus/click ───────────────────────────────────────────────────
   const handleCellClick = (rowId: string, colId: string, e: React.MouseEvent) => {
-    setEditingCell(null);
+    // Swallow the click that follows a fill-drag mouseup
+    if (fillJustApplied.current) { fillJustApplied.current = false; return; }
+
     if (e.shiftKey && rangeAnchor) {
       setRangeEnd({ rowId, colId });
-    } else {
-      setFocusedCell({ rowId, colId });
-      setRangeAnchor({ rowId, colId });
-      setRangeEnd(null);
+      setEditingCell(null);
+      return;
     }
+    setFocusedCell({ rowId, colId });
+    setRangeAnchor({ rowId, colId });
+    setRangeEnd(null);
     setSelectedRowIds(new Set());
+
+    // Single-click to edit — immediately open inline editor for editable non-formula cells
+    const col = columns.find(c => c.id === colId);
+    const flatRow = flatRows.find(f => f.row.id === rowId);
+    if (col?.editable && col.type !== 'formula' && flatRow && !flatRow.isSummary) {
+      setEditingCell({ rowId, colId });
+    } else {
+      setEditingCell(null);
+    }
   };
 
   const handleCellMouseDown = (rowId: string, colId: string, e: React.MouseEvent) => {
-    if (e.button !== 0) return;
+    if (e.button !== 0 || isFillDragging.current) return;
     isDragging.current = true;
     setRangeAnchor({ rowId, colId });
     setRangeEnd(null);
@@ -274,33 +392,77 @@ const SpreadsheetViewV3: React.FC = () => {
   };
 
   const handleCellMouseEnter = (rowId: string, colId: string) => {
+    if (isFillDragging.current) return;
     if (isDragging.current) setRangeEnd({ rowId, colId });
   };
 
+  // Stable global mouseup — handles both range selection and fill drag
   useEffect(() => {
-    const up = () => { isDragging.current = false; };
+    const up = () => {
+      isDragging.current = false;
+      if (isFillDragging.current) {
+        applyFillRef.current();
+        isFillDragging.current = false;
+        fillJustApplied.current = true;
+        // Clear the flag after click events have had a chance to fire
+        setTimeout(() => { fillJustApplied.current = false; }, 100);
+      }
+    };
     window.addEventListener('mouseup', up);
     return () => window.removeEventListener('mouseup', up);
   }, []);
 
   // ── Keyboard navigation ────────────────────────────────────────────────
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if ((e.ctrlKey || e.metaKey) && !e.altKey) {
+      if (e.key === 'z') { e.preventDefault(); e.shiftKey ? handleRedo() : handleUndo(); return; }
+      if (e.key === 'y') { e.preventDefault(); handleRedo(); return; }
+      if (e.key === 'c') {
+        e.preventDefault();
+        if (selectedColId) handleCopyColumn(selectedColId); else handleCellCopy(false);
+        return;
+      }
+      if (e.key === 'x') {
+        e.preventDefault();
+        if (selectedColId) handleCutColumn(selectedColId); else handleCellCopy(true);
+        return;
+      }
+      if (e.key === 'v') {
+        e.preventDefault();
+        if (selectedColId) handlePasteColumn(selectedColId); else handleCellPaste();
+        return;
+      }
+    }
+
     if (editingCell) return;
+
+    // Column selected — only handle escape/delete
+    if (selectedColId) {
+      if (e.key === 'Escape') { setSelectedColId(null); return; }
+      if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); handleClearColumn(selectedColId); return; }
+      return;
+    }
+
     if (!focusedCell) return;
 
     const rIdx = flatRows.findIndex(f => f.row.id === focusedCell.rowId);
     const cIdx = columns.findIndex(c => c.id === focusedCell.colId);
     if (rIdx < 0 || cIdx < 0) return;
 
+    const moveTo = (nr: number, nc: number) => {
+      const nextRow = flatRows[Math.max(0, Math.min(flatRows.length - 1, nr))];
+      const nextCol = columns[Math.max(0, Math.min(columns.length - 1, nc))];
+      setFocusedCell({ rowId: nextRow.row.id, colId: nextCol.id });
+      return { nextRow, nextCol };
+    };
+
     const move = (dr: number, dc: number) => {
       e.preventDefault();
-      let nr = Math.max(0, Math.min(flatRows.length - 1, rIdx + dr));
-      let nc = Math.max(0, Math.min(columns.length - 1, cIdx + dc));
-      if (e.key === 'Tab' && !e.shiftKey && nc >= columns.length) { nc = 0; nr = Math.min(flatRows.length - 1, nr + 1); }
-      if (e.key === 'Tab' && e.shiftKey && nc < 0) { nc = columns.length - 1; nr = Math.max(0, nr - 1); }
-      const next = flatRows[nr];
-      setFocusedCell({ rowId: next.row.id, colId: columns[nc].id });
-      if (e.shiftKey && e.key !== 'Tab') setRangeEnd({ rowId: next.row.id, colId: columns[nc].id });
+      let nr = rIdx + dr, nc = cIdx + dc;
+      if (e.key === 'Tab' && !e.shiftKey && nc >= columns.length) { nc = 0; nr++; }
+      if (e.key === 'Tab' && e.shiftKey && nc < 0) { nc = columns.length - 1; nr--; }
+      const { nextRow, nextCol } = moveTo(nr, nc);
+      if (e.shiftKey && e.key !== 'Tab') setRangeEnd({ rowId: nextRow.row.id, colId: nextCol.id });
     };
 
     switch (e.key) {
@@ -308,17 +470,32 @@ const SpreadsheetViewV3: React.FC = () => {
       case 'ArrowDown':  move(1, 0); break;
       case 'ArrowLeft':  move(0, -1); break;
       case 'ArrowRight': move(0, 1); break;
-      case 'Tab':        move(0, e.shiftKey ? -1 : 1); break;
+      case 'Tab': {
+        e.preventDefault();
+        let nr = rIdx, nc = cIdx + (e.shiftKey ? -1 : 1);
+        if (!e.shiftKey && nc >= columns.length) { nc = 0; nr++; }
+        if (e.shiftKey && nc < 0) { nc = columns.length - 1; nr--; }
+        nr = Math.max(0, Math.min(flatRows.length - 1, nr));
+        nc = Math.max(0, Math.min(columns.length - 1, nc));
+        const nextRow = flatRows[nr];
+        const nextCol = columns[nc];
+        setFocusedCell({ rowId: nextRow.row.id, colId: nextCol.id });
+        // Tab immediately opens edit — same feel as Google Sheets typing after navigate
+        if (nextCol.editable && nextCol.type !== 'formula' && !nextRow.isSummary) {
+          setEditingCell({ rowId: nextRow.row.id, colId: nextCol.id });
+        }
+        break;
+      }
       case 'Enter':
-        const targetCol = columns[cIdx];
-        if (targetCol?.editable && flatRows[rIdx] && !flatRows[rIdx].isSummary) {
-          e.preventDefault();
-          setEditingCell({ rowId: flatRows[rIdx].row.id, colId: targetCol.id });
-        } else { move(1, 0); }
+        e.preventDefault();
+        move(1, 0);
         break;
       case 'Delete':
       case 'Backspace':
-        if (columns[cIdx]?.editable && !flatRows[rIdx].isSummary) {
+        e.preventDefault();
+        if (rangeSet) {
+          clearCellsInRange();
+        } else if (columns[cIdx]?.editable && !flatRows[rIdx].isSummary) {
           handleUpdateCell(flatRows[rIdx].row.id, columns[cIdx].id, null);
         }
         break;
@@ -421,6 +598,192 @@ const SpreadsheetViewV3: React.FC = () => {
     });
   };
 
+  // ── Column selection & operations ─────────────────────────────────────────
+  const handleColumnHeaderClick = useCallback((colId: string) => {
+    setSelectedColId(prev => prev === colId ? null : colId);
+    setRangeAnchor(null);
+    setRangeEnd(null);
+    setSelectedRowIds(new Set());
+    setFocusedCell(null);
+    setEditingCell(null);
+  }, []);
+
+  const handleUpdateColumn = useCallback((colId: string, updates: Partial<Omit<V3Column, 'id'>>) => {
+    updateSheet({ columns: (activeSheet?.columns ?? []).map(c => c.id === colId ? { ...c, ...updates } : c) });
+  }, [activeSheet, updateSheet]);
+
+  const handleRenameColumn = useCallback((colId: string, newLabel: string) => {
+    handleUpdateColumn(colId, { label: newLabel });
+  }, [handleUpdateColumn]);
+
+  const handleAddManyRows = useCallback(() => {
+    const count = Math.max(1, Math.min(1000, addRowCount));
+    const newRows: V3Row[] = Array.from({ length: count }, () => ({ id: uid('row'), cells: {} }));
+    updateRows(rows => [...rows, ...newRows]);
+    setTimeout(() => scrollRef.current && (scrollRef.current.scrollTop = scrollRef.current.scrollHeight), 60);
+  }, [addRowCount, updateRows]);
+
+  const handleInsertColumnLeft = useCallback((colId: string) => {
+    const cols = [...(activeSheet?.columns ?? [])];
+    const idx = cols.findIndex(c => c.id === colId);
+    if (idx < 0) return;
+    const newCol: V3Column = { id: uid('col'), label: `Col ${cols.length + 1}`, type: 'text', width: 150, editable: true, visible: true };
+    cols.splice(idx, 0, newCol);
+    updateSheet({ columns: cols });
+  }, [activeSheet, updateSheet]);
+
+  const handleInsertColumnRight = useCallback((colId: string) => {
+    const cols = [...(activeSheet?.columns ?? [])];
+    const idx = cols.findIndex(c => c.id === colId);
+    if (idx < 0) return;
+    const newCol: V3Column = { id: uid('col'), label: `Col ${cols.length + 1}`, type: 'text', width: 150, editable: true, visible: true };
+    cols.splice(idx + 1, 0, newCol);
+    updateSheet({ columns: cols });
+  }, [activeSheet, updateSheet]);
+
+  const handleDeleteColumn = useCallback((colId: string) => {
+    updateSheet({ columns: (activeSheet?.columns ?? []).filter(c => c.id !== colId) });
+    setSelectedColId(prev => prev === colId ? null : prev);
+  }, [activeSheet, updateSheet]);
+
+  const handleClearColumn = useCallback((colId: string) => {
+    if (!activeSheet) return;
+    undoStack.current.push(JSON.parse(JSON.stringify(activeSheet.rows)));
+    redoStack.current = [];
+    updateRows(rows => {
+      const clear = (items: V3Row[]): V3Row[] => items.map(r => ({
+        ...r, cells: { ...r.cells, [colId]: null },
+        children: r.children ? clear(r.children) : undefined,
+      }));
+      return clear(rows);
+    });
+  }, [activeSheet, updateRows]);
+
+  const handleCopyColumn = useCallback((colId: string) => {
+    const allRows = flatRows.filter(f => !f.isSummary);
+    setCellClipboard({ grid: allRows.map(f => [f.row.cells[colId] ?? null]), colIds: [colId] });
+  }, [flatRows]);
+
+  const handleCutColumn = useCallback((colId: string) => {
+    handleCopyColumn(colId);
+    handleClearColumn(colId);
+  }, [handleCopyColumn, handleClearColumn]);
+
+  const handlePasteColumn = useCallback((colId: string) => {
+    if (!cellClipboard || !activeSheet) return;
+    const col = columns.find(c => c.id === colId);
+    if (!col?.editable || col.type === 'formula') return;
+    undoStack.current.push(JSON.parse(JSON.stringify(activeSheet.rows)));
+    redoStack.current = [];
+    const nonSummaryRows = flatRows.filter(f => !f.isSummary);
+    const updates: Record<string, CellValue | null> = {};
+    cellClipboard.grid.forEach((rowData, ri) => {
+      const target = nonSummaryRows[ri];
+      if (target) updates[target.row.id] = rowData[0] ?? null;
+    });
+    updateRows(rows => {
+      const apply = (items: V3Row[]): V3Row[] => items.map(r => {
+        let next = r;
+        if (r.id in updates) next = { ...r, cells: { ...r.cells, [colId]: updates[r.id] } };
+        if (next.children) next = { ...next, children: apply(next.children) };
+        return next;
+      });
+      return apply(rows);
+    });
+  }, [cellClipboard, activeSheet, columns, flatRows, updateRows]);
+
+  // ── Cell clipboard (range) ─────────────────────────────────────────────────
+  const getCellsInRange = useCallback((): { grid: (CellValue | null)[][]; colIds: string[] } | null => {
+    if (rangeSet) {
+      const rowsSlice = flatRows.slice(rangeSet.r0, rangeSet.r1 + 1);
+      const colsSlice = columns.slice(rangeSet.c0, rangeSet.c1 + 1);
+      return { grid: rowsSlice.map(f => colsSlice.map(c => f.row.cells[c.id] ?? null)), colIds: colsSlice.map(c => c.id) };
+    }
+    if (focusedCell) {
+      const flat = flatRows.find(f => f.row.id === focusedCell.rowId);
+      if (!flat) return null;
+      return { grid: [[flat.row.cells[focusedCell.colId] ?? null]], colIds: [focusedCell.colId] };
+    }
+    return null;
+  }, [rangeSet, flatRows, columns, focusedCell]);
+
+  const clearCellsInRange = useCallback(() => {
+    if (rangeSet) {
+      const rows = flatRows.slice(rangeSet.r0, rangeSet.r1 + 1).filter(f => !f.isSummary);
+      const cols = columns.slice(rangeSet.c0, rangeSet.c1 + 1).filter(c => c.editable && c.type !== 'formula');
+      if (!rows.length || !cols.length) return;
+      const rowIds = new Set(rows.map(f => f.row.id));
+      const colIds = new Set(cols.map(c => c.id));
+      if (activeSheet) { undoStack.current.push(JSON.parse(JSON.stringify(activeSheet.rows))); redoStack.current = []; }
+      updateRows(all => {
+        const clear = (items: V3Row[]): V3Row[] => items.map(r => {
+          let next = r;
+          if (rowIds.has(r.id)) {
+            const cells = { ...r.cells };
+            colIds.forEach((cid: string) => { cells[cid] = null; });
+            next = { ...r, cells };
+          }
+          if (next.children) next = { ...next, children: clear(next.children) };
+          return next;
+        });
+        return clear(all);
+      });
+    } else if (focusedCell) {
+      const col = columns.find(c => c.id === focusedCell.colId);
+      if (col?.editable && col.type !== 'formula') handleUpdateCell(focusedCell.rowId, focusedCell.colId, null);
+    }
+  }, [rangeSet, flatRows, columns, focusedCell, activeSheet, updateRows, handleUpdateCell]);
+
+  const handleCellCopy = useCallback((cut = false) => {
+    const data = getCellsInRange();
+    if (!data) return;
+    setCellClipboard(data);
+    if (cut) clearCellsInRange();
+  }, [getCellsInRange, clearCellsInRange]);
+
+  const handleCellPaste = useCallback((targetRowId?: string, targetColId?: string) => {
+    if (!cellClipboard) return;
+    const pasteRowId = targetRowId ?? focusedCell?.rowId;
+    const pasteColId = targetColId ?? focusedCell?.colId;
+    if (!pasteRowId || !pasteColId || !activeSheet) return;
+    const startRowIdx = flatRows.findIndex(f => f.row.id === pasteRowId);
+    const startColIdx = columns.findIndex(c => c.id === pasteColId);
+    if (startRowIdx < 0 || startColIdx < 0) return;
+    undoStack.current.push(JSON.parse(JSON.stringify(activeSheet.rows)));
+    redoStack.current = [];
+    const updates: Record<string, Record<string, CellValue | null>> = {};
+    cellClipboard.grid.forEach((rowData, ri) => {
+      const target = flatRows[startRowIdx + ri];
+      if (!target || target.isSummary) return;
+      rowData.forEach((val, ci) => {
+        const targetCol = columns[startColIdx + ci];
+        if (!targetCol?.editable || targetCol.type === 'formula') return;
+        if (!updates[target.row.id]) updates[target.row.id] = {};
+        updates[target.row.id][targetCol.id] = val;
+      });
+    });
+    updateRows(rows => {
+      const apply = (items: V3Row[]): V3Row[] => items.map(r => {
+        let next = r;
+        if (updates[r.id]) next = { ...r, cells: { ...r.cells, ...updates[r.id] } };
+        if (next.children) next = { ...next, children: apply(next.children) };
+        return next;
+      });
+      return apply(rows);
+    });
+  }, [cellClipboard, focusedCell, flatRows, columns, activeSheet, updateRows]);
+
+  // Direct cell copy for context menu (bypasses range state)
+  const contextMenuCellCopy = useCallback((rowId: string, colId: string, cut = false) => {
+    const flat = flatRows.find(f => f.row.id === rowId);
+    if (!flat) return;
+    setCellClipboard({ grid: [[flat.row.cells[colId] ?? null]], colIds: [colId] });
+    if (cut) {
+      const col = columns.find(c => c.id === colId);
+      if (col?.editable && col.type !== 'formula') handleUpdateCell(rowId, colId, null);
+    }
+  }, [flatRows, columns, handleUpdateCell]);
+
   // ── Sheet management ──────────────────────────────────────────────────
   const handleAddSheet = () => {
     const s: V3Sheet = {
@@ -434,14 +797,14 @@ const SpreadsheetViewV3: React.FC = () => {
       rows: Array.from({ length: 10 }, () => ({ id: uid('row'), cells: {} })),
     };
     setSheets(prev => [...prev, s]);
-    setActiveSheetId(s.id);
+    handleSetActiveSheetId(s.id);
   };
 
   const handleRenameSheet = (id: string, name: string) => setSheets(prev => prev.map(s => s.id === id ? { ...s, name } : s));
   const handleDeleteSheet = (id: string) => {
     setSheets(prev => {
       const next = prev.filter(s => s.id !== id);
-      if (activeSheetId === id && next.length) setActiveSheetId(next[0].id);
+      if (activeSheetId === id && next.length) handleSetActiveSheetId(next[0].id);
       return next;
     });
   };
@@ -455,32 +818,132 @@ const SpreadsheetViewV3: React.FC = () => {
   const getContextItems = (): ContextMenuItem[] => {
     if (!contextMenu) return [];
     const { type, rowId, colId } = contextMenu;
-    const base: ContextMenuItem[] = [
-      { label: 'Cut',   icon: <ScissorsIcon className="w-4 h-4" />, shortcut: '⌘X', onClick: () => rowId && handleCut(new Set([rowId])) },
-      { label: 'Copy',  icon: <CopyIcon className="w-4 h-4" />,     shortcut: '⌘C', onClick: () => rowId && handleCopy(new Set([rowId])) },
-      { label: 'Paste', icon: <ClipboardIcon className="w-4 h-4" />, shortcut: '⌘V', disabled: !clipboard, onClick: () => handlePaste(rowId) },
-      { separator: true } as any,
-      { label: 'Insert row above', icon: <ArrowUpIcon className="w-4 h-4" />, onClick: () => rowId && handleInsertRow(rowId) },
-      { label: 'Insert row below', icon: <ArrowDownIcon className="w-4 h-4" />, onClick: () => rowId && handleInsertRow(rowId) },
-      { label: 'Add sub-row',      icon: <PlusIcon className="w-4 h-4" />, onClick: () => rowId && handleAddSubRow(rowId) },
-      { separator: true } as any,
-    ];
 
-    const bgSubMenu: ContextMenuItem[] = [
-      { label: 'Clear', icon: <div className="w-3 h-3 rounded-full border border-gray-300" />, onClick: () => rowId && handleStyleUpdate({ backgroundColor: undefined }, new Set([rowId])) },
-      ...BACKGROUND_COLORS.map(c => ({
-        label: ' ',
-        icon: <div className="w-4 h-4 rounded-full border border-gray-200" style={{ backgroundColor: c }} />,
-        onClick: () => rowId && handleStyleUpdate({ backgroundColor: c }, new Set([rowId])),
-      })),
-    ];
+    // ── Column context menu ───────────────────────────────────────────────
+    if (type === 'column' && colId) {
+      const currentCol = columns.find(c => c.id === colId);
+      return [
+        { label: 'Cut column',         icon: <ScissorsIcon className="w-4 h-4" />,    shortcut: '⌘X', onClick: () => handleCutColumn(colId) },
+        { label: 'Copy column',        icon: <CopyIcon className="w-4 h-4" />,         shortcut: '⌘C', onClick: () => handleCopyColumn(colId) },
+        { label: 'Paste into column',  icon: <ClipboardIcon className="w-4 h-4" />,   shortcut: '⌘V', disabled: !cellClipboard, onClick: () => handlePasteColumn(colId) },
+        { separator: true } as any,
+        { label: 'Insert column left',  icon: <ChevronLeftIcon className="w-4 h-4" />,  onClick: () => handleInsertColumnLeft(colId) },
+        { label: 'Insert column right', icon: <ChevronRightIcon className="w-4 h-4" />, onClick: () => handleInsertColumnRight(colId) },
+        { separator: true } as any,
+        { label: 'Sort A → Z', icon: <ArrowUpIcon className="w-4 h-4" />,   onClick: () => setSort({ colId, dir: 'asc' }) },
+        { label: 'Sort Z → A', icon: <ArrowDownIcon className="w-4 h-4" />, onClick: () => setSort({ colId, dir: 'desc' }) },
+        { separator: true } as any,
+        // ── Column type inline picker ─────────────────────────────────
+        {
+          label: 'Column Type', onClick: () => {},
+          render: (onClose: () => void) => (
+            <div className="px-3 py-2">
+              <div className="text-[10px] text-gray-500 mb-1.5 font-semibold uppercase tracking-wide">Column Type</div>
+              <div className="grid grid-cols-4 gap-1">
+                {COLUMN_TYPES.map(ct => (
+                  <button
+                    key={ct.id}
+                    className={`flex flex-col items-center gap-0.5 p-1.5 rounded text-center text-[10px] transition-all border
+                      ${currentCol?.type === ct.id
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-600'
+                      }`}
+                    onClick={() => {
+                      if (ct.id === 'formula' || ct.id === 'select') {
+                        setEditingColumnId(colId);
+                      } else {
+                        handleUpdateColumn(colId, {
+                          type: ct.id,
+                          editable: true,
+                          align: (ct.id === 'number' || ct.id === 'currency') ? 'right' : 'left',
+                          isTotal: ct.id === 'currency' || ct.id === 'number',
+                        });
+                      }
+                      onClose();
+                    }}
+                  >
+                    <span className="text-sm leading-none">{ct.icon}</span>
+                    <span className="font-medium">{ct.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ),
+        } as any,
+        {
+          label: 'Edit Column…', icon: <span className="w-4 h-4 flex items-center justify-center text-gray-500 text-xs">✎</span>,
+          onClick: () => setEditingColumnId(colId),
+        },
+        { separator: true } as any,
+        { label: 'Clear column',  icon: <XIcon className="w-4 h-4" />,      onClick: () => handleClearColumn(colId) },
+        { label: 'Delete column', icon: <TrashIcon className="w-4 h-4" />,  danger: true, onClick: () => handleDeleteColumn(colId) },
+      ];
+    }
 
-    return [
-      ...base,
-      { label: 'Background Color', icon: <FillColorIcon className="w-4 h-4 text-gray-600" />, submenu: bgSubMenu },
-      { separator: true } as any,
-      { label: 'Delete row', icon: <TrashIcon className="w-4 h-4" />, danger: true, onClick: () => rowId && handleDeleteRows(new Set([rowId])) },
-    ];
+    // ── Cell context menu ─────────────────────────────────────────────────
+    if (type === 'cell' && rowId && colId) {
+      return [
+        { label: 'Cut',   icon: <ScissorsIcon className="w-4 h-4" />,   shortcut: '⌘X', onClick: () => contextMenuCellCopy(rowId, colId, true) },
+        { label: 'Copy',  icon: <CopyIcon className="w-4 h-4" />,        shortcut: '⌘C', onClick: () => contextMenuCellCopy(rowId, colId, false) },
+        { label: 'Paste', icon: <ClipboardIcon className="w-4 h-4" />,  shortcut: '⌘V', disabled: !cellClipboard, onClick: () => handleCellPaste(rowId, colId) },
+        { separator: true } as any,
+        { label: 'Clear cell', icon: <XIcon className="w-4 h-4" />, onClick: () => handleUpdateCell(rowId, colId, null) },
+        { separator: true } as any,
+        { label: 'Insert row above', icon: <ArrowUpIcon className="w-4 h-4" />,   onClick: () => handleInsertRow(rowId) },
+        { label: 'Insert row below', icon: <ArrowDownIcon className="w-4 h-4" />, onClick: () => handleInsertRow(rowId) },
+        { separator: true } as any,
+        {
+          label: 'Background Color', icon: <FillColorIcon className="w-4 h-4 text-gray-600" />, onClick: () => {},
+          render: (onClose) => (
+            <div className="px-3 py-2">
+              <div className="text-[10px] text-gray-500 mb-1.5 font-semibold uppercase tracking-wide">Background</div>
+              <div className="flex flex-wrap gap-1">
+                <button className="w-5 h-5 rounded border border-gray-300 text-gray-400 text-xs flex items-center justify-center hover:bg-gray-100 font-bold"
+                  onClick={() => { handleStyleUpdate({ backgroundColor: undefined }, new Set([rowId])); onClose(); }}>✕</button>
+                {BACKGROUND_COLORS.map(c => (
+                  <button key={c} className="w-5 h-5 rounded-full border border-gray-200 hover:scale-110 transition-transform"
+                    style={{ backgroundColor: c }}
+                    onClick={() => { handleStyleUpdate({ backgroundColor: c }, new Set([rowId])); onClose(); }} />
+                ))}
+              </div>
+            </div>
+          ),
+        } as any,
+        { separator: true } as any,
+        { label: 'Delete row', icon: <TrashIcon className="w-4 h-4" />, danger: true, onClick: () => handleDeleteRows(new Set([rowId])) },
+      ];
+    }
+
+    // ── Row context menu (row number click) ──────────────────────────────
+    if (rowId) {
+      return [
+        { label: 'Insert row above', icon: <ArrowUpIcon className="w-4 h-4" />,   onClick: () => handleInsertRow(rowId) },
+        { label: 'Insert row below', icon: <ArrowDownIcon className="w-4 h-4" />, onClick: () => handleInsertRow(rowId) },
+        { label: 'Add sub-row',      icon: <PlusIcon className="w-4 h-4" />,      onClick: () => handleAddSubRow(rowId) },
+        { separator: true } as any,
+        {
+          label: 'Background Color', icon: <FillColorIcon className="w-4 h-4 text-gray-600" />, onClick: () => {},
+          render: (onClose) => (
+            <div className="px-3 py-2">
+              <div className="text-[10px] text-gray-500 mb-1.5 font-semibold uppercase tracking-wide">Background</div>
+              <div className="flex flex-wrap gap-1">
+                <button className="w-5 h-5 rounded border border-gray-300 text-gray-400 text-xs flex items-center justify-center hover:bg-gray-100 font-bold"
+                  onClick={() => { handleStyleUpdate({ backgroundColor: undefined }, new Set([rowId])); onClose(); }}>✕</button>
+                {BACKGROUND_COLORS.map(c => (
+                  <button key={c} className="w-5 h-5 rounded-full border border-gray-200 hover:scale-110 transition-transform"
+                    style={{ backgroundColor: c }}
+                    onClick={() => { handleStyleUpdate({ backgroundColor: c }, new Set([rowId])); onClose(); }} />
+                ))}
+              </div>
+            </div>
+          ),
+        } as any,
+        { separator: true } as any,
+        { label: 'Delete row', icon: <TrashIcon className="w-4 h-4" />, danger: true, onClick: () => handleDeleteRows(new Set([rowId])) },
+      ];
+    }
+
+    return [];
   };
 
   // ── Totals ────────────────────────────────────────────────────────────
@@ -511,169 +974,208 @@ const SpreadsheetViewV3: React.FC = () => {
   return (
     <div
       ref={containerRef}
-      className="flex flex-col h-full outline-none focus:outline-none overflow-hidden bg-white"
+      className="flex flex-col h-full px-4 pt-[7px] pb-[7px] outline-none focus:ring-0 overflow-hidden gap-[7px]"
       tabIndex={0}
       onKeyDown={handleKeyDown}
       onMouseLeave={() => { isDragging.current = false; }}
     >
-      {/* ── Toolbar ── */}
-      <div className="px-4 pt-[7px] shrink-0">
-        <V3Toolbar
+      {/* ── Toolbar (reuses shared SpreadsheetToolbar) ── */}
+      <div className="flex items-center gap-2">
+        <SpreadsheetToolbar
+          isAllSelected={isAllSelected}
+          handleToggleAll={() => {
+            if (isAllSelected) setSelectedRowIds(new Set());
+            else setSelectedRowIds(new Set(selectableFlat.map(f => f.row.id)));
+          }}
+          toolbarCheckboxRef={checkboxRef}
+          hasRowSelection={selectedRowIds.size > 0}
           selectedCount={selectedRowIds.size}
-          hasClipboard={!!clipboard?.length}
+          onStyleUpdate={(style) => handleStyleUpdate(style as Partial<V3CellStyle>)}
           onCut={() => handleCut()}
           onCopy={() => handleCopy()}
           onPaste={() => handlePaste()}
           onDelete={() => handleDeleteRows(selectedRowIds)}
           onDeselectAll={() => setSelectedRowIds(new Set())}
-          onStyleUpdate={handleStyleUpdate}
-          onAddRow={handleAddRow}
-          fontSize={fontSize}
-          onFontSizeChange={setFontSize}
-          density={density}
-          onDensityChange={setDensity}
         />
       </div>
 
-      {/* ── Formula bar ── */}
-      <div className="px-4 shrink-0">
-        <div className="border border-gray-200 rounded-lg overflow-hidden shadow-sm">
-          <FormulaBar
-            selection={formulaBarSelection}
-            rows={flatRows.map(f => f.row)}
-            columns={columns}
-            onCommit={handleFormulaBarCommit}
-          />
+      {/* ── Table card ── */}
+      <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden relative flex flex-col focus:outline-none max-h-full min-h-0 flex-grow">
 
-          {/* ── Main grid ── */}
-          <div className="overflow-auto relative" ref={scrollRef} style={{ maxHeight: 'calc(100vh - 260px)' }}>
-            <table className="border-collapse min-w-max table-fixed" style={{ fontSize }}>
-              <V3Header
-                columns={columns}
-                focusedColId={focusedCell?.colId ?? null}
-                resizingColumnId={resizingColId}
-                sort={sort}
-                isScrolled={!scrollState.isAtStart}
-                isAtEnd={scrollState.isAtEnd}
-                isVerticalScrolled={scrollState.isScrolledTop}
-                fontSize={fontSize}
-                onSort={handleSort}
-                onResize={onMouseDownResize}
-                onColumnMove={handleColumnMove}
-                onAddColumn={() => setShowAddColumn(true)}
-                onContextMenu={(e, colId) => handleContextMenu(e, 'column', undefined, colId)}
-                isAllSelected={isAllSelected}
-                onToggleAll={() => {
-                  if (isAllSelected) setSelectedRowIds(new Set());
-                  else setSelectedRowIds(new Set(selectableFlat.map(f => f.row.id)));
-                }}
-                checkboxRef={checkboxRef}
-              />
+        {/* ── Formula bar ── */}
+        <FormulaBar
+          selection={formulaBarSelection}
+          rows={flatRows.map(f => f.row)}
+          columns={columns}
+          onCommit={handleFormulaBarCommit}
+        />
 
-              <tbody>
-                {flatRows.map(({ row, level, isSummary, parentId }, globalIdx) => (
-                  <V3RowComponent
-                    key={`${row.id}-${isSummary ? 'sum' : 'row'}`}
-                    row={row}
-                    rowIndex={globalIdx}
-                    level={level}
-                    columns={columns}
-                    isSelected={selectedRowIds.has(row.id)}
-                    isExpanded={expandedIds.has(row.id)}
-                    isSummary={isSummary}
-                    focusedCell={focusedCell}
-                    editingCell={editingCell}
-                    inRangeSelection={isInRange(row.id)}
-                    rangeColIds={rangeColIds}
-                    isScrolled={!scrollState.isAtStart}
-                    isAtEnd={scrollState.isAtEnd}
-                    fontSize={fontSize}
-                    displayDensity={density}
-                    onToggleSelect={(id) => {
-                      setSelectedRowIds(prev => {
-                        const next = new Set(prev);
-                        next.has(id) ? next.delete(id) : next.add(id);
-                        return next;
-                      });
-                    }}
-                    onToggleExpand={(id) => {
-                      setExpandedIds(prev => {
-                        const next = new Set(prev);
-                        next.has(id) ? next.delete(id) : next.add(id);
-                        return next;
-                      });
-                    }}
-                    onCellClick={handleCellClick}
-                    onCellDoubleClick={(rowId, colId) => setEditingCell({ rowId, colId })}
-                    onStopEdit={() => setEditingCell(null)}
-                    onUpdateCell={handleUpdateCell}
-                    onContextMenu={(e, type, rowId, colId) => handleContextMenu(e, type, rowId, colId)}
-                    onCellMouseDown={handleCellMouseDown}
-                    onCellMouseEnter={handleCellMouseEnter}
-                  />
-                ))}
-              </tbody>
+        {/* ── Main scroll area ── */}
+        <div className="overflow-auto relative select-none focus:outline-none min-h-0 flex-grow" ref={scrollRef}>
+          <table className="border-collapse min-w-max table-fixed" style={{ fontSize }}>
+            <V3Header
+              columns={columns}
+              focusedColId={focusedCell?.colId ?? null}
+              selectedColId={selectedColId}
+              resizingColumnId={resizingColId}
+              sort={sort}
+              isScrolled={!scrollState.isAtStart}
+              isAtEnd={scrollState.isAtEnd}
+              isVerticalScrolled={scrollState.isScrolledTop}
+              fontSize={fontSize}
+              displayDensity={density}
+              onColumnHeaderClick={handleColumnHeaderClick}
+              onRenameColumn={handleRenameColumn}
+              onResize={onMouseDownResize}
+              onColumnMove={handleColumnMove}
+              onAddColumn={() => setShowAddColumn(true)}
+              onContextMenu={(e, colId) => handleContextMenu(e, 'column', undefined, colId)}
+              isAllSelected={isAllSelected}
+              onToggleAll={() => {
+                if (isAllSelected) setSelectedRowIds(new Set());
+                else setSelectedRowIds(new Set(selectableFlat.map(f => f.row.id)));
+              }}
+              checkboxRef={checkboxRef}
+            />
 
-              {/* ── Totals footer ── */}
-              <tfoot className="sticky bottom-0 z-30 bg-gray-100 font-bold text-gray-900 border-t-2 border-gray-300 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-                <tr className="h-9">
-                  <td
-                    className={`sticky left-0 z-40 border-r border-gray-300 text-center bg-gray-100 text-xs
-                      ${!scrollState.isAtStart ? 'shadow-[4px_0_8px_-4px_rgba(0,0,0,0.2)]' : ''}`}
-                    style={{ width: 56, minWidth: 56, maxWidth: 56, fontSize }}
+            <tbody>
+              {flatRows.map(({ row, level, isSummary }, globalIdx) => (
+                <V3RowComponent
+                  key={`${row.id}-${isSummary ? 'sum' : 'row'}`}
+                  row={row}
+                  rowIndex={globalIdx}
+                  level={level}
+                  columns={columns}
+                  isSelected={selectedRowIds.has(row.id)}
+                  isExpanded={expandedIds.has(row.id)}
+                  isSummary={isSummary}
+                  focusedCell={focusedCell}
+                  editingCell={editingCell}
+                  inRangeSelection={isInRange(row.id)}
+                  rangeColIds={rangeColIds}
+                  selectedColId={selectedColId}
+                  isScrolled={!scrollState.isAtStart}
+                  isAtEnd={scrollState.isAtEnd}
+                  fontSize={fontSize}
+                  displayDensity={density}
+                  onToggleSelect={(id) => {
+                    setSelectedRowIds(prev => {
+                      const next = new Set(prev);
+                      next.has(id) ? next.delete(id) : next.add(id);
+                      return next;
+                    });
+                  }}
+                  onToggleExpand={(id) => {
+                    setExpandedIds(prev => {
+                      const next = new Set(prev);
+                      next.has(id) ? next.delete(id) : next.add(id);
+                      return next;
+                    });
+                  }}
+                  fillAnchorCell={fillAnchor}
+                  fillRangeRowIds={fillRangeRowIds}
+                  onCellClick={handleCellClick}
+                  onStopEdit={() => setEditingCell(null)}
+                  onUpdateCell={handleUpdateCell}
+                  onContextMenu={(e, type, rowId, colId) => handleContextMenu(e, type, rowId, colId)}
+                  onCellMouseDown={handleCellMouseDown}
+                  onCellMouseEnter={handleCellMouseEnter}
+                  onFillHandleMouseDown={handleFillHandleMouseDown}
+                  onRowMouseEnter={handleFillRowEnter}
+                />
+              ))}
+            </tbody>
+
+            {/* ── Totals footer ── */}
+            <tfoot className="bg-gray-100 text-gray-900 border-t-2 border-gray-300 sticky bottom-0 z-30 font-bold shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+              <tr className="h-9">
+                <td
+                  className={`sticky left-0 z-40 border-r border-gray-300 text-center bg-gray-100 ${!scrollState.isAtStart ? 'shadow-[4px_0_8px_-4px_rgba(0,0,0,0.3)]' : ''}`}
+                  style={{ width: SPREADSHEET_INDEX_COLUMN_WIDTH, minWidth: SPREADSHEET_INDEX_COLUMN_WIDTH, maxWidth: SPREADSHEET_INDEX_COLUMN_WIDTH, fontSize }}
+                >
+                  Total
+                </td>
+                {columns.map(col => (
+                  <td key={col.id}
+                    className={`border-r border-gray-300 px-2 bg-gray-100 whitespace-nowrap ${col.align === 'right' ? 'text-right' : 'text-left'}`}
+                    style={{ width: col.width, fontSize }}
                   >
-                    Total
+                    {col.isTotal && totals[col.id] !== undefined
+                      ? (col.type === 'number' ? totals[col.id].toLocaleString() : formatCurrency(totals[col.id]))
+                      : ''}
                   </td>
-                  {columns.map(col => (
-                    <td key={col.id} className={`border-r border-gray-300 px-2 bg-gray-100 whitespace-nowrap ${col.align === 'right' ? 'text-right' : 'text-left'}`}
-                      style={{ width: col.width, fontSize }}
-                    >
-                      {col.isTotal && totals[col.id] !== undefined
-                        ? (col.type === 'number' ? totals[col.id].toLocaleString() : formatCurrency(totals[col.id]))
-                        : ''}
-                    </td>
-                  ))}
-                  {/* placeholder for add-col th */}
-                  <td className="bg-gray-100 border-r border-gray-300" style={{ width: 44 }} />
-                  <td
-                    className={`sticky right-0 z-40 border-l border-gray-200 bg-gray-100
-                      ${!scrollState.isAtEnd ? 'shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.2)]' : ''}`}
-                    style={{ width: 60, minWidth: 60 }}
-                  />
-                </tr>
-              </tfoot>
-            </table>
+                ))}
+                <td className="bg-gray-100 border-r border-gray-300" style={{ width: 44 }} />
+                <td
+                  className={`sticky right-0 z-40 border-l border-gray-200 bg-gray-100 w-20 ${!scrollState.isAtEnd ? 'shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.3)]' : ''}`}
+                />
+              </tr>
+            </tfoot>
+          </table>
+        </div>
 
-            {/* ── Add row inline button ── */}
-            <div className="p-2 border-t border-gray-100 bg-white flex items-center">
-              <button
-                onClick={handleAddRow}
-                className="flex items-center gap-1.5 text-blue-500 hover:text-blue-700 text-xs font-medium transition-colors py-1 px-2 rounded hover:bg-blue-50"
-              >
-                <div className="w-4 h-4 rounded-full border border-blue-400 flex items-center justify-center">
-                  <PlusIcon className="w-2.5 h-2.5" />
-                </div>
-                Add row
-              </button>
+        {/* ── Add row / Add more rows ── */}
+        <div className="px-3 py-2 border-t border-gray-200 bg-gray-50 flex items-center gap-4 flex-wrap">
+          <button
+            onClick={handleAddRow}
+            className="flex items-center gap-1.5 text-blue-600 hover:text-blue-700 font-medium text-sm transition-colors"
+          >
+            <div className="w-4 h-4 rounded-full border border-blue-600 flex items-center justify-center">
+              <PlusIcon className="w-2.5 h-2.5" />
             </div>
+            Add row
+          </button>
+          <div className="w-px h-4 bg-gray-300" />
+          <div className="flex items-center gap-1.5 text-sm text-gray-500">
+            <span>Add</span>
+            <input
+              type="number"
+              min={1}
+              max={1000}
+              value={addRowCount}
+              onChange={e => setAddRowCount(Math.max(1, Math.min(1000, parseInt(e.target.value) || 1)))}
+              className="w-14 px-1.5 py-0.5 border border-gray-300 rounded text-center text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400"
+            />
+            <span>more rows</span>
+            <button
+              onClick={handleAddManyRows}
+              className="px-2.5 py-0.5 text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded font-medium transition-colors border border-blue-200 hover:border-blue-400"
+            >
+              Add
+            </button>
           </div>
         </div>
       </div>
 
       {/* ── Sheet tabs ── */}
-      <div className="px-4 mt-auto shrink-0">
-        <SheetTabs
-          sheets={sheets}
-          activeSheetId={activeSheetId}
-          onSelectSheet={(id) => { setActiveSheetId(id); setFocusedCell(null); setSelectedRowIds(new Set()); setEditingCell(null); }}
-          onAddSheet={handleAddSheet}
-          onRenameSheet={handleRenameSheet}
-          onDeleteSheet={handleDeleteSheet}
-        />
-      </div>
+      <SheetTabs
+        sheets={sheets}
+        activeSheetId={activeSheetId}
+        onSelectSheet={(id) => { handleSetActiveSheetId(id); setFocusedCell(null); setSelectedRowIds(new Set()); setEditingCell(null); }}
+        onAddSheet={handleAddSheet}
+        onRenameSheet={handleRenameSheet}
+        onDeleteSheet={handleDeleteSheet}
+      />
 
       {/* ── Modals ── */}
-      {showAddColumn && <AddColumnModal onAdd={handleAddColumn} onClose={() => setShowAddColumn(false)} />}
+      {showAddColumn && (
+        <AddColumnModal onAdd={handleAddColumn} onClose={() => setShowAddColumn(false)} />
+      )}
+      {editingColumnId && (() => {
+        const col = columns.find(c => c.id === editingColumnId);
+        if (!col) return null;
+        return (
+          <AddColumnModal
+            mode="edit"
+            initialValues={{ label: col.label, type: col.type, formula: col.formula, options: col.options }}
+            onAdd={(updates) => {
+              handleUpdateColumn(editingColumnId, updates);
+              setEditingColumnId(null);
+            }}
+            onClose={() => setEditingColumnId(null)}
+          />
+        );
+      })()}
 
       {/* ── Context menu ── */}
       {contextMenu?.visible && (

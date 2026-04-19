@@ -183,4 +183,6 @@ export interface View {
   baseViewType?: ViewMode;
   showToolbarLabels: boolean;
   metadata: ViewMetadata;
+  v3Sheets?: import('../components/views/spreadsheetV3/types').V3Sheet[] | null;
+  v3ActiveSheetId?: string | null;
 }

@@ -29,7 +29,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 interface V3RowProps {
   row: V3Row;
-  rowIndex: number;        // absolute flat index, used for row number display
+  rowIndex: number;
   level: number;
   columns: V3Column[];
   isSelected: boolean;
@@ -37,31 +37,37 @@ interface V3RowProps {
   isSummary?: boolean;
   focusedCell: { rowId: string; colId: string } | null;
   editingCell: { rowId: string; colId: string; initial?: string } | null;
-  inRangeSelection: boolean;       // true when this row has any cell in the drag-range
-  rangeColIds: Set<string>;        // which column ids are highlighted by range selection
+  inRangeSelection: boolean;
+  rangeColIds: Set<string>;
+  selectedColId: string | null;
   isScrolled: boolean;
   isAtEnd: boolean;
   fontSize: number;
   displayDensity: 'compact' | 'standard' | 'comfortable';
+  fillAnchorCell: { rowId: string; colId: string } | null;
+  fillRangeRowIds: Set<string>;
   onToggleSelect: (id: string) => void;
   onToggleExpand: (id: string) => void;
   onCellClick: (rowId: string, colId: string, e: React.MouseEvent) => void;
-  onCellDoubleClick: (rowId: string, colId: string) => void;
   onStopEdit: () => void;
   onUpdateCell: (rowId: string, colId: string, value: CellValue, direction?: 'up' | 'down' | 'left' | 'right') => void;
   onContextMenu: (e: React.MouseEvent, type: 'row' | 'cell', rowId: string, colId?: string) => void;
   onCellMouseDown: (rowId: string, colId: string, e: React.MouseEvent) => void;
   onCellMouseEnter: (rowId: string, colId: string) => void;
+  onFillHandleMouseDown: (rowId: string, colId: string) => void;
+  onRowMouseEnter: (rowId: string) => void;
 }
 
 const HEIGHT: Record<string, string> = { compact: 'h-7', standard: 'h-9', comfortable: 'h-11' };
 
 const V3RowComponent: React.FC<V3RowProps> = ({
   row, rowIndex, level, columns, isSelected, isExpanded, isSummary,
-  focusedCell, editingCell, inRangeSelection, rangeColIds,
+  focusedCell, editingCell, inRangeSelection, rangeColIds, selectedColId,
   isScrolled, isAtEnd, fontSize, displayDensity,
-  onToggleSelect, onToggleExpand, onCellClick, onCellDoubleClick,
+  fillAnchorCell, fillRangeRowIds,
+  onToggleSelect, onToggleExpand, onCellClick,
   onStopEdit, onUpdateCell, onContextMenu, onCellMouseDown, onCellMouseEnter,
+  onFillHandleMouseDown, onRowMouseEnter,
 }) => {
   const hClass = HEIGHT[displayDensity] ?? 'h-7';
   const hasChildren = !!row.children?.length;
@@ -69,6 +75,8 @@ const V3RowComponent: React.FC<V3RowProps> = ({
   const [editValue, setEditValue] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const selectRef = useRef<HTMLSelectElement>(null);
+  const ignoreCellClick = useRef(false);
+  const isFillTarget = fillRangeRowIds.has(row.id);
 
   useEffect(() => {
     if (editingCell?.rowId === row.id) {
@@ -210,25 +218,28 @@ const V3RowComponent: React.FC<V3RowProps> = ({
     return rowIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50';
   };
 
+  const rowStyleBg = (!isSelected && !isSummary && !isGroup) ? row.style?.backgroundColor : undefined;
+
   return (
     <tr
       className={`group relative transition-colors ${hClass} ${rowBg}`}
-      style={{ color: row.style?.textColor }}
+      style={{ color: row.style?.textColor, backgroundColor: rowStyleBg }}
+      onMouseEnter={() => !isSummary && onRowMouseEnter(row.id)}
     >
       {/* Row number / checkbox */}
       <td
         onClick={() => !isSummary && onToggleSelect(row.id)}
         onContextMenu={(e) => !isSummary && onContextMenu(e, 'row', row.id)}
-        className={`sticky left-0 z-30 border-r border-gray-200 text-center p-0 cursor-pointer transition-colors
+        className={`sticky left-0 z-30 border-r border-b border-gray-200 text-center p-0 cursor-pointer transition-colors
           ${isSelected && !isSummary ? 'bg-blue-600 text-white' : stickyBg()}
-          ${isScrolled ? 'after:content-[""] after:absolute after:top-0 after:bottom-0 after:-right-1.5 after:w-1.5 after:bg-gradient-to-r after:from-black/10 after:to-transparent after:pointer-events-none' : ''}
+          ${isScrolled ? 'after:content-[""] after:absolute after:top-0 after:bottom-0 after:-right-[6px] after:w-[6px] after:bg-gradient-to-r after:from-black/[0.12] after:to-transparent after:pointer-events-none' : ''}
         `}
-        style={{ width: ROW_NUM_WIDTH, minWidth: ROW_NUM_WIDTH, maxWidth: ROW_NUM_WIDTH }}
+        style={{ width: ROW_NUM_WIDTH, minWidth: ROW_NUM_WIDTH, maxWidth: ROW_NUM_WIDTH, backgroundColor: isSelected || isSummary || isGroup ? undefined : row.style?.backgroundColor }}
       >
         <div className="flex items-center justify-center h-full">
           {!isSummary && (
             <>
-              <span className={`text-[11px] font-mono text-gray-400 ${isSelected ? 'hidden' : 'group-hover:hidden'}`}>
+              <span className={`font-mono text-gray-500 ${isSelected ? 'hidden' : 'group-hover:hidden'}`} style={{ fontSize }}>
                 {isGroup ? '' : rowIndex + 1}
               </span>
               <input
@@ -262,37 +273,53 @@ const V3RowComponent: React.FC<V3RowProps> = ({
           width: col.width,
           minWidth: col.width,
           maxWidth: col.width,
-          backgroundColor: cellStyle.backgroundColor ?? undefined,
+          backgroundColor: cellStyle.backgroundColor ?? rowStyleBg,
           color: cellStyle.textColor ?? undefined,
         };
+
+        const isFillHandle = !isSummary && focusedCell?.rowId === row.id && focusedCell?.colId === col.id && col.editable && col.type !== 'formula';
+        const isFillRangeCell = !isSummary && isFillTarget && fillAnchorCell?.colId === col.id;
+        const isColSelected = !isSummary && selectedColId === col.id;
 
         return (
           <td
             key={col.id}
-            className={`border-r border-gray-200 px-2 relative transition-colors cursor-default
+            className={`border-r border-b border-gray-200 px-2 relative transition-colors cursor-default
               ${col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'}
               ${isSummary ? 'bg-gray-50' : ''}
               ${isSelected && !cellStyle.backgroundColor && !isSummary ? 'bg-blue-50' : ''}
               ${inRange && !isFocused ? 'bg-blue-50' : ''}
-              ${col.type === 'formula' && !cellStyle.backgroundColor ? 'bg-amber-50/40' : ''}
+              ${isColSelected && !isSelected && !inRange && !cellStyle.backgroundColor ? 'bg-blue-50' : ''}
+              ${isFillRangeCell && !cellStyle.backgroundColor ? 'bg-blue-50/60' : ''}
+              ${col.type === 'formula' && !cellStyle.backgroundColor && !isColSelected ? 'bg-amber-50/40' : ''}
               ${isEditable ? 'hover:cursor-text' : ''}
             `}
             style={tdStyle}
-            onClick={(e) => !isSummary && onCellClick(row.id, col.id, e)}
-            onDoubleClick={() => isEditable && onCellDoubleClick(row.id, col.id)}
+            onClick={(e) => {
+              if (!isSummary) {
+                if (ignoreCellClick.current) { ignoreCellClick.current = false; return; }
+                onCellClick(row.id, col.id, e);
+              }
+            }}
             onContextMenu={(e) => !isSummary && onContextMenu(e, 'cell', row.id, col.id)}
             onMouseDown={(e) => !isSummary && onCellMouseDown(row.id, col.id, e)}
             onMouseEnter={() => !isSummary && onCellMouseEnter(row.id, col.id)}
           >
-            {/* Range/focus ring */}
+            {/* Range selection ring */}
             {inRange && !isFocused && (
               <div className="absolute inset-0 border border-blue-300 pointer-events-none z-10" />
             )}
+            {/* Focus ring */}
             {isFocused && !isEditing && (
               <div className="absolute inset-0 border-2 border-blue-600 pointer-events-none z-20 shadow-[inset_0_0_0_1px_rgba(37,99,235,0.3)]" />
             )}
-            {cellStyle.borderColor && (
-              <div className="absolute inset-0 border-2 pointer-events-none z-20" style={{ borderColor: cellStyle.borderColor }} />
+            {/* Fill range dashed border */}
+            {isFillRangeCell && (
+              <div className="absolute inset-0 border border-dashed border-blue-500 pointer-events-none z-20" />
+            )}
+            {/* Custom cell border */}
+            {(cellStyle.borderColor || row.style?.borderColor) && (
+              <div className="absolute inset-0 border-2 pointer-events-none z-20" style={{ borderColor: cellStyle.borderColor ?? row.style?.borderColor }} />
             )}
 
             {/* Editing */}
@@ -301,7 +328,6 @@ const V3RowComponent: React.FC<V3RowProps> = ({
                 className={`flex items-center h-full w-full overflow-hidden relative z-10 ${col.align === 'right' ? 'justify-end' : col.align === 'center' ? 'justify-center' : 'justify-start'}`}
                 style={{ paddingLeft: col.id === 'name' && (isGroup || level > 0) ? `${level * 16 + (hasChildren ? 0 : 20)}px` : undefined }}
               >
-                {/* Expand toggle for name column */}
                 {col.id === 'name' && hasChildren && (
                   <button
                     onClick={(e) => { e.stopPropagation(); onToggleExpand(row.id); }}
@@ -315,6 +341,22 @@ const V3RowComponent: React.FC<V3RowProps> = ({
                 </span>
               </div>
             )}
+
+            {/* Fill handle — larger transparent hit area with centered visual square */}
+            {isFillHandle && (
+              <div
+                className="absolute z-30 cursor-crosshair select-none flex items-end justify-end"
+                style={{ bottom: -8, right: -8, width: 18, height: 18, padding: 3 }}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  ignoreCellClick.current = true;
+                  onFillHandleMouseDown(row.id, col.id);
+                }}
+              >
+                <div style={{ width: 9, height: 9, backgroundColor: '#1a73e8', border: '2px solid white', borderRadius: 1, boxShadow: '0 0 0 1px #1a73e8' }} />
+              </div>
+            )}
           </td>
         );
       })}
@@ -324,14 +366,12 @@ const V3RowComponent: React.FC<V3RowProps> = ({
 
       {/* Sticky right actions */}
       <td
-        className={`sticky right-0 z-30 border-l border-gray-200 transition-all
+        className={`sticky right-0 z-30 w-20 px-2 border-l border-gray-200 transition-all duration-200 relative
           ${stickyBg()}
-          ${!isAtEnd ? 'before:content-[""] before:absolute before:top-0 before:bottom-0 before:-left-1.5 before:w-1.5 before:bg-gradient-to-l before:from-black/10 before:to-transparent before:pointer-events-none' : ''}
+          ${!isAtEnd ? 'before:content-[""] before:absolute before:top-0 before:bottom-0 before:-left-[6px] before:w-[6px] before:bg-gradient-to-l before:from-black/[0.12] before:to-transparent before:pointer-events-none' : ''}
         `}
-        style={{ width: ACTIONS_WIDTH, minWidth: ACTIONS_WIDTH }}
-      >
-        {/* placeholder for future row action menu */}
-      </td>
+        style={{ width: ACTIONS_WIDTH, minWidth: ACTIONS_WIDTH, maxWidth: ACTIONS_WIDTH, backgroundColor: isSelected || isSummary || isGroup ? undefined : row.style?.backgroundColor }}
+      />
     </tr>
   );
 };

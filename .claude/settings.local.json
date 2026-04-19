@@ -9,7 +9,9 @@
       "mcp__plugin_figma_figma__generate_figma_design",
       "Bash(start:*)",
       "Bash(grep -r \"Settings\\\\|SettingsIcon\\\\|GearIcon\\\\|gear\\\\|cog\" C:UsersdamieProjectsLinarc-Data-Sheet-Table/src --include=*.tsx --include=*.ts --include=*.jsx --include=*.js)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(npx tsc *)",
+      "Bash(npm run *)"
     ]
   }
 }

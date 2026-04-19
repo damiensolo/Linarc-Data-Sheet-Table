@@ -5,53 +5,58 @@ import { XIcon } from '../../../common/Icons';
 interface AddColumnModalProps {
   onAdd: (col: Omit<V3Column, 'id'>) => void;
   onClose: () => void;
+  mode?: 'add' | 'edit';
+  initialValues?: Partial<Omit<V3Column, 'id'>>;
 }
 
-const COLUMN_TYPES: { id: V3ColumnType; label: string; description: string; icon: string }[] = [
-  { id: 'text',     label: 'Text',     description: 'Free text entry',              icon: 'Aa' },
-  { id: 'number',   label: 'Number',   description: 'Numeric values',               icon: '#' },
-  { id: 'currency', label: 'Currency', description: 'Formatted as $0,000.00',       icon: '$' },
-  { id: 'date',     label: 'Date',     description: 'Date picker input',            icon: '📅' },
-  { id: 'select',   label: 'Select',   description: 'Dropdown with options',        icon: '▾' },
-  { id: 'checkbox', label: 'Checkbox', description: 'True/false toggle',            icon: '☑' },
-  { id: 'formula',  label: 'Formula',  description: 'Auto-calculated, e.g. =a+b',  icon: '=' },
+export const COLUMN_TYPES: { id: V3ColumnType; label: string; description: string; icon: string }[] = [
+  { id: 'text',     label: 'Text',     description: 'Free text entry',             icon: 'Aa' },
+  { id: 'number',   label: 'Number',   description: 'Numeric values',              icon: '#'  },
+  { id: 'currency', label: 'Currency', description: 'Formatted as $0,000.00',      icon: '$'  },
+  { id: 'date',     label: 'Date',     description: 'Date picker input',           icon: '📅' },
+  { id: 'select',   label: 'Select',   description: 'Dropdown with options',       icon: '▾' },
+  { id: 'checkbox', label: 'Checkbox', description: 'True/false toggle',           icon: '☑' },
+  { id: 'formula',  label: 'Formula',  description: 'Auto-calculated, e.g. =a+b', icon: '='  },
 ];
 
-const AddColumnModal: React.FC<AddColumnModalProps> = ({ onAdd, onClose }) => {
-  const [label, setLabel] = useState('');
-  const [type, setType] = useState<V3ColumnType>('text');
-  const [formula, setFormula] = useState('');
-  const [options, setOptions] = useState('');
+const AddColumnModal: React.FC<AddColumnModalProps> = ({ onAdd, onClose, mode = 'add', initialValues }) => {
+  const [label,   setLabel]   = useState(initialValues?.label   ?? '');
+  const [type,    setType]    = useState<V3ColumnType>(initialValues?.type ?? 'text');
+  const [formula, setFormula] = useState(initialValues?.formula ?? '');
+  const [options, setOptions] = useState(initialValues?.options?.join(', ') ?? '');
+
+  const isEdit = mode === 'edit';
 
   const handleSubmit = () => {
     if (!label.trim()) return;
     const col: Omit<V3Column, 'id'> = {
       label: label.trim(),
       type,
-      width: type === 'text' ? 180 : type === 'date' ? 130 : 120,
-      align: (type === 'number' || type === 'currency' || type === 'formula') ? 'right' : 'left',
+      width:   initialValues?.width   ?? (type === 'text' ? 180 : type === 'date' ? 130 : 120),
+      align:   (type === 'number' || type === 'currency' || type === 'formula') ? 'right' : 'left',
       editable: type !== 'formula',
-      visible: true,
-      isTotal: type === 'currency' || type === 'number',
+      visible:  true,
+      isTotal:  type === 'currency' || type === 'number',
       ...(type === 'formula' ? { formula: formula.startsWith('=') ? formula : `=${formula}` } : {}),
-      ...(type === 'select' ? { options: options.split(',').map(s => s.trim()).filter(Boolean) } : {}),
+      ...(type === 'select'  ? { options: options.split(',').map(s => s.trim()).filter(Boolean) } : {}),
     };
     onAdd(col);
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+      onKeyDown={(e) => e.stopPropagation()}
+    >
       <div className="bg-white rounded-xl shadow-2xl w-[480px] overflow-hidden">
-        {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h3 className="text-base font-semibold text-gray-900">Add Column</h3>
+          <h3 className="text-base font-semibold text-gray-900">{isEdit ? 'Edit Column' : 'Add Column'}</h3>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700">
             <XIcon className="w-4 h-4" />
           </button>
         </div>
 
         <div className="p-6 space-y-5">
-          {/* Label */}
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wider">Column Name</label>
             <input
@@ -64,7 +69,6 @@ const AddColumnModal: React.FC<AddColumnModalProps> = ({ onAdd, onClose }) => {
             />
           </div>
 
-          {/* Type picker */}
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wider">Column Type</label>
             <div className="grid grid-cols-4 gap-2">
@@ -87,7 +91,6 @@ const AddColumnModal: React.FC<AddColumnModalProps> = ({ onAdd, onClose }) => {
             <p className="mt-2 text-xs text-gray-400">{COLUMN_TYPES.find(t => t.id === type)?.description}</p>
           </div>
 
-          {/* Formula input */}
           {type === 'formula' && (
             <div>
               <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wider">Formula</label>
@@ -101,7 +104,6 @@ const AddColumnModal: React.FC<AddColumnModalProps> = ({ onAdd, onClose }) => {
             </div>
           )}
 
-          {/* Select options */}
           {type === 'select' && (
             <div>
               <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wider">Options (comma separated)</label>
@@ -115,7 +117,6 @@ const AddColumnModal: React.FC<AddColumnModalProps> = ({ onAdd, onClose }) => {
           )}
         </div>
 
-        {/* Footer */}
         <div className="flex items-center justify-end gap-3 px-6 py-4 bg-gray-50 border-t border-gray-100">
           <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 font-medium rounded-lg hover:bg-gray-200 transition-colors">
             Cancel
@@ -125,7 +126,7 @@ const AddColumnModal: React.FC<AddColumnModalProps> = ({ onAdd, onClose }) => {
             disabled={!label.trim()}
             className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 font-medium rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
-            Add Column
+            {isEdit ? 'Update Column' : 'Add Column'}
           </button>
         </div>
       </div>

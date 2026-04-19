@@ -38,8 +38,10 @@ const getDefaultViewConfig = (viewMode: ViewMode): Omit<View, 'id' | 'name' | 'c
       return {
         ...baseConfig,
         type: 'spreadsheetV3',
-        displayDensity: 'standard' as DisplayDensity,
+        displayDensity: 'compact' as DisplayDensity,
         columns: [],
+        v3Sheets: null,
+        v3ActiveSheetId: null,
       };
     case 'lookahead':
        return { ...baseConfig, displayDensity: 'standard' as DisplayDensity, type: 'lookahead', columns: JSON.parse(JSON.stringify(getDefaultTableColumns())) };

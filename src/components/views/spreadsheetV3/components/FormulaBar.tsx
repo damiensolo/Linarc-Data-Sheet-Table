@@ -62,17 +62,17 @@ const FormulaBar: React.FC<FormulaBarProps> = ({ selection, rows, columns, onCom
   };
 
   return (
-    <div className="flex items-center h-9 border-b border-gray-200 bg-white select-none">
+    <div className="flex items-center h-11 border-b border-gray-200 bg-white select-none">
       {/* Cell address box */}
-      <div className="flex items-center justify-center h-full w-[90px] border-r border-gray-200 px-2 shrink-0">
+      <div className="flex items-center justify-center h-full w-[100px] border-r border-gray-200 px-3 shrink-0">
         <span className="text-xs font-mono font-semibold text-gray-600 tracking-wider">
           {cellLabel || '—'}
         </span>
       </div>
 
       {/* fx label */}
-      <div className="flex items-center justify-center h-full w-8 border-r border-gray-200 shrink-0">
-        <span className="text-[11px] italic text-gray-400 font-serif">fx</span>
+      <div className="flex items-center justify-center h-full w-10 border-r border-gray-200 shrink-0">
+        <span className="text-xs italic text-gray-400 font-serif">fx</span>
       </div>
 
       {/* Formula input */}
