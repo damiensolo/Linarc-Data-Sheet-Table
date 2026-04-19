@@ -244,12 +244,18 @@ const SpreadsheetViewV3: React.FC = () => {
     return () => el.removeEventListener('scroll', update);
   }, [flatRows, columns]);
 
-  // Restore keyboard focus to container whenever editing ends (fixes Tab-then-type)
+  // Restore keyboard focus only when no text input currently owns focus.
   useEffect(() => {
-    if (!editingCell && containerRef.current) {
-      containerRef.current.focus({ preventScroll: true });
+    if (!editingCell && editSource !== 'formula' && containerRef.current) {
+      const activeEl = document.activeElement as HTMLElement | null;
+      const isTextInputActive =
+        !!activeEl &&
+        (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable);
+      if (!isTextInputActive) {
+        containerRef.current.focus({ preventScroll: true });
+      }
     }
-  }, [editingCell]);
+  }, [editingCell, editSource]);
 
   // ── Range selection helpers ───────────────────────────────────────────
   const rangeSet = useMemo(() => {
@@ -473,17 +479,9 @@ const SpreadsheetViewV3: React.FC = () => {
     setRangeAnchor({ rowId, colId });
     setRangeEnd(null);
     setSelectedRowIds(new Set());
-
-    // Single-click to edit — immediately open inline editor for editable non-formula cells
-    const col = columns.find(c => c.id === colId);
-    const flatRow = flatRows.find(f => f.row.id === rowId);
-    if (col?.editable && col.type !== 'formula' && flatRow && !flatRow.isSummary) {
-      setEditSource('cell');
-      setEditingCell({ rowId, colId });
-    } else {
-      setEditingCell(null);
-      setEditSource(null);
-    }
+    setLiveCellEdit(null);
+    setEditSource(null);
+    setEditingCell(null);
   };
 
   const handleCellMouseDown = (rowId: string, colId: string, e: React.MouseEvent) => {

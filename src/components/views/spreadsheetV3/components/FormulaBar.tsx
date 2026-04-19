@@ -82,6 +82,11 @@ const FormulaBar: React.FC<FormulaBarProps> = ({ selection, rows, columns, liveE
         ref={inputRef}
         value={formula}
         disabled={!selection || !selectedCol?.editable}
+        onMouseDown={() => {
+          if (selectedRow && selectedCol?.editable) {
+            onStartEdit(selectedRow.id, selectedCol.id);
+          }
+        }}
         onChange={(e) => {
           const value = e.target.value;
           setFormula(value);
