@@ -466,6 +466,15 @@ const SpreadsheetViewV3: React.FC = () => {
   }, [getCellDisplayValue]);
 
   // ── Cell focus/click ───────────────────────────────────────────────────
+  const handleCellDoubleClick = useCallback((rowId: string, colId: string) => {
+    const col = columns.find(c => c.id === colId);
+    const flatRow = flatRows.find(f => f.row.id === rowId);
+    if (col?.editable && col.type !== 'formula' && flatRow && !flatRow.isSummary) {
+      setEditSource('cell');
+      setEditingCell({ rowId, colId, cursorAtEnd: true } as any);
+    }
+  }, [columns, flatRows]);
+
   const handleCellClick = (rowId: string, colId: string, e: React.MouseEvent) => {
     // Swallow the click that follows a fill-drag mouseup
     if (fillJustApplied.current) { fillJustApplied.current = false; return; }
@@ -940,18 +949,41 @@ const SpreadsheetViewV3: React.FC = () => {
     const s: V3Sheet = {
       id: uid('sheet'),
       name: `Sheet ${sheets.length + 1}`,
-      columns: [
-        { id: uid('col'), label: 'A', type: 'text', width: 200, editable: true, visible: true },
-        { id: uid('col'), label: 'B', type: 'text', width: 150, editable: true, visible: true },
-        { id: uid('col'), label: 'C', type: 'text', width: 150, editable: true, visible: true },
-      ],
-      rows: Array.from({ length: 10 }, () => ({ id: uid('row'), cells: {} })),
+      columns: Array.from({ length: 26 }, (_, i) => ({
+        id: uid('col'),
+        label: String.fromCharCode(65 + i),
+        type: 'text' as const,
+        width: i === 0 ? 200 : 150,
+        editable: true,
+        visible: true,
+      })),
+      rows: Array.from({ length: 100 }, () => ({ id: uid('row'), cells: {} })),
     };
     setSheets(prev => [...prev, s]);
     handleSetActiveSheetId(s.id);
   };
 
   const handleRenameSheet = (id: string, name: string) => setSheets(prev => prev.map(s => s.id === id ? { ...s, name } : s));
+  const handleDuplicateSheet = (id: string) => {
+    const source = sheetsRef.current.find(s => s.id === id);
+    if (!source) return;
+    const clone: V3Sheet = JSON.parse(JSON.stringify(source));
+    clone.id = uid('sheet');
+    clone.name = `${source.name} (copy)`;
+    // Give all rows and columns new IDs to avoid collisions
+    const reId = (rows: V3Row[]): V3Row[] => rows.map(r => ({
+      ...r, id: uid('row'), children: r.children ? reId(r.children) : undefined,
+    }));
+    clone.rows = reId(clone.rows);
+    clone.columns = clone.columns.map(c => ({ ...c, id: uid('col') }));
+    setSheets(prev => {
+      const idx = prev.findIndex(s => s.id === id);
+      const next = [...prev];
+      next.splice(idx + 1, 0, clone);
+      return next;
+    });
+    handleSetActiveSheetId(clone.id);
+  };
   const handleDeleteSheet = (id: string) => {
     setSheets(prev => {
       const next = prev.filter(s => s.id !== id);
@@ -1236,6 +1268,7 @@ const SpreadsheetViewV3: React.FC = () => {
                   fillAnchorCell={fillAnchor}
                   fillRangeRowIds={fillRangeRowIds}
                   onCellClick={handleCellClick}
+                  onCellDoubleClick={handleCellDoubleClick}
                   onUpdateCell={handleUpdateCell}
                   onContextMenu={(e, type, rowId, colId) => handleContextMenu(e, type, rowId, colId)}
                   onCellMouseDown={handleCellMouseDown}
@@ -1318,6 +1351,7 @@ const SpreadsheetViewV3: React.FC = () => {
         onSelectSheet={(id) => { handleSetActiveSheetId(id); setFocusedCell(null); setSelectedRowIds(new Set()); setEditingCell(null); setEditSource(null); setLiveCellEdit(null); }}
         onAddSheet={handleAddSheet}
         onRenameSheet={handleRenameSheet}
+        onDuplicateSheet={handleDuplicateSheet}
         onDeleteSheet={handleDeleteSheet}
       />
 

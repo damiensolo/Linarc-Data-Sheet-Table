@@ -36,7 +36,7 @@ interface V3RowProps {
   isExpanded: boolean;
   isSummary?: boolean;
   focusedCell: { rowId: string; colId: string } | null;
-  editingCell: { rowId: string; colId: string; initial?: string } | null;
+  editingCell: { rowId: string; colId: string; initial?: string; cursorAtEnd?: boolean } | null;
   inRangeSelection: boolean;
   rangeColIds: Set<string>;
   selectedColId: string | null;
@@ -52,6 +52,7 @@ interface V3RowProps {
   onToggleExpand: (id: string) => void;
   onLiveEditChange: (rowId: string, colId: string, value: string) => void;
   onCellClick: (rowId: string, colId: string, e: React.MouseEvent) => void;
+  onCellDoubleClick: (rowId: string, colId: string) => void;
   onStopEdit: () => void;
   onUpdateCell: (rowId: string, colId: string, value: CellValue, direction?: 'up' | 'down' | 'left' | 'right') => void;
   onContextMenu: (e: React.MouseEvent, type: 'row' | 'cell', rowId: string, colId?: string) => void;
