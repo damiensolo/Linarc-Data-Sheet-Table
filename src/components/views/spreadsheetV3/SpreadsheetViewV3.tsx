@@ -12,7 +12,7 @@ import { ContextMenu, ContextMenuItem } from '../../common/ui/ContextMenu';
 import {
   PlusIcon, ScissorsIcon, CopyIcon, ClipboardIcon, TrashIcon,
   ArrowUpIcon, ArrowDownIcon, ChevronLeftIcon, ChevronRightIcon, XIcon,
-  FillColorIcon,
+  FillColorIcon, IndentIcon, OutdentIcon,
 } from '../../common/Icons';
 import { BACKGROUND_COLORS, TEXT_BORDER_COLORS } from '../../../constants/designTokens';
 import { SPREADSHEET_INDEX_COLUMN_WIDTH } from '../../../constants/spreadsheetLayout';
@@ -66,6 +66,52 @@ function formatCurrency(v: number) {
 let _uid = 1;
 const uid = (prefix: string) => `${prefix}-${Date.now()}-${_uid++}`;
 
+// ─── Row tree helpers ─────────────────────────────────────────────────────────
+function indentRowInTree(rows: V3Row[], rowId: string): { rows: V3Row[]; newParentId: string } | null {
+  for (let i = 0; i < rows.length; i++) {
+    if (rows[i].id === rowId) {
+      if (i === 0) return null;
+      const prev = rows[i - 1];
+      const row = rows[i];
+      // Preserve the parent's isGroup status — don't force group styling on normal rows
+      const newPrev: V3Row = { ...prev, children: [...(prev.children ?? []), row] };
+      return { rows: [...rows.slice(0, i - 1), newPrev, ...rows.slice(i + 1)], newParentId: prev.id };
+    }
+    if (rows[i].children?.length) {
+      const result = indentRowInTree(rows[i].children!, rowId);
+      if (result) return { rows: rows.map((r, j) => j === i ? { ...r, children: result.rows } : r), newParentId: result.newParentId };
+    }
+  }
+  return null;
+}
+
+function outdentRowInTree(rows: V3Row[], rowId: string): V3Row[] | null {
+  for (let i = 0; i < rows.length; i++) {
+    if (!rows[i].children?.length) continue;
+    const childIdx = rows[i].children!.findIndex(c => c.id === rowId);
+    if (childIdx >= 0) {
+      const extracted = rows[i].children![childIdx];
+      const newChildren = rows[i].children!.filter((_, j) => j !== childIdx);
+      const newParent: V3Row = { ...rows[i], children: newChildren.length > 0 ? newChildren : undefined, isGroup: newChildren.length > 0 };
+      return [...rows.slice(0, i), newParent, extracted, ...rows.slice(i + 1)];
+    }
+    const newChildren = outdentRowInTree(rows[i].children!, rowId);
+    if (newChildren !== null) return rows.map((r, j) => j === i ? { ...r, children: newChildren } : r);
+  }
+  return null;
+}
+
+function collectExpandableIdsFromRow(row: V3Row): string[] {
+  const ids: string[] = [];
+  if (row.children?.length) {
+    ids.push(row.id);
+    row.children.forEach((child) => {
+      ids.push(...collectExpandableIdsFromRow(child));
+    });
+  }
+  return ids;
+}
+
 // ─── Main component ──────────────────────────────────────────────────────────
 const SpreadsheetViewV3: React.FC = () => {
   const { activeView, updateView } = useProject();
@@ -88,10 +134,15 @@ const SpreadsheetViewV3: React.FC = () => {
     setActiveSheetId(newSheets[0].id);
   };
 
+  // sheetsRef always holds the latest sheets — lets setSheets be stable (no stale closures)
+  const sheetsRef = useRef<V3Sheet[]>(activeView.v3Sheets ?? []);
+  sheetsRef.current = activeView.v3Sheets ?? [];
+
   const setSheets = useCallback((updater: V3Sheet[] | ((prev: V3Sheet[]) => V3Sheet[])) => {
-    const next = typeof updater === 'function' ? updater(activeView.v3Sheets ?? []) : updater;
+    const next = typeof updater === 'function' ? updater(sheetsRef.current) : updater;
+    sheetsRef.current = next;
     updateView({ v3Sheets: next });
-  }, [activeView.v3Sheets, updateView]);
+  }, [updateView]); // stable — does not depend on activeView.v3Sheets
 
   const activeSheet = useMemo(() => sheets.find(s => s.id === activeSheetId) ?? sheets[0], [sheets, activeSheetId]);
 
@@ -115,6 +166,8 @@ const SpreadsheetViewV3: React.FC = () => {
   const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
   const [focusedCell, setFocusedCell] = useState<{ rowId: string; colId: string } | null>(null);
   const [editingCell, setEditingCell] = useState<{ rowId: string; colId: string; initial?: string } | null>(null);
+  const [editSource, setEditSource] = useState<'cell' | 'formula' | null>(null);
+  const [liveCellEdit, setLiveCellEdit] = useState<{ rowId: string; colId: string; value: string } | null>(null);
   const [clipboard, setClipboard] = useState<V3Row[] | null>(null);
   const [scrollState, setScrollState] = useState({ isAtStart: true, isAtEnd: false, isScrolledTop: false });
   const [resizingColId, setResizingColId] = useState<string | null>(null);
@@ -329,6 +382,22 @@ const SpreadsheetViewV3: React.FC = () => {
     setExpandedIds(prev => new Set([...prev, parentId]));
   };
 
+  const handleIndentRow = useCallback((rowId: string) => {
+    const rows = sheetsRef.current.find(s => s.id === activeSheetId)?.rows;
+    if (!rows) return;
+    const result = indentRowInTree(rows, rowId);
+    if (!result) return;
+    updateRows(() => result.rows);
+    setExpandedIds(prev => new Set([...prev, result.newParentId]));
+  }, [activeSheetId, updateRows]);
+
+  const handleOutdentRow = useCallback((rowId: string) => {
+    const rows = sheetsRef.current.find(s => s.id === activeSheetId)?.rows;
+    if (!rows) return;
+    const newRows = outdentRowInTree(rows, rowId);
+    if (newRows) updateRows(() => newRows);
+  }, [activeSheetId, updateRows]);
+
   const handleUpdateCell = useCallback((rowId: string, colId: string, value: CellValue, direction?: 'up' | 'down' | 'left' | 'right') => {
     // Snapshot for undo before applying change
     if (activeSheet) {
@@ -343,6 +412,8 @@ const SpreadsheetViewV3: React.FC = () => {
     });
     updateRows(update);
     setEditingCell(null);
+    setEditSource(null);
+    setLiveCellEdit(null);
 
     if (direction && focusedCell) {
       const flatIdx = flatRows.findIndex(f => f.row.id === rowId);
@@ -357,6 +428,36 @@ const SpreadsheetViewV3: React.FC = () => {
       }
     }
   }, [flatRows, columns, focusedCell, updateRows, activeSheet]);
+
+  const getCellDisplayValue = useCallback((rowId: string, colId: string): string => {
+    const row = flatRows.find(f => f.row.id === rowId && !f.isSummary)?.row;
+    const col = columns.find(c => c.id === colId);
+    if (!row || !col) return '';
+    if (col.type === 'formula' && col.formula) return col.formula;
+    const raw = row.cells[colId];
+    return raw === null || raw === undefined ? '' : String(raw);
+  }, [flatRows, columns]);
+
+  useEffect(() => {
+    if (!editingCell) {
+      setEditSource(null);
+      setLiveCellEdit(null);
+      return;
+    }
+    const seed = editingCell.initial ?? getCellDisplayValue(editingCell.rowId, editingCell.colId);
+    setLiveCellEdit({ rowId: editingCell.rowId, colId: editingCell.colId, value: seed });
+  }, [editingCell, getCellDisplayValue]);
+
+  const handleLiveCellEditChange = useCallback((rowId: string, colId: string, value: string) => {
+    setLiveCellEdit({ rowId, colId, value });
+  }, []);
+
+  const handleFormulaBarStartEdit = useCallback((rowId: string, colId: string) => {
+    setFocusedCell({ rowId, colId });
+    setEditSource('formula');
+    setEditingCell(prev => prev?.rowId === rowId && prev?.colId === colId ? prev : { rowId, colId });
+    setLiveCellEdit({ rowId, colId, value: getCellDisplayValue(rowId, colId) });
+  }, [getCellDisplayValue]);
 
   // ── Cell focus/click ───────────────────────────────────────────────────
   const handleCellClick = (rowId: string, colId: string, e: React.MouseEvent) => {
@@ -377,9 +478,11 @@ const SpreadsheetViewV3: React.FC = () => {
     const col = columns.find(c => c.id === colId);
     const flatRow = flatRows.find(f => f.row.id === rowId);
     if (col?.editable && col.type !== 'formula' && flatRow && !flatRow.isSummary) {
+      setEditSource('cell');
       setEditingCell({ rowId, colId });
     } else {
       setEditingCell(null);
+      setEditSource(null);
     }
   };
 
@@ -448,6 +551,9 @@ const SpreadsheetViewV3: React.FC = () => {
     const rIdx = flatRows.findIndex(f => f.row.id === focusedCell.rowId);
     const cIdx = columns.findIndex(c => c.id === focusedCell.colId);
     if (rIdx < 0 || cIdx < 0) return;
+    const focusedFlatRow = flatRows[rIdx];
+    if (!focusedFlatRow || focusedFlatRow.isSummary) return;
+    const focusedRowId = focusedFlatRow.row.id;
 
     const moveTo = (nr: number, nc: number) => {
       const nextRow = flatRows[Math.max(0, Math.min(flatRows.length - 1, nr))];
@@ -465,6 +571,53 @@ const SpreadsheetViewV3: React.FC = () => {
       if (e.shiftKey && e.key !== 'Tab') setRangeEnd({ rowId: nextRow.row.id, colId: nextCol.id });
     };
 
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key === ']') {
+      e.preventDefault();
+      handleIndentRow(focusedRowId);
+      return;
+    }
+
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key === '[') {
+      e.preventDefault();
+      handleOutdentRow(focusedRowId);
+      return;
+    }
+
+    if (e.altKey && e.key === 'ArrowRight') {
+      e.preventDefault();
+      const ids = collectExpandableIdsFromRow(focusedFlatRow.row);
+      if (!ids.length) return;
+      setExpandedIds(prev => {
+        const next = new Set(prev);
+        ids.forEach(id => next.add(id));
+        return next;
+      });
+      return;
+    }
+
+    if (e.altKey && e.key === 'ArrowLeft') {
+      e.preventDefault();
+      const ids = collectExpandableIdsFromRow(focusedFlatRow.row);
+      if (!ids.length) return;
+      setExpandedIds(prev => {
+        const next = new Set(prev);
+        ids.forEach(id => next.delete(id));
+        return next;
+      });
+      return;
+    }
+
+    if (e.shiftKey && e.key === ' ') {
+      e.preventDefault();
+      setSelectedRowIds(prev => {
+        const next = new Set(prev);
+        if (next.has(focusedRowId)) next.delete(focusedRowId);
+        else next.add(focusedRowId);
+        return next;
+      });
+      return;
+    }
+
     switch (e.key) {
       case 'ArrowUp':    move(-1, 0); break;
       case 'ArrowDown':  move(1, 0); break;
@@ -477,12 +630,10 @@ const SpreadsheetViewV3: React.FC = () => {
         if (e.shiftKey && nc < 0) { nc = columns.length - 1; nr--; }
         nr = Math.max(0, Math.min(flatRows.length - 1, nr));
         nc = Math.max(0, Math.min(columns.length - 1, nc));
-        const nextRow = flatRows[nr];
-        const nextCol = columns[nc];
-        setFocusedCell({ rowId: nextRow.row.id, colId: nextCol.id });
-        // Tab immediately opens edit — same feel as Google Sheets typing after navigate
-        if (nextCol.editable && nextCol.type !== 'formula' && !nextRow.isSummary) {
-          setEditingCell({ rowId: nextRow.row.id, colId: nextCol.id });
+        setFocusedCell({ rowId: flatRows[nr].row.id, colId: columns[nc].id });
+        if (columns[nc].editable && columns[nc].type !== 'formula' && !flatRows[nr].isSummary) {
+          setEditSource('cell');
+          setEditingCell({ rowId: flatRows[nr].row.id, colId: columns[nc].id });
         }
         break;
       }
@@ -503,6 +654,7 @@ const SpreadsheetViewV3: React.FC = () => {
         if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
           const col = columns[cIdx];
           if (col?.editable && !flatRows[rIdx].isSummary) {
+            setEditSource('cell');
             setEditingCell({ rowId: flatRows[rIdx].row.id, colId: col.id, initial: e.key });
           }
         }
@@ -606,6 +758,7 @@ const SpreadsheetViewV3: React.FC = () => {
     setSelectedRowIds(new Set());
     setFocusedCell(null);
     setEditingCell(null);
+    setEditSource(null);
   }, []);
 
   const handleUpdateColumn = useCallback((colId: string, updates: Partial<Omit<V3Column, 'id'>>) => {
@@ -891,6 +1044,10 @@ const SpreadsheetViewV3: React.FC = () => {
         { separator: true } as any,
         { label: 'Insert row above', icon: <ArrowUpIcon className="w-4 h-4" />,   onClick: () => handleInsertRow(rowId) },
         { label: 'Insert row below', icon: <ArrowDownIcon className="w-4 h-4" />, onClick: () => handleInsertRow(rowId) },
+        { label: 'Add child row',    icon: <PlusIcon className="w-4 h-4" />,      onClick: () => handleAddSubRow(rowId) },
+        { separator: true } as any,
+        { label: 'Indent row',  shortcut: '⌘]',  icon: <IndentIcon className="w-4 h-4" />,  onClick: () => handleIndentRow(rowId) },
+        { label: 'Outdent row', shortcut: '⌘[', icon: <OutdentIcon className="w-4 h-4" />, onClick: () => handleOutdentRow(rowId) },
         { separator: true } as any,
         {
           label: 'Background Color', icon: <FillColorIcon className="w-4 h-4 text-gray-600" />, onClick: () => {},
@@ -919,7 +1076,10 @@ const SpreadsheetViewV3: React.FC = () => {
       return [
         { label: 'Insert row above', icon: <ArrowUpIcon className="w-4 h-4" />,   onClick: () => handleInsertRow(rowId) },
         { label: 'Insert row below', icon: <ArrowDownIcon className="w-4 h-4" />, onClick: () => handleInsertRow(rowId) },
-        { label: 'Add sub-row',      icon: <PlusIcon className="w-4 h-4" />,      onClick: () => handleAddSubRow(rowId) },
+        { label: 'Add child row',    icon: <PlusIcon className="w-4 h-4" />,      onClick: () => handleAddSubRow(rowId) },
+        { separator: true } as any,
+        { label: 'Indent row',  icon: <IndentIcon className="w-4 h-4" />,  onClick: () => handleIndentRow(rowId) },
+        { label: 'Outdent row', icon: <OutdentIcon className="w-4 h-4" />, onClick: () => handleOutdentRow(rowId) },
         { separator: true } as any,
         {
           label: 'Background Color', icon: <FillColorIcon className="w-4 h-4 text-gray-600" />, onClick: () => {},
@@ -1007,6 +1167,9 @@ const SpreadsheetViewV3: React.FC = () => {
           selection={formulaBarSelection}
           rows={flatRows.map(f => f.row)}
           columns={columns}
+          liveEdit={liveCellEdit}
+          onStartEdit={handleFormulaBarStartEdit}
+          onLiveChange={handleLiveCellEditChange}
           onCommit={handleFormulaBarCommit}
         />
 
@@ -1075,13 +1238,16 @@ const SpreadsheetViewV3: React.FC = () => {
                   fillAnchorCell={fillAnchor}
                   fillRangeRowIds={fillRangeRowIds}
                   onCellClick={handleCellClick}
-                  onStopEdit={() => setEditingCell(null)}
                   onUpdateCell={handleUpdateCell}
                   onContextMenu={(e, type, rowId, colId) => handleContextMenu(e, type, rowId, colId)}
                   onCellMouseDown={handleCellMouseDown}
                   onCellMouseEnter={handleCellMouseEnter}
                   onFillHandleMouseDown={handleFillHandleMouseDown}
                   onRowMouseEnter={handleFillRowEnter}
+                  liveEdit={liveCellEdit}
+                  activeEditSource={editSource}
+                  onLiveEditChange={handleLiveCellEditChange}
+                  onStopEdit={() => { setEditingCell(null); setEditSource(null); setLiveCellEdit(null); }}
                 />
               ))}
             </tbody>
@@ -1151,7 +1317,7 @@ const SpreadsheetViewV3: React.FC = () => {
       <SheetTabs
         sheets={sheets}
         activeSheetId={activeSheetId}
-        onSelectSheet={(id) => { handleSetActiveSheetId(id); setFocusedCell(null); setSelectedRowIds(new Set()); setEditingCell(null); }}
+        onSelectSheet={(id) => { handleSetActiveSheetId(id); setFocusedCell(null); setSelectedRowIds(new Set()); setEditingCell(null); setEditSource(null); setLiveCellEdit(null); }}
         onAddSheet={handleAddSheet}
         onRenameSheet={handleRenameSheet}
         onDeleteSheet={handleDeleteSheet}

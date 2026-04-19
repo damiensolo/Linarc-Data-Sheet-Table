@@ -5,6 +5,9 @@ interface FormulaBarProps {
   selection: { rowIdx: number; colIdx: number } | null;
   rows: V3Row[];
   columns: V3Column[];
+  liveEdit: { rowId: string; colId: string; value: string } | null;
+  onStartEdit: (rowId: string, colId: string) => void;
+  onLiveChange: (rowId: string, colId: string, value: string) => void;
   onCommit: (rowId: string, colId: string, value: CellValue) => void;
 }
 
@@ -20,29 +23,21 @@ function getCellLabel(colIdx: number, rowIdx: number): string {
   return `${col}${rowIdx + 1}`;
 }
 
-const FormulaBar: React.FC<FormulaBarProps> = ({ selection, rows, columns, onCommit }) => {
+const FormulaBar: React.FC<FormulaBarProps> = ({ selection, rows, columns, liveEdit, onStartEdit, onLiveChange, onCommit }) => {
   const [formula, setFormula] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const flatRows = React.useMemo(() => {
-    const result: V3Row[] = [];
-    const flatten = (items: V3Row[]) => {
-      items.forEach(r => {
-        result.push(r);
-        if (r.isExpanded && r.children) flatten(r.children);
-      });
-    };
-    flatten(rows);
-    return result;
-  }, [rows]);
-
-  const selectedRow = selection !== null ? flatRows[selection.rowIdx] : null;
+  const selectedRow = selection !== null ? rows[selection.rowIdx] : null;
   const selectedCol = selection !== null ? columns[selection.colIdx] : null;
   const cellLabel = selection ? getCellLabel(selection.colIdx, selection.rowIdx) : '';
 
   useEffect(() => {
     if (!selection || !selectedRow || !selectedCol) { setFormula(''); return; }
+    if (liveEdit?.rowId === selectedRow.id && liveEdit.colId === selectedCol.id) {
+      setFormula(liveEdit.value);
+      return;
+    }
     // Show formula string for formula columns, raw value otherwise
     if (selectedCol.type === 'formula' && selectedCol.formula) {
       setFormula(selectedCol.formula);
@@ -51,7 +46,14 @@ const FormulaBar: React.FC<FormulaBarProps> = ({ selection, rows, columns, onCom
       setFormula(raw === null || raw === undefined ? '' : String(raw));
     }
     setIsEditing(false);
-  }, [selection, flatRows, selectedCol]);
+  }, [selection, selectedRow, selectedCol, liveEdit]);
+
+  const getSelectedCellDisplayValue = () => {
+    if (!selection || !selectedRow || !selectedCol) return '';
+    if (selectedCol.type === 'formula' && selectedCol.formula) return selectedCol.formula;
+    const raw = selectedRow.cells[selectedCol.id];
+    return raw === null || raw === undefined ? '' : String(raw);
+  };
 
   const handleCommit = () => {
     if (!selectedRow || !selectedCol) return;
@@ -80,15 +82,32 @@ const FormulaBar: React.FC<FormulaBarProps> = ({ selection, rows, columns, onCom
         ref={inputRef}
         value={formula}
         disabled={!selection || !selectedCol?.editable}
-        onChange={(e) => { setFormula(e.target.value); setIsEditing(true); }}
-        onFocus={() => setIsEditing(true)}
+        onChange={(e) => {
+          const value = e.target.value;
+          setFormula(value);
+          setIsEditing(true);
+          if (selectedRow && selectedCol?.editable) {
+            onLiveChange(selectedRow.id, selectedCol.id, value);
+          }
+        }}
+        onFocus={() => {
+          setIsEditing(true);
+          if (selectedRow && selectedCol?.editable) {
+            onStartEdit(selectedRow.id, selectedCol.id);
+          }
+        }}
         onBlur={handleCommit}
         onKeyDown={(e) => {
           if (e.key === 'Enter') { e.preventDefault(); handleCommit(); }
-          if (e.key === 'Escape') { setIsEditing(false); setFormula(''); }
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            setIsEditing(false);
+            setFormula(getSelectedCellDisplayValue());
+            inputRef.current?.blur();
+          }
         }}
         placeholder={selection ? (selectedCol?.editable ? 'Enter value or formula (e.g. =labor+material)' : 'Read-only formula') : 'Select a cell'}
-        className={`flex-1 h-full px-3 text-xs font-mono text-gray-800 outline-none bg-transparent transition-colors
+        className={`flex-1 h-full min-h-[26px] px-3 text-xs font-mono text-gray-800 outline-none bg-transparent transition-colors
           ${isEditing ? 'bg-blue-50' : ''}
           ${!selection ? 'text-gray-400' : ''}
           ${formula.startsWith('=') ? 'text-blue-700' : ''}

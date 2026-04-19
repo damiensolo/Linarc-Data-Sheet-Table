@@ -46,8 +46,11 @@ interface V3RowProps {
   displayDensity: 'compact' | 'standard' | 'comfortable';
   fillAnchorCell: { rowId: string; colId: string } | null;
   fillRangeRowIds: Set<string>;
+  liveEdit: { rowId: string; colId: string; value: string } | null;
+  activeEditSource: 'cell' | 'formula' | null;
   onToggleSelect: (id: string) => void;
   onToggleExpand: (id: string) => void;
+  onLiveEditChange: (rowId: string, colId: string, value: string) => void;
   onCellClick: (rowId: string, colId: string, e: React.MouseEvent) => void;
   onStopEdit: () => void;
   onUpdateCell: (rowId: string, colId: string, value: CellValue, direction?: 'up' | 'down' | 'left' | 'right') => void;
@@ -64,9 +67,9 @@ const V3RowComponent: React.FC<V3RowProps> = ({
   row, rowIndex, level, columns, isSelected, isExpanded, isSummary,
   focusedCell, editingCell, inRangeSelection, rangeColIds, selectedColId,
   isScrolled, isAtEnd, fontSize, displayDensity,
-  fillAnchorCell, fillRangeRowIds,
+  fillAnchorCell, fillRangeRowIds, liveEdit, activeEditSource,
   onToggleSelect, onToggleExpand, onCellClick,
-  onStopEdit, onUpdateCell, onContextMenu, onCellMouseDown, onCellMouseEnter,
+  onLiveEditChange, onStopEdit, onUpdateCell, onContextMenu, onCellMouseDown, onCellMouseEnter,
   onFillHandleMouseDown, onRowMouseEnter,
 }) => {
   const hClass = HEIGHT[displayDensity] ?? 'h-7';
@@ -87,19 +90,21 @@ const V3RowComponent: React.FC<V3RowProps> = ({
   }, [editingCell]);
 
   useEffect(() => {
+    if (activeEditSource !== 'cell') return;
     if (editingCell?.rowId === row.id && inputRef.current) {
       inputRef.current.focus();
       if (editingCell.initial === undefined) inputRef.current.select();
     }
-  }, [editingCell]);
+  }, [editingCell, activeEditSource]);
 
   const commitEdit = (colId: string, dir?: 'up' | 'down' | 'left' | 'right') => {
     const col = columns.find(c => c.id === colId);
-    let val: CellValue = editValue;
+    const currentEditValue = liveEdit?.rowId === row.id && liveEdit.colId === colId ? liveEdit.value : editValue;
+    let val: CellValue = currentEditValue;
     if (col?.type === 'number' || col?.type === 'currency') {
-      val = editValue === '' ? null : parseFloat(editValue.replace(/,/g, '')) || 0;
+      val = currentEditValue === '' ? null : parseFloat(currentEditValue.replace(/,/g, '')) || 0;
     } else if (col?.type === 'checkbox') {
-      val = editValue === 'true';
+      val = currentEditValue === 'true';
     }
     onUpdateCell(row.id, colId, val, dir);
     onStopEdit();
@@ -133,6 +138,7 @@ const V3RowComponent: React.FC<V3RowProps> = ({
     }
 
     const raw = row.cells[col.id];
+    if (liveEdit?.rowId === row.id && liveEdit.colId === col.id) return liveEdit.value;
 
     if (col.type === 'formula' && col.formula) {
       const result = evaluateFormula(col.formula, row.cells);
@@ -191,8 +197,11 @@ const V3RowComponent: React.FC<V3RowProps> = ({
     return (
       <input
         ref={inputRef}
-        value={editValue}
-        onChange={(e) => setEditValue(e.target.value)}
+        value={liveEdit?.rowId === row.id && liveEdit.colId === col.id ? liveEdit.value : editValue}
+        onChange={(e) => {
+          setEditValue(e.target.value);
+          onLiveEditChange(row.id, col.id, e.target.value);
+        }}
         onBlur={() => commitEdit(col.id)}
         onKeyDown={(e) => handleKeyDown(e, col.id)}
         type={col.type === 'date' ? 'date' : 'text'}
@@ -240,7 +249,7 @@ const V3RowComponent: React.FC<V3RowProps> = ({
           {!isSummary && (
             <>
               <span className={`font-mono text-gray-500 ${isSelected ? 'hidden' : 'group-hover:hidden'}`} style={{ fontSize }}>
-                {isGroup ? '' : rowIndex + 1}
+                {rowIndex + 1}
               </span>
               <input
                 type="checkbox"
@@ -262,9 +271,10 @@ const V3RowComponent: React.FC<V3RowProps> = ({
       </td>
 
       {/* Data cells */}
-      {columns.map((col) => {
+      {columns.map((col, colIndex) => {
+        const isFirstCol = colIndex === 0;
         const isFocused = focusedCell?.rowId === row.id && focusedCell?.colId === col.id;
-        const isEditing = editingCell?.rowId === row.id && editingCell?.colId === col.id;
+        const isEditing = activeEditSource === 'cell' && editingCell?.rowId === row.id && editingCell?.colId === col.id;
         const inRange = rangeColIds.has(col.id) && inRangeSelection;
         const cellStyle = row.cellStyles?.[col.id] ?? {};
         const isEditable = col.editable && col.type !== 'formula' && !isSummary;
@@ -326,9 +336,9 @@ const V3RowComponent: React.FC<V3RowProps> = ({
             {isEditing ? renderEditInput(col) : (
               <div
                 className={`flex items-center h-full w-full overflow-hidden relative z-10 ${col.align === 'right' ? 'justify-end' : col.align === 'center' ? 'justify-center' : 'justify-start'}`}
-                style={{ paddingLeft: col.id === 'name' && (isGroup || level > 0) ? `${level * 16 + (hasChildren ? 0 : 20)}px` : undefined }}
+                style={{ paddingLeft: isFirstCol && (isGroup || level > 0) ? `${level * 16 + (hasChildren ? 0 : 20)}px` : undefined }}
               >
-                {col.id === 'name' && hasChildren && (
+                {isFirstCol && hasChildren && (
                   <button
                     onClick={(e) => { e.stopPropagation(); onToggleExpand(row.id); }}
                     className="mr-1 p-0.5 rounded hover:bg-blue-100 text-blue-500 shrink-0 transition-colors"
