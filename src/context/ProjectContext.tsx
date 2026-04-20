@@ -166,7 +166,7 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [views, setViews] = useState<View[]>([]);
   const [activeViewId, setActiveViewId] = useState<string | null>(null);
   const [defaultViewId, setDefaultViewId] = useState<string>('');
-  const [activeViewMode, setActiveViewMode] = useState<ViewMode>('spreadsheetV3');
+  const [activeViewMode, setActiveViewMode] = useState<ViewMode>('table');
   const [transientView, setTransientView] = useState<View | null>(null);
   
   const [viewManagerShareId, setViewManagerShareId] = useState<string | null>(null);
