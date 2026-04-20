@@ -164,10 +164,20 @@ const SpreadsheetViewV3: React.FC = () => {
   }, [activeSheetId]);
 
   const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
-  const [focusedCell, setFocusedCell] = useState<{ rowId: string; colId: string } | null>(null);
+  const [focusedCell, _setFocusedCell] = useState<{ rowId: string; colId: string } | null>(null);
+  const setFocusedCell = useCallback((cell: { rowId: string; colId: string } | null) => {
+    focusedCellRef.current = cell;
+    _setFocusedCell(cell);
+  }, []);
+
   const [editingCell, setEditingCell] = useState<{ rowId: string; colId: string; initial?: string; mode?: 'append' | 'overwrite' } | null>(null);
   const [editSource, setEditSource] = useState<'cell' | 'formula' | null>(null);
-  const [liveCellEdit, setLiveCellEdit] = useState<{ rowId: string; colId: string; value: string } | null>(null);
+
+  const [liveCellEdit, _setLiveCellEdit] = useState<{ rowId: string; colId: string; value: string } | null>(null);
+  const setLiveCellEdit = useCallback((edit: { rowId: string; colId: string; value: string } | null) => {
+    liveCellEditRef.current = edit;
+    _setLiveCellEdit(edit);
+  }, []);
   const [clipboard, setClipboard] = useState<V3Row[] | null>(null);
   const [scrollState, setScrollState] = useState({ isAtStart: true, isAtEnd: false, isScrolledTop: false });
   const [resizingColId, setResizingColId] = useState<string | null>(null);
@@ -217,6 +227,10 @@ const SpreadsheetViewV3: React.FC = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const checkboxRef = useRef<HTMLInputElement>(null);
   const activeResizerRef = useRef<string | null>(null);
+
+  // Refs to prevent stale closures in event handlers
+  const focusedCellRef = useRef<{ rowId: string; colId: string } | null>(null);
+  const liveCellEditRef = useRef<{ rowId: string; colId: string; value: string } | null>(null);
 
   // ── Derived ────────────────────────────────────────────────────────────
   const columns = useMemo(() => (activeSheet?.columns ?? []).filter(c => c.visible !== false), [activeSheet]);
@@ -465,26 +479,33 @@ const SpreadsheetViewV3: React.FC = () => {
   }, []);
 
   // Commits a pending overwrite (typed chars in Navigation Mode) without changing focus.
-  // Called before any navigation action and when the container loses focus.
+  // Uses refs to ensure we always have the latest values in high-frequency event handlers.
   const flushPendingOverwrite = useCallback(() => {
-    if (editingCell || !liveCellEdit || !focusedCell) return;
-    if (liveCellEdit.rowId !== focusedCell.rowId || liveCellEdit.colId !== focusedCell.colId) return;
-    const col = columns.find(c => c.id === liveCellEdit.colId);
-    let val: CellValue = liveCellEdit.value;
+    const lEdit = liveCellEditRef.current;
+    const fCell = focusedCellRef.current;
+
+    // Only flush if we are in Navigation Mode (editingCell is null) 
+    // and have a pending overwrite.
+    if (editingCell || !lEdit || !fCell) return;
+    if (lEdit.rowId !== fCell.rowId || lEdit.colId !== fCell.colId) return;
+
+    const col = columns.find(c => c.id === lEdit.colId);
+    let val: CellValue = lEdit.value;
     if (col?.type === 'number' || col?.type === 'currency') {
-      val = liveCellEdit.value === '' ? null : parseFloat(liveCellEdit.value.replace(/,/g, '')) || 0;
+      val = lEdit.value === '' ? null : parseFloat(lEdit.value.replace(/,/g, '')) || 0;
     } else if (col?.type === 'checkbox') {
-      val = liveCellEdit.value === 'true';
+      val = lEdit.value === 'true';
     }
-    handleUpdateCell(liveCellEdit.rowId, liveCellEdit.colId, val);
-  }, [editingCell, liveCellEdit, focusedCell, columns, handleUpdateCell]);
+    handleUpdateCell(lEdit.rowId, lEdit.colId, val);
+  }, [editingCell, columns, handleUpdateCell]);
 
   const handleFormulaBarStartEdit = useCallback((rowId: string, colId: string) => {
+    flushPendingOverwrite();
     setFocusedCell({ rowId, colId });
     setEditSource('formula');
-    setEditingCell(prev => prev?.rowId === rowId && prev?.colId === colId ? prev : { rowId, colId });
+    setEditingCell(prev => (prev?.rowId === rowId && prev?.colId === colId) ? prev : { rowId, colId });
     setLiveCellEdit({ rowId, colId, value: getCellDisplayValue(rowId, colId) });
-  }, [getCellDisplayValue]);
+  }, [getCellDisplayValue, flushPendingOverwrite, setFocusedCell, setEditingCell, setLiveCellEdit]);
 
   // ── Cell focus/click ───────────────────────────────────────────────────
   const handleCellDoubleClick = useCallback((rowId: string, colId: string) => {
@@ -504,9 +525,6 @@ const SpreadsheetViewV3: React.FC = () => {
 
     if (fillJustApplied.current) { fillJustApplied.current = false; return; }
 
-    // Commit any pending overwrite value before moving focus.
-    flushPendingOverwrite();
-
     // Clear column selection when clicking a cell
     setSelectedColId(null);
 
@@ -515,18 +533,22 @@ const SpreadsheetViewV3: React.FC = () => {
       setEditingCell(null);
       return;
     }
-    // Append mode: blur on the active input fires first and commits before this runs.
-    setFocusedCell({ rowId, colId });
+
+    // Navigation and focus are now handled in handleCellMouseDown for better responsiveness.
+    // We just handle the clearing of selection states here if needed.
     setRangeAnchor({ rowId, colId });
     setRangeEnd(null);
     setSelectedRowIds(new Set());
-    setLiveCellEdit(null);
     setEditSource(null);
     setEditingCell(null);
   };
 
   const handleCellMouseDown = (rowId: string, colId: string, e: React.MouseEvent) => {
     if (e.button !== 0 || isFillDragging.current) return;
+    
+    // Commit any pending overwrite value from the previous cell before moving focus.
+    flushPendingOverwrite();
+    
     isDragging.current = true;
     setSelectedColId(null); // clear column selection when clicking a cell
     setRangeAnchor({ rowId, colId });
@@ -852,6 +874,7 @@ const SpreadsheetViewV3: React.FC = () => {
 
   // ── Column selection & operations ─────────────────────────────────────────
   const handleColumnHeaderClick = useCallback((colId: string) => {
+    flushPendingOverwrite();
     setSelectedColId(prev => prev === colId ? null : colId);
     setRangeAnchor(null);
     setRangeEnd(null);
@@ -859,7 +882,7 @@ const SpreadsheetViewV3: React.FC = () => {
     setFocusedCell(null);
     setEditingCell(null);
     setEditSource(null);
-  }, []);
+  }, [flushPendingOverwrite]);
 
   const handleUpdateColumn = useCallback((colId: string, updates: Partial<Omit<V3Column, 'id'>>) => {
     updateSheet({ columns: (activeSheet?.columns ?? []).map(c => c.id === colId ? { ...c, ...updates } : c) });
@@ -1114,9 +1137,20 @@ const SpreadsheetViewV3: React.FC = () => {
     });
   };
 
+  const handleSheetTabSelect = (id: string) => {
+    flushPendingOverwrite();
+    handleSetActiveSheetId(id);
+    setFocusedCell(null);
+    setSelectedRowIds(new Set());
+    setEditingCell(null);
+    setEditSource(null);
+    setLiveCellEdit(null);
+  };
+
   // ── Context menu ─────────────────────────────────────────────────────
   const handleContextMenu = (e: React.MouseEvent, type: 'row' | 'cell' | 'column', rowId?: string, colId?: string) => {
     e.preventDefault();
+    flushPendingOverwrite();
     setContextMenu({ visible: true, position: { x: e.clientX, y: e.clientY }, type, rowId, colId });
   };
 
@@ -1415,36 +1449,38 @@ const SpreadsheetViewV3: React.FC = () => {
             </tbody>
 
             {/* ── Totals footer ── */}
-            <tfoot className="bg-gray-100 text-gray-900 border-t-2 border-gray-300 sticky bottom-0 z-30 font-bold shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-              <tr className="h-9">
-                <td
-                  className={`sticky left-0 z-40 border-r border-gray-300 text-center bg-gray-100 ${!scrollState.isAtStart ? 'shadow-[4px_0_8px_-4px_rgba(0,0,0,0.3)]' : ''}`}
-                  style={{ width: SPREADSHEET_INDEX_COLUMN_WIDTH, minWidth: SPREADSHEET_INDEX_COLUMN_WIDTH, maxWidth: SPREADSHEET_INDEX_COLUMN_WIDTH, fontSize }}
-                >
-                  Total
-                </td>
-                {columns.map(col => (
-                  <td key={col.id}
-                    className={`border-r border-gray-300 px-2 bg-gray-100 whitespace-nowrap relative ${col.align === 'right' ? 'text-right' : 'text-left'}`}
-                    style={{ width: col.width, fontSize }}
+            {Object.keys(totals).length > 0 && (
+              <tfoot className="bg-gray-100 text-gray-900 border-t-2 border-gray-300 sticky bottom-0 z-30 font-bold shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+                <tr className="h-9">
+                  <td
+                    className={`sticky left-0 z-40 border-r border-gray-300 text-center bg-gray-100 ${!scrollState.isAtStart ? 'shadow-[4px_0_8px_-4px_rgba(0,0,0,0.3)]' : ''}`}
+                    style={{ width: SPREADSHEET_INDEX_COLUMN_WIDTH, minWidth: SPREADSHEET_INDEX_COLUMN_WIDTH, maxWidth: SPREADSHEET_INDEX_COLUMN_WIDTH, fontSize }}
                   >
-                    {selectedColId === col.id && (
-                      <div className="absolute inset-0 pointer-events-none z-20" style={{ boxShadow: 'inset 2px 0 0 0 #2563eb, inset -2px 0 0 0 #2563eb, inset 0 -2px 0 0 #2563eb' }} />
-                    )}
-                    {cutSource?.type === 'column' && cutSource.colId === col.id && (
-                      <div className="absolute inset-0 border-l-2 border-r-2 border-b-2 border-dashed border-blue-600 pointer-events-none z-20" />
-                    )}
-                    {col.isTotal && totals[col.id] !== undefined
-                      ? (col.type === 'number' ? totals[col.id].toLocaleString() : formatCurrency(totals[col.id]))
-                      : ''}
+                    Total
                   </td>
-                ))}
-                <td className="bg-gray-100 border-r border-gray-300" style={{ width: 44 }} />
-                <td
-                  className={`sticky right-0 z-40 border-l border-gray-200 bg-gray-100 w-20 ${!scrollState.isAtEnd ? 'shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.3)]' : ''}`}
-                />
-              </tr>
-            </tfoot>
+                  {columns.map(col => (
+                    <td key={col.id}
+                      className={`border-r border-gray-300 px-2 bg-gray-100 whitespace-nowrap relative ${col.align === 'right' ? 'text-right' : 'text-left'}`}
+                      style={{ width: col.width, fontSize }}
+                    >
+                      {selectedColId === col.id && (
+                        <div className="absolute inset-0 pointer-events-none z-20" style={{ boxShadow: 'inset 2px 0 0 0 #2563eb, inset -2px 0 0 0 #2563eb, inset 0 -2px 0 0 #2563eb' }} />
+                      )}
+                      {cutSource?.type === 'column' && cutSource.colId === col.id && (
+                        <div className="absolute inset-0 border-l-2 border-r-2 border-b-2 border-dashed border-blue-600 pointer-events-none z-20" />
+                      )}
+                      {col.isTotal && totals[col.id] !== undefined
+                        ? (col.type === 'number' ? totals[col.id].toLocaleString() : formatCurrency(totals[col.id]))
+                        : ''}
+                    </td>
+                  ))}
+                  <td className="bg-gray-100 border-r border-gray-300" style={{ width: 44 }} />
+                  <td
+                    className={`sticky right-0 z-40 border-l border-gray-200 bg-gray-100 w-20 ${!scrollState.isAtEnd ? 'shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.3)]' : ''}`}
+                  />
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
 
@@ -1485,7 +1521,7 @@ const SpreadsheetViewV3: React.FC = () => {
       <SheetTabs
         sheets={sheets}
         activeSheetId={activeSheetId}
-        onSelectSheet={(id) => { handleSetActiveSheetId(id); setFocusedCell(null); setSelectedRowIds(new Set()); setEditingCell(null); setEditSource(null); setLiveCellEdit(null); }}
+        onSelectSheet={handleSheetTabSelect}
         onAddSheet={handleAddSheet}
         onRenameSheet={handleRenameSheet}
         onDuplicateSheet={handleDuplicateSheet}
