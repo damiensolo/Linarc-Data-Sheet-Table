@@ -45,6 +45,7 @@ export interface V3Sheet {
   columns: V3Column[];
   rows: V3Row[];
   frozenColumns?: number;
+  showSubtotals?: boolean;
 }
 
 export interface V3Selection {

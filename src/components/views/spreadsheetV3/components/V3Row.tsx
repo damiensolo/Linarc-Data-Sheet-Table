@@ -50,6 +50,7 @@ interface V3RowProps {
   cutCellColIds: Set<string>;
   liveEdit: { rowId: string; colId: string; value: string } | null;
   activeEditSource: 'cell' | 'formula' | null;
+  rangeEdges: { r0: number; r1: number; c0: number; c1: number } | null;
   onToggleSelect: (id: string) => void;
   onToggleExpand: (id: string) => void;
   onLiveEditChange: (rowId: string, colId: string, value: string) => void;
@@ -70,7 +71,7 @@ const V3RowComponent: React.FC<V3RowProps> = ({
   row, rowIndex, level, columns, isSelected, isExpanded, isSummary,
   focusedCell, editingCell, inRangeSelection, rangeColIds, selectedColId,
   isScrolled, isAtEnd, fontSize, displayDensity,
-  fillAnchorCell, fillRangeRowIds, cutColId, cutCellColIds, liveEdit, activeEditSource,
+  fillAnchorCell, fillRangeRowIds, cutColId, cutCellColIds, liveEdit, activeEditSource, rangeEdges,
   onToggleSelect, onToggleExpand, onCellClick, onCellDoubleClick,
   onLiveEditChange, onStopEdit, onUpdateCell, onContextMenu, onCellMouseDown, onCellMouseEnter,
   onFillHandleMouseDown, onRowMouseEnter,
@@ -341,15 +342,20 @@ const V3RowComponent: React.FC<V3RowProps> = ({
           ...(isColSelected ? { boxShadow: 'inset 2px 0 0 0 #2563eb, inset -2px 0 0 0 #2563eb' } : {}),
         };
 
+        const isRangeTop = rangeEdges && rowIndex === rangeEdges.r0 && colIndex >= rangeEdges.c0 && colIndex <= rangeEdges.c1;
+        const isRangeBottom = rangeEdges && rowIndex === rangeEdges.r1 && colIndex >= rangeEdges.c0 && colIndex <= rangeEdges.c1;
+        const isRangeLeft = rangeEdges && colIndex === rangeEdges.c0 && rowIndex >= rangeEdges.r0 && rowIndex <= rangeEdges.r1;
+        const isRangeRight = rangeEdges && colIndex === rangeEdges.c1 && rowIndex >= rangeEdges.r0 && rowIndex <= rangeEdges.r1;
+
         return (
           <td
             key={col.id}
             className={`border-r border-b border-gray-200 px-2 relative transition-colors cursor-default
               ${col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'}
               ${isSummary ? 'bg-gray-50' : ''}
-              ${isSelected && !cellStyle.backgroundColor && !isSummary ? 'bg-blue-50' : ''}
-              ${inRange && !isFocused ? 'bg-blue-50' : ''}
-              ${isColSelected && !isSelected && !inRange && !cellStyle.backgroundColor ? 'bg-blue-50' : ''}
+              ${isSelected && !cellStyle.backgroundColor && !isSummary ? 'bg-blue-50/50' : ''}
+              ${inRange && !isFocused ? 'bg-blue-50/60' : ''}
+              ${isColSelected && !isSelected && !inRange && !cellStyle.backgroundColor ? 'bg-blue-50/30' : ''}
               ${isFillRangeCell && !cellStyle.backgroundColor ? 'bg-blue-50/60' : ''}
               ${col.type === 'formula' && !cellStyle.backgroundColor && !isColSelected ? 'bg-amber-50/40' : ''}
               ${isEditing ? 'cursor-text' : ''}
@@ -366,9 +372,14 @@ const V3RowComponent: React.FC<V3RowProps> = ({
             onMouseDown={(e) => !isSummary && onCellMouseDown(row.id, col.id, e)}
             onMouseEnter={() => !isSummary && onCellMouseEnter(row.id, col.id)}
           >
-            {/* Range selection ring */}
-            {inRange && !isFocused && (
-              <div className="absolute inset-0 border border-blue-300 pointer-events-none z-10" />
+            {/* Range selection edges (Unified Border) */}
+            {inRange && (
+              <div className="absolute inset-0 pointer-events-none z-20">
+                {isRangeTop && <div className="absolute top-0 left-0 right-0 h-0.5 bg-blue-600" />}
+                {isRangeBottom && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />}
+                {isRangeLeft && <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-blue-600" />}
+                {isRangeRight && <div className="absolute right-0 top-0 bottom-0 w-0.5 bg-blue-600" />}
+              </div>
             )}
             {/* Focus ring */}
             {isFocused && !isEditing && (
@@ -397,7 +408,7 @@ const V3RowComponent: React.FC<V3RowProps> = ({
                 className={`flex items-center h-full w-full overflow-hidden relative z-10 ${col.align === 'right' ? 'justify-end' : col.align === 'center' ? 'justify-center' : 'justify-start'}`}
                 style={{ paddingLeft: isFirstCol && (isGroup || level > 0) ? `${level * 16 + (hasChildren ? 0 : 20)}px` : undefined }}
               >
-                {isFirstCol && hasChildren && (
+                {isFirstCol && hasChildren && !isSummary && (
                   <button
                     onClick={(e) => { e.stopPropagation(); onToggleExpand(row.id); }}
                     className="mr-1 p-0.5 rounded hover:bg-blue-100 text-blue-500 shrink-0 transition-colors"

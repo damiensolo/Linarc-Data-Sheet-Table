@@ -16,6 +16,7 @@ const blankSheet = (): V3Sheet => ({
     id: `row-${i + 1}`,
     cells: {},
   })),
+  showSubtotals: false,
 });
 
 // ─── Budget Template ───────────────────────────────────────────────────────────
@@ -56,6 +57,7 @@ const budgetSheet = (): V3Sheet => ({
       cells: {} as Record<string, import('./types').CellValue>,
     })),
   ],
+  showSubtotals: true,
 });
 
 // ─── Schedule Template ─────────────────────────────────────────────────────────
@@ -95,6 +97,7 @@ const scheduleSheet = (): V3Sheet => ({
       cells: {} as Record<string, import('./types').CellValue>,
     })),
   ],
+  showSubtotals: false,
 });
 
 // ─── Public factory ────────────────────────────────────────────────────────────

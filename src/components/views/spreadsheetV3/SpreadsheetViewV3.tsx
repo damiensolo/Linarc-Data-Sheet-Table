@@ -28,14 +28,14 @@ interface FlatRow {
   parentId?: string;
 }
 
-function flattenRows(rows: V3Row[], expandedIds: Set<string>, level = 0, parentId?: string): FlatRow[] {
+function flattenRows(rows: V3Row[], expandedIds: Set<string>, level = 0, parentId?: string, showSubtotals = true): FlatRow[] {
   const result: FlatRow[] = [];
   for (const row of rows) {
     result.push({ row, level, isSummary: false, parentId });
     if (row.children?.length && expandedIds.has(row.id)) {
-      result.push(...flattenRows(row.children, expandedIds, level + 1, row.id));
+      result.push(...flattenRows(row.children, expandedIds, level + 1, row.id, showSubtotals));
       // summary row for groups
-      if (row.isGroup) result.push({ row, level: level + 1, isSummary: true, parentId: row.id });
+      if (showSubtotals && row.isGroup) result.push({ row, level: level + 1, isSummary: true, parentId: row.id });
     }
   }
   return result;
@@ -245,7 +245,7 @@ const SpreadsheetViewV3: React.FC = () => {
     });
   }, [activeSheet, sort]);
 
-  const flatRows = useMemo(() => flattenRows(sortedRows, expandedIds), [sortedRows, expandedIds]);
+  const flatRows = useMemo(() => flattenRows(sortedRows, expandedIds, 0, undefined, activeSheet?.showSubtotals), [sortedRows, expandedIds, activeSheet?.showSubtotals]);
 
   const selectableFlat = useMemo(() => flatRows.filter(f => !f.isSummary), [flatRows]);
   const isAllSelected = selectableFlat.length > 0 && selectableFlat.every(f => selectedRowIds.has(f.row.id));
@@ -1331,39 +1331,42 @@ const SpreadsheetViewV3: React.FC = () => {
       }}
       onMouseLeave={() => { isDragging.current = false; }}
     >
-      {/* ── Toolbar (reuses shared SpreadsheetToolbar) ── */}
-      <div className="flex items-center gap-2">
-        <SpreadsheetToolbar
-          isAllSelected={isAllSelected}
-          handleToggleAll={() => {
-            if (isAllSelected) setSelectedRowIds(new Set());
-            else setSelectedRowIds(new Set(selectableFlat.map(f => f.row.id)));
-          }}
-          toolbarCheckboxRef={checkboxRef}
-          hasRowSelection={selectedRowIds.size > 0}
-          selectedCount={selectedRowIds.size}
-          onStyleUpdate={(style) => handleStyleUpdate(style as Partial<V3CellStyle>)}
-          onCut={() => handleCut()}
-          onCopy={() => handleCopy()}
-          onPaste={() => handlePaste()}
-          onDelete={() => handleDeleteRows(selectedRowIds)}
-          onDeselectAll={() => setSelectedRowIds(new Set())}
-        />
+      <div className="flex-shrink-0 z-[60]">
+        <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden mb-[7px]">
+          <SpreadsheetToolbar
+            isAllSelected={isAllSelected}
+            handleToggleAll={() => {
+              if (isAllSelected) setSelectedRowIds(new Set());
+              else setSelectedRowIds(new Set(selectableFlat.map(f => f.row.id)));
+            }}
+            toolbarCheckboxRef={checkboxRef}
+            hasRowSelection={selectedRowIds.size > 0}
+            selectedCount={selectedRowIds.size}
+            onStyleUpdate={(style) => handleStyleUpdate(style as Partial<V3CellStyle>)}
+            onCut={() => handleCut()}
+            onCopy={() => handleCopy()}
+            onPaste={() => handlePaste()}
+            onDelete={() => handleDeleteRows(selectedRowIds)}
+            onDeselectAll={() => setSelectedRowIds(new Set())}
+          />
+        </div>
       </div>
 
       {/* ── Table card ── */}
       <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden relative flex flex-col focus:outline-none max-h-full min-h-0 flex-grow">
 
         {/* ── Formula bar ── */}
-        <FormulaBar
-          selection={formulaBarSelection}
-          rows={flatRows.map(f => f.row)}
-          columns={columns}
-          liveEdit={liveCellEdit}
-          onStartEdit={handleFormulaBarStartEdit}
-          onLiveChange={handleLiveCellEditChange}
-          onCommit={handleFormulaBarCommit}
-        />
+        <div className="flex-shrink-0 h-11 border-b border-gray-200 bg-white">
+          <FormulaBar
+            selection={formulaBarSelection}
+            rows={flatRows.map(f => f.row)}
+            columns={columns}
+            liveEdit={liveCellEdit}
+            onStartEdit={handleFormulaBarStartEdit}
+            onLiveChange={handleLiveCellEditChange}
+            onCommit={handleFormulaBarCommit}
+          />
+        </div>
 
         {/* ── Main scroll area ── */}
         <div className="overflow-auto relative select-none focus:outline-none min-h-0 flex-grow" ref={scrollRef}>
@@ -1409,6 +1412,7 @@ const SpreadsheetViewV3: React.FC = () => {
                   editingCell={editingCell}
                   inRangeSelection={isInRange(row.id)}
                   rangeColIds={rangeColIds}
+                  rangeEdges={rangeEdges}
                   selectedColId={selectedColId}
                   isScrolled={!scrollState.isAtStart}
                   isAtEnd={scrollState.isAtEnd}
