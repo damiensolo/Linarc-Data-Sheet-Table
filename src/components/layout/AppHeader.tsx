@@ -14,6 +14,7 @@ const AppHeader: React.FC = () => {
         if (activeViewMode === 'table' || activeViewMode === 'board') return 'RFIs';
         if (activeViewMode === 'gantt') return 'Schedule';
         if (activeViewMode === 'lookahead') return 'Lookahead';
+        if (activeViewMode === 'spreadsheetV3') return 'Advanced Spreadsheet (v3.1)';
         return 'Budget';
     };
 

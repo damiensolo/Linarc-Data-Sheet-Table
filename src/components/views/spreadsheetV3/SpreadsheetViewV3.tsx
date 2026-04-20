@@ -165,7 +165,7 @@ const SpreadsheetViewV3: React.FC = () => {
 
   const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
   const [focusedCell, setFocusedCell] = useState<{ rowId: string; colId: string } | null>(null);
-  const [editingCell, setEditingCell] = useState<{ rowId: string; colId: string; initial?: string } | null>(null);
+  const [editingCell, setEditingCell] = useState<{ rowId: string; colId: string; initial?: string; mode?: 'append' | 'overwrite' } | null>(null);
   const [editSource, setEditSource] = useState<'cell' | 'formula' | null>(null);
   const [liveCellEdit, setLiveCellEdit] = useState<{ rowId: string; colId: string; value: string } | null>(null);
   const [clipboard, setClipboard] = useState<V3Row[] | null>(null);
@@ -188,6 +188,14 @@ const SpreadsheetViewV3: React.FC = () => {
 
   // Cell-level clipboard (for cut/copy/paste of cell values)
   const [cellClipboard, setCellClipboard] = useState<{ grid: (CellValue | null)[][]; colIds: string[] } | null>(null);
+
+  // Deferred cut source — actual deletion happens on paste, not immediately
+  const [cutSource, setCutSource] = useState<
+    | { type: 'column'; colId: string }
+    | { type: 'cells'; rowIds: Set<string>; colIds: Set<string> }
+    | null
+  >(null);
+  const emptySetRef = useRef(new Set<string>());
 
   // Range selection (shift-click / mouse drag)
   const [rangeAnchor, setRangeAnchor] = useState<{ rowId: string; colId: string } | null>(null);
@@ -444,19 +452,32 @@ const SpreadsheetViewV3: React.FC = () => {
     return raw === null || raw === undefined ? '' : String(raw);
   }, [flatRows, columns]);
 
+  // Cleanup: clear edit state when editingCell is cleared (append / formula mode exits).
+  // Overwrite mode never sets editingCell, so this doesn't affect it.
   useEffect(() => {
     if (!editingCell) {
       setEditSource(null);
-      setLiveCellEdit(null);
-      return;
     }
-    const seed = editingCell.initial ?? getCellDisplayValue(editingCell.rowId, editingCell.colId);
-    setLiveCellEdit({ rowId: editingCell.rowId, colId: editingCell.colId, value: seed });
-  }, [editingCell, getCellDisplayValue]);
+  }, [editingCell]);
 
   const handleLiveCellEditChange = useCallback((rowId: string, colId: string, value: string) => {
     setLiveCellEdit({ rowId, colId, value });
   }, []);
+
+  // Commits a pending overwrite (typed chars in Navigation Mode) without changing focus.
+  // Called before any navigation action and when the container loses focus.
+  const flushPendingOverwrite = useCallback(() => {
+    if (editingCell || !liveCellEdit || !focusedCell) return;
+    if (liveCellEdit.rowId !== focusedCell.rowId || liveCellEdit.colId !== focusedCell.colId) return;
+    const col = columns.find(c => c.id === liveCellEdit.colId);
+    let val: CellValue = liveCellEdit.value;
+    if (col?.type === 'number' || col?.type === 'currency') {
+      val = liveCellEdit.value === '' ? null : parseFloat(liveCellEdit.value.replace(/,/g, '')) || 0;
+    } else if (col?.type === 'checkbox') {
+      val = liveCellEdit.value === 'true';
+    }
+    handleUpdateCell(liveCellEdit.rowId, liveCellEdit.colId, val);
+  }, [editingCell, liveCellEdit, focusedCell, columns, handleUpdateCell]);
 
   const handleFormulaBarStartEdit = useCallback((rowId: string, colId: string) => {
     setFocusedCell({ rowId, colId });
@@ -469,21 +490,32 @@ const SpreadsheetViewV3: React.FC = () => {
   const handleCellDoubleClick = useCallback((rowId: string, colId: string) => {
     const col = columns.find(c => c.id === colId);
     const flatRow = flatRows.find(f => f.row.id === rowId);
-    if (col?.editable && col.type !== 'formula' && flatRow && !flatRow.isSummary) {
+    if (col?.editable !== false && col?.type !== 'formula' && flatRow && !flatRow.isSummary) {
+      const seed = getCellDisplayValue(rowId, colId);
       setEditSource('cell');
-      setEditingCell({ rowId, colId, cursorAtEnd: true } as any);
+      setEditingCell({ rowId, colId, mode: 'append' });
+      setLiveCellEdit({ rowId, colId, value: seed });
     }
-  }, [columns, flatRows]);
+  }, [columns, flatRows, getCellDisplayValue]);
 
   const handleCellClick = (rowId: string, colId: string, e: React.MouseEvent) => {
-    // Swallow the click that follows a fill-drag mouseup
+    // If clicking the cell currently being edited (append mode), let the input handle it.
+    if (editingCell?.rowId === rowId && editingCell?.colId === colId) return;
+
     if (fillJustApplied.current) { fillJustApplied.current = false; return; }
+
+    // Commit any pending overwrite value before moving focus.
+    flushPendingOverwrite();
+
+    // Clear column selection when clicking a cell
+    setSelectedColId(null);
 
     if (e.shiftKey && rangeAnchor) {
       setRangeEnd({ rowId, colId });
       setEditingCell(null);
       return;
     }
+    // Append mode: blur on the active input fires first and commits before this runs.
     setFocusedCell({ rowId, colId });
     setRangeAnchor({ rowId, colId });
     setRangeEnd(null);
@@ -496,6 +528,7 @@ const SpreadsheetViewV3: React.FC = () => {
   const handleCellMouseDown = (rowId: string, colId: string, e: React.MouseEvent) => {
     if (e.button !== 0 || isFillDragging.current) return;
     isDragging.current = true;
+    setSelectedColId(null); // clear column selection when clicking a cell
     setRangeAnchor({ rowId, colId });
     setRangeEnd(null);
     setFocusedCell({ rowId, colId });
@@ -544,7 +577,7 @@ const SpreadsheetViewV3: React.FC = () => {
       }
     }
 
-    if (editingCell) return;
+    if (editingCell) return; // Append/Edit Mode: the <input> handles its own keys.
 
     // Column selected — only handle escape/delete
     if (selectedColId) {
@@ -562,6 +595,40 @@ const SpreadsheetViewV3: React.FC = () => {
     if (!focusedFlatRow || focusedFlatRow.isSummary) return;
     const focusedRowId = focusedFlatRow.row.id;
 
+    // ── Overwrite pending mode ────────────────────────────────────────────
+    // When the user types in Navigation Mode we set liveCellEdit WITHOUT setting
+    // editingCell. No <input> is rendered; the cell shows the typed text as normal
+    // content. All 4 arrow keys, Enter, and Tab commit the value and navigate.
+    const isPendingOverwrite =
+      !!liveCellEdit &&
+      liveCellEdit.rowId === focusedCell.rowId &&
+      liveCellEdit.colId === focusedCell.colId;
+
+    if (isPendingOverwrite) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setLiveCellEdit(null); // discard — does NOT save
+        return;
+      }
+      if (e.key === 'Backspace') {
+        e.preventDefault();
+        const next = liveCellEdit!.value.slice(0, -1);
+        setLiveCellEdit(next === '' ? null : { ...liveCellEdit!, value: next });
+        return;
+      }
+      if (e.key === 'Delete') {
+        e.preventDefault();
+        setLiveCellEdit(null);
+        return;
+      }
+      if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        setLiveCellEdit({ ...liveCellEdit!, value: liveCellEdit!.value + e.key });
+        return;
+      }
+      // Navigation keys below will call flushPendingOverwrite() before moving.
+    }
+
     const moveTo = (nr: number, nc: number) => {
       const nextRow = flatRows[Math.max(0, Math.min(flatRows.length - 1, nr))];
       const nextCol = columns[Math.max(0, Math.min(columns.length - 1, nc))];
@@ -571,6 +638,7 @@ const SpreadsheetViewV3: React.FC = () => {
 
     const move = (dr: number, dc: number) => {
       e.preventDefault();
+      flushPendingOverwrite();
       let nr = rIdx + dr, nc = cIdx + dc;
       if (e.key === 'Tab' && !e.shiftKey && nc >= columns.length) { nc = 0; nr++; }
       if (e.key === 'Tab' && e.shiftKey && nc < 0) { nc = columns.length - 1; nr--; }
@@ -632,37 +700,62 @@ const SpreadsheetViewV3: React.FC = () => {
       case 'ArrowRight': move(0, 1); break;
       case 'Tab': {
         e.preventDefault();
+        flushPendingOverwrite();
         let nr = rIdx, nc = cIdx + (e.shiftKey ? -1 : 1);
         if (!e.shiftKey && nc >= columns.length) { nc = 0; nr++; }
         if (e.shiftKey && nc < 0) { nc = columns.length - 1; nr--; }
         nr = Math.max(0, Math.min(flatRows.length - 1, nr));
         nc = Math.max(0, Math.min(columns.length - 1, nc));
         setFocusedCell({ rowId: flatRows[nr].row.id, colId: columns[nc].id });
-        if (columns[nc].editable && columns[nc].type !== 'formula' && !flatRows[nr].isSummary) {
-          setEditSource('cell');
-          setEditingCell({ rowId: flatRows[nr].row.id, colId: columns[nc].id });
-        }
         break;
       }
       case 'Enter':
         e.preventDefault();
-        move(1, 0);
+        e.stopPropagation();
+        if (!e.shiftKey && columns[cIdx]?.editable !== false && columns[cIdx]?.type !== 'formula' && !focusedFlatRow.isSummary) {
+          // Enter → Edit Mode (Google Sheets behavior).
+          // If the user was mid-overwrite, carry that value into Edit Mode rather than discarding it.
+          const seed = isPendingOverwrite ? liveCellEdit!.value : getCellDisplayValue(focusedRowId, columns[cIdx].id);
+          setEditSource('cell');
+          setEditingCell({ rowId: focusedRowId, colId: columns[cIdx].id, mode: 'append' });
+          setLiveCellEdit({ rowId: focusedRowId, colId: columns[cIdx].id, value: seed });
+        } else {
+          // Shift+Enter or non-editable cell: navigate (move() flushes pending overwrite internally).
+          move(e.shiftKey ? -1 : 1, 0);
+        }
+        break;
+      case 'Escape':
+        e.preventDefault();
+        setLiveCellEdit(null); // discard any pending overwrite
+        setCutSource(null);    // cancel any pending cut
+        break;
+      case 'F2':
+        e.preventDefault();
+        if (columns[cIdx]?.editable !== false && !focusedFlatRow.isSummary) {
+          const f2Seed = getCellDisplayValue(focusedRowId, columns[cIdx].id);
+          setEditSource('cell');
+          setEditingCell({ rowId: focusedRowId, colId: columns[cIdx].id, mode: 'append' });
+          setLiveCellEdit({ rowId: focusedRowId, colId: columns[cIdx].id, value: f2Seed });
+        }
         break;
       case 'Delete':
       case 'Backspace':
         e.preventDefault();
         if (rangeSet) {
           clearCellsInRange();
-        } else if (columns[cIdx]?.editable && !flatRows[rIdx].isSummary) {
-          handleUpdateCell(flatRows[rIdx].row.id, columns[cIdx].id, null);
+        } else if (columns[cIdx]?.editable && !focusedFlatRow.isSummary) {
+          handleUpdateCell(focusedRowId, columns[cIdx].id, null);
         }
         break;
       default:
+        // Typing in Navigation Mode: start an overwrite pending value.
+        // We do NOT set editingCell — no <input> is rendered.
+        // The cell stays in Navigation Mode visually (thick blue border, no cursor).
         if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
           const col = columns[cIdx];
-          if (col?.editable && !flatRows[rIdx].isSummary) {
-            setEditSource('cell');
-            setEditingCell({ rowId: flatRows[rIdx].row.id, colId: col.id, initial: e.key });
+          if (col?.editable !== false && col?.type !== 'formula' && !flatRows[rIdx].isSummary) {
+            setLiveCellEdit({ rowId: flatRows[rIdx].row.id, colId: col.id, value: e.key });
+            e.preventDefault();
           }
         }
     }
@@ -826,8 +919,8 @@ const SpreadsheetViewV3: React.FC = () => {
 
   const handleCutColumn = useCallback((colId: string) => {
     handleCopyColumn(colId);
-    handleClearColumn(colId);
-  }, [handleCopyColumn, handleClearColumn]);
+    setCutSource({ type: 'column', colId }); // deferred — actual clear happens on paste
+  }, [handleCopyColumn]);
 
   const handlePasteColumn = useCallback((colId: string) => {
     if (!cellClipboard || !activeSheet) return;
@@ -841,16 +934,22 @@ const SpreadsheetViewV3: React.FC = () => {
       const target = nonSummaryRows[ri];
       if (target) updates[target.row.id] = rowData[0] ?? null;
     });
+    const pendingCut = cutSource;
     updateRows(rows => {
       const apply = (items: V3Row[]): V3Row[] => items.map(r => {
         let next = r;
         if (r.id in updates) next = { ...r, cells: { ...r.cells, [colId]: updates[r.id] } };
+        // Deferred cut: clear the original cut column
+        if (pendingCut?.type === 'column') {
+          next = { ...next, cells: { ...next.cells, [pendingCut.colId]: null } };
+        }
         if (next.children) next = { ...next, children: apply(next.children) };
         return next;
       });
       return apply(rows);
     });
-  }, [cellClipboard, activeSheet, columns, flatRows, updateRows]);
+    setCutSource(null);
+  }, [cellClipboard, activeSheet, columns, flatRows, updateRows, cutSource]);
 
   // ── Cell clipboard (range) ─────────────────────────────────────────────────
   const getCellsInRange = useCallback((): { grid: (CellValue | null)[][]; colIds: string[] } | null => {
@@ -898,8 +997,18 @@ const SpreadsheetViewV3: React.FC = () => {
     const data = getCellsInRange();
     if (!data) return;
     setCellClipboard(data);
-    if (cut) clearCellsInRange();
-  }, [getCellsInRange, clearCellsInRange]);
+    if (cut) {
+      // Deferred cut: mark source without deleting yet; actual clear happens on paste
+      if (rangeSet) {
+        const rowIds = new Set(flatRows.slice(rangeSet.r0, rangeSet.r1 + 1).filter(f => !f.isSummary).map(f => f.row.id));
+        setCutSource({ type: 'cells', rowIds, colIds: new Set(data.colIds) });
+      } else if (focusedCell) {
+        setCutSource({ type: 'cells', rowIds: new Set([focusedCell.rowId]), colIds: new Set([focusedCell.colId]) });
+      }
+    } else {
+      setCutSource(null);
+    }
+  }, [getCellsInRange, rangeSet, flatRows, focusedCell]);
 
   const handleCellPaste = useCallback((targetRowId?: string, targetColId?: string) => {
     if (!cellClipboard) return;
@@ -922,16 +1031,28 @@ const SpreadsheetViewV3: React.FC = () => {
         updates[target.row.id][targetCol.id] = val;
       });
     });
+    // Capture cutSource for use inside the updater
+    const pendingCut = cutSource;
     updateRows(rows => {
       const apply = (items: V3Row[]): V3Row[] => items.map(r => {
         let next = r;
         if (updates[r.id]) next = { ...r, cells: { ...r.cells, ...updates[r.id] } };
+        // Deferred cut: clear the original cut cells now that paste has occurred
+        if (pendingCut?.type === 'cells' && pendingCut.rowIds.has(r.id)) {
+          const cells = { ...next.cells };
+          pendingCut.colIds.forEach(cid => {
+            const c = columns.find(col => col.id === cid);
+            if (c?.editable && c.type !== 'formula') cells[cid] = null;
+          });
+          next = { ...next, cells };
+        }
         if (next.children) next = { ...next, children: apply(next.children) };
         return next;
       });
       return apply(rows);
     });
-  }, [cellClipboard, focusedCell, flatRows, columns, activeSheet, updateRows]);
+    setCutSource(null);
+  }, [cellClipboard, focusedCell, flatRows, columns, activeSheet, updateRows, cutSource]);
 
   // Direct cell copy for context menu (bypasses range state)
   const contextMenuCellCopy = useCallback((rowId: string, colId: string, cut = false) => {
@@ -939,10 +1060,11 @@ const SpreadsheetViewV3: React.FC = () => {
     if (!flat) return;
     setCellClipboard({ grid: [[flat.row.cells[colId] ?? null]], colIds: [colId] });
     if (cut) {
-      const col = columns.find(c => c.id === colId);
-      if (col?.editable && col.type !== 'formula') handleUpdateCell(rowId, colId, null);
+      setCutSource({ type: 'cells', rowIds: new Set([rowId]), colIds: new Set([colId]) });
+    } else {
+      setCutSource(null);
     }
-  }, [flatRows, columns, handleUpdateCell]);
+  }, [flatRows]);
 
   // ── Sheet management ──────────────────────────────────────────────────
   const handleAddSheet = () => {
@@ -1031,7 +1153,7 @@ const SpreadsheetViewV3: React.FC = () => {
                         ? 'border-blue-500 bg-blue-50 text-blue-700'
                         : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-600'
                       }`}
-                    onClick={() => {
+                    onClick={(e) => {
                       if (ct.id === 'formula' || ct.id === 'select') {
                         setEditingColumnId(colId);
                       } else {
@@ -1167,6 +1289,12 @@ const SpreadsheetViewV3: React.FC = () => {
       className="flex flex-col h-full px-4 pt-[7px] pb-[7px] outline-none focus:ring-0 overflow-hidden gap-[7px]"
       tabIndex={0}
       onKeyDown={handleKeyDown}
+      onBlur={(e) => {
+        // Commit pending overwrite when focus leaves the spreadsheet entirely.
+        if (!containerRef.current?.contains(e.relatedTarget as Node)) {
+          flushPendingOverwrite();
+        }
+      }}
       onMouseLeave={() => { isDragging.current = false; }}
     >
       {/* ── Toolbar (reuses shared SpreadsheetToolbar) ── */}
@@ -1223,6 +1351,7 @@ const SpreadsheetViewV3: React.FC = () => {
               onColumnMove={handleColumnMove}
               onAddColumn={() => setShowAddColumn(true)}
               onContextMenu={(e, colId) => handleContextMenu(e, 'column', undefined, colId)}
+              cutColId={cutSource?.type === 'column' ? cutSource.colId : null}
               isAllSelected={isAllSelected}
               onToggleAll={() => {
                 if (isAllSelected) setSelectedRowIds(new Set());
@@ -1275,6 +1404,8 @@ const SpreadsheetViewV3: React.FC = () => {
                   onCellMouseEnter={handleCellMouseEnter}
                   onFillHandleMouseDown={handleFillHandleMouseDown}
                   onRowMouseEnter={handleFillRowEnter}
+                  cutColId={cutSource?.type === 'column' ? cutSource.colId : null}
+                  cutCellColIds={cutSource?.type === 'cells' && cutSource.rowIds.has(row.id) ? cutSource.colIds : emptySetRef.current}
                   liveEdit={liveCellEdit}
                   activeEditSource={editSource}
                   onLiveEditChange={handleLiveCellEditChange}
@@ -1294,9 +1425,15 @@ const SpreadsheetViewV3: React.FC = () => {
                 </td>
                 {columns.map(col => (
                   <td key={col.id}
-                    className={`border-r border-gray-300 px-2 bg-gray-100 whitespace-nowrap ${col.align === 'right' ? 'text-right' : 'text-left'}`}
+                    className={`border-r border-gray-300 px-2 bg-gray-100 whitespace-nowrap relative ${col.align === 'right' ? 'text-right' : 'text-left'}`}
                     style={{ width: col.width, fontSize }}
                   >
+                    {selectedColId === col.id && (
+                      <div className="absolute inset-0 pointer-events-none z-20" style={{ boxShadow: 'inset 2px 0 0 0 #2563eb, inset -2px 0 0 0 #2563eb, inset 0 -2px 0 0 #2563eb' }} />
+                    )}
+                    {cutSource?.type === 'column' && cutSource.colId === col.id && (
+                      <div className="absolute inset-0 border-l-2 border-r-2 border-b-2 border-dashed border-blue-600 pointer-events-none z-20" />
+                    )}
                     {col.isTotal && totals[col.id] !== undefined
                       ? (col.type === 'number' ? totals[col.id].toLocaleString() : formatCurrency(totals[col.id]))
                       : ''}

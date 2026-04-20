@@ -24,6 +24,7 @@ interface V3HeaderProps {
   onColumnMove: (fromId: string, toId: string, pos: 'left' | 'right') => void;
   onAddColumn: () => void;
   onContextMenu: (e: React.MouseEvent, colId: string) => void;
+  cutColId: string | null;
   isAllSelected: boolean;
   onToggleAll: () => void;
   checkboxRef: React.RefObject<HTMLInputElement>;
@@ -72,7 +73,7 @@ const V3Header: React.FC<V3HeaderProps> = ({
   columns, focusedColId, selectedColId, resizingColumnId, sort,
   isScrolled, isAtEnd, isVerticalScrolled, fontSize, displayDensity,
   onColumnHeaderClick, onRenameColumn, onResize, onColumnMove,
-  onAddColumn, onContextMenu, isAllSelected, onToggleAll, checkboxRef,
+  onAddColumn, onContextMenu, cutColId, isAllSelected, onToggleAll, checkboxRef,
 }) => {
   const heightClass = HEADER_HEIGHT[displayDensity] ?? 'h-10';
   const [dropIndicator, setDropIndicator] = useState<{ id: string; pos: 'left' | 'right' } | null>(null);
@@ -140,7 +141,12 @@ const V3Header: React.FC<V3HeaderProps> = ({
                       ? 'bg-amber-50/60 text-gray-700'
                       : 'bg-gray-50 text-gray-700'
                 }`}
-              style={{ width: col.width, minWidth: col.width, fontSize, boxShadow: 'inset 0 -1px 0 #e5e7eb' }}
+              style={{
+                width: col.width, minWidth: col.width, fontSize,
+                boxShadow: isColSelected
+                  ? 'inset 0 -1px 0 #e5e7eb, inset 0 2px 0 0 #2563eb, inset 2px 0 0 0 #2563eb, inset -2px 0 0 0 #2563eb'
+                  : 'inset 0 -1px 0 #e5e7eb',
+              }}
               onClick={() => { if (!isRenaming) onColumnHeaderClick(col.id); }}
               onDoubleClick={() => { if (!isRenaming) setRenamingColId(col.id); }}
               onContextMenu={(e) => { e.preventDefault(); if (!isRenaming) onContextMenu(e, col.id); }}
@@ -154,6 +160,10 @@ const V3Header: React.FC<V3HeaderProps> = ({
             >
               {dropIndicator?.id === col.id && (
                 <div className={`absolute top-0 h-full w-0.5 bg-blue-500 z-20 ${dropIndicator.pos === 'left' ? 'left-0' : 'right-0'}`} />
+              )}
+              {/* Cut column dashed border (top/left/right only — bottom continues through body cells) */}
+              {cutColId === col.id && (
+                <div className="absolute inset-0 border-l-2 border-r-2 border-t-2 border-dashed border-blue-600 pointer-events-none z-20" />
               )}
 
               <div className={`flex items-center h-full w-full gap-1 overflow-hidden ${showChevron ? 'pr-5' : ''}`}>

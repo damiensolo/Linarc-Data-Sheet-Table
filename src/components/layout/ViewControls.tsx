@@ -6,14 +6,14 @@ import { useProject } from '../../context/ProjectContext';
 import FilterMenu from './FilterMenu';
 import HighlightMenu from './HighlightMenu';
 import GroupMenu from './GroupMenu';
-import { PlusIcon, MoreHorizontalIcon, MoreVerticalIcon, TableIcon, BoardIcon, GanttIcon, LookaheadIcon, SearchIcon, FilterIcon, SpreadsheetIcon, DashboardIcon, ShareIcon, FillColorIcon, CopyIcon, GroupIcon, ChevronDownIcon, ChevronUpIcon, ChevronsDownIcon, XIcon, SettingsIcon, ViewManagerIcon } from '../common/Icons';
+import { PlusIcon, MoreHorizontalIcon, MoreVerticalIcon, TableIcon, BoardIcon, GanttIcon, LookaheadIcon, SearchIcon, FilterIcon, SpreadsheetIcon, AdvancedSheetIcon, DashboardIcon, ShareIcon, FillColorIcon, CopyIcon, GroupIcon, ChevronDownIcon, ChevronUpIcon, ChevronsDownIcon, XIcon, SettingsIcon, ViewManagerIcon } from '../common/Icons';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../common/ui/Tooltip';
 
 const modes: { id: ViewMode; label: string; icon: React.FC<React.SVGProps<SVGSVGElement>> }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: DashboardIcon },
   { id: 'table', label: 'Table', icon: TableIcon },
   { id: 'spreadsheetV2', label: 'Spreadsheet', icon: SpreadsheetIcon },
-  { id: 'spreadsheetV3', label: 'Sheet V3', icon: SpreadsheetIcon },
+  { id: 'spreadsheetV3', label: 'Advanced Spreadsheet (v3.1)', icon: AdvancedSheetIcon },
   { id: 'board', label: 'Board', icon: BoardIcon },
   { id: 'gantt', label: 'Gantt', icon: GanttIcon },
   { id: 'lookahead', label: 'Lookahead', icon: LookaheadIcon },

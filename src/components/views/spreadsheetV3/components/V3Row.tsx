@@ -36,7 +36,7 @@ interface V3RowProps {
   isExpanded: boolean;
   isSummary?: boolean;
   focusedCell: { rowId: string; colId: string } | null;
-  editingCell: { rowId: string; colId: string; initial?: string; cursorAtEnd?: boolean } | null;
+  editingCell: { rowId: string; colId: string; initial?: string; cursorAtEnd?: boolean; mode?: 'append' } | null;
   inRangeSelection: boolean;
   rangeColIds: Set<string>;
   selectedColId: string | null;
@@ -46,6 +46,8 @@ interface V3RowProps {
   displayDensity: 'compact' | 'standard' | 'comfortable';
   fillAnchorCell: { rowId: string; colId: string } | null;
   fillRangeRowIds: Set<string>;
+  cutColId: string | null;
+  cutCellColIds: Set<string>;
   liveEdit: { rowId: string; colId: string; value: string } | null;
   activeEditSource: 'cell' | 'formula' | null;
   onToggleSelect: (id: string) => void;
@@ -68,8 +70,8 @@ const V3RowComponent: React.FC<V3RowProps> = ({
   row, rowIndex, level, columns, isSelected, isExpanded, isSummary,
   focusedCell, editingCell, inRangeSelection, rangeColIds, selectedColId,
   isScrolled, isAtEnd, fontSize, displayDensity,
-  fillAnchorCell, fillRangeRowIds, liveEdit, activeEditSource,
-  onToggleSelect, onToggleExpand, onCellClick,
+  fillAnchorCell, fillRangeRowIds, cutColId, cutCellColIds, liveEdit, activeEditSource,
+  onToggleSelect, onToggleExpand, onCellClick, onCellDoubleClick,
   onLiveEditChange, onStopEdit, onUpdateCell, onContextMenu, onCellMouseDown, onCellMouseEnter,
   onFillHandleMouseDown, onRowMouseEnter,
 }) => {
@@ -80,11 +82,15 @@ const V3RowComponent: React.FC<V3RowProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const selectRef = useRef<HTMLSelectElement>(null);
   const ignoreCellClick = useRef(false);
+  const lastMouseDownRef = useRef<{ time: number; rowId: string; colId: string } | null>(null);
   const isFillTarget = fillRangeRowIds.has(row.id);
+  // Prevents double-commit: set to true when commit fires (keydown path), or when Escape cancels.
+  // onBlur checks this ref so it won't commit a second time.
+  const skipNextCommitRef = useRef(false);
 
   useEffect(() => {
     if (editingCell?.rowId === row.id) {
-      const col = columns.find(c => c.id === editingCell.colId);
+      skipNextCommitRef.current = false;
       const raw = row.cells[editingCell.colId];
       setEditValue(editingCell.initial !== undefined ? editingCell.initial : raw === null || raw === undefined ? '' : String(raw));
     }
@@ -93,12 +99,25 @@ const V3RowComponent: React.FC<V3RowProps> = ({
   useEffect(() => {
     if (activeEditSource !== 'cell') return;
     if (editingCell?.rowId === row.id && inputRef.current) {
-      inputRef.current.focus();
-      if (editingCell.initial === undefined) inputRef.current.select();
+      const input = inputRef.current;
+      input.focus();
+      
+      if (editingCell.initial !== undefined) {
+        // Typing: cursor at end (already handled by value update)
+      } else if (editingCell.mode === 'append') {
+        // F2 or Double-click: cursor at end
+        const len = input.value.length;
+        input.setSelectionRange(len, len);
+      } else {
+        // Default: select all
+        input.select();
+      }
     }
   }, [editingCell, activeEditSource]);
 
   const commitEdit = (colId: string, dir?: 'up' | 'down' | 'left' | 'right') => {
+    if (skipNextCommitRef.current) return;
+    skipNextCommitRef.current = true;
     const col = columns.find(c => c.id === colId);
     const currentEditValue = liveEdit?.rowId === row.id && liveEdit.colId === colId ? liveEdit.value : editValue;
     let val: CellValue = currentEditValue;
@@ -111,14 +130,39 @@ const V3RowComponent: React.FC<V3RowProps> = ({
     onStopEdit();
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent, colId: string) => {
-    switch (e.key) {
-      case 'Enter':    e.preventDefault(); commitEdit(colId, e.shiftKey ? 'up' : 'down'); break;
-      case 'Tab':      e.preventDefault(); commitEdit(colId, e.shiftKey ? 'left' : 'right'); break;
-      case 'Escape':   e.preventDefault(); onStopEdit(); break;
-      case 'ArrowUp':  if (inputRef.current?.selectionStart === 0) { e.preventDefault(); commitEdit(colId, 'up'); } break;
-      case 'ArrowDown':if (inputRef.current?.selectionStart === editValue.length) { e.preventDefault(); commitEdit(colId, 'down'); } break;
+  const editMountTime = useRef(Date.now());
+  useEffect(() => {
+    if (editingCell?.rowId === row.id) {
+      editMountTime.current = Date.now();
     }
+  }, [editingCell]);
+
+  const handleKeyDown = (e: React.KeyboardEvent, colId: string) => {
+    e.stopPropagation();
+    switch (e.key) {
+      case 'Enter':
+        // Prevent auto-repeat Enter from instantly closing the edit session it just opened
+        if (e.repeat || Date.now() - editMountTime.current < 250) return;
+        e.preventDefault(); 
+        commitEdit(colId, e.shiftKey ? 'up' : 'down'); 
+        break;
+      case 'Tab':      e.preventDefault(); commitEdit(colId, e.shiftKey ? 'left' : 'right'); break;
+      case 'Escape':   e.preventDefault(); skipNextCommitRef.current = true; onStopEdit(); break;
+      case 'ArrowUp':    e.preventDefault(); commitEdit(colId, 'up'); break;
+      case 'ArrowDown':  e.preventDefault(); commitEdit(colId, 'down'); break;
+    }
+  };
+
+  // Track double click timing to prevent onClick from cancelling the edit
+  const lastClickRef = useRef<{ time: number; rowId: string; colId: string }>({ time: 0, rowId: '', colId: '' });
+
+  const handleClick = (rowId: string, colId: string, e: React.MouseEvent) => {
+    if (isSummary) return;
+    if (ignoreCellClick.current) { ignoreCellClick.current = false; return; }
+    
+    // In Navigation Mode, a single click just selects the cell.
+    // If we are already editing, SpreadsheetViewV3 will handle the click-outside.
+    onCellClick(rowId, colId, e);
   };
 
   const renderCellContent = (col: V3Column): React.ReactNode => {
@@ -177,6 +221,7 @@ const V3RowComponent: React.FC<V3RowProps> = ({
           defaultValue={String(row.cells[col.id] ?? '')}
           onChange={(e) => { onUpdateCell(row.id, col.id, e.target.value); onStopEdit(); }}
           onBlur={() => onStopEdit()}
+          onClick={(e) => e.stopPropagation()}
           autoFocus
           className="absolute inset-0 w-full h-full px-2 bg-white border-2 border-blue-600 outline-none z-50 text-xs"
         >
@@ -191,6 +236,7 @@ const V3RowComponent: React.FC<V3RowProps> = ({
           type="checkbox"
           defaultChecked={!!row.cells[col.id]}
           onChange={(e) => { onUpdateCell(row.id, col.id, e.target.checked); onStopEdit(); }}
+          onClick={(e) => e.stopPropagation()}
           className="h-4 w-4 rounded border-gray-300 text-blue-600 absolute inset-0 m-auto z-50"
         />
       );
@@ -205,8 +251,9 @@ const V3RowComponent: React.FC<V3RowProps> = ({
         }}
         onBlur={() => commitEdit(col.id)}
         onKeyDown={(e) => handleKeyDown(e, col.id)}
+        onClick={(e) => e.stopPropagation()}
         type={col.type === 'date' ? 'date' : 'text'}
-        className="absolute inset-0 w-full h-full px-2 bg-white text-gray-900 border-2 border-blue-600 outline-none z-50 shadow-sm text-xs font-mono"
+        className="absolute inset-0 w-full h-full px-2 bg-white text-gray-900 border border-blue-500 outline-none z-50 shadow-sm text-xs font-mono"
         style={{ fontSize }}
       />
     );
@@ -280,17 +327,19 @@ const V3RowComponent: React.FC<V3RowProps> = ({
         const cellStyle = row.cellStyles?.[col.id] ?? {};
         const isEditable = col.editable && col.type !== 'formula' && !isSummary;
 
+        const isFillHandle = !isSummary && focusedCell?.rowId === row.id && focusedCell?.colId === col.id && col.editable && col.type !== 'formula';
+        const isFillRangeCell = !isSummary && isFillTarget && fillAnchorCell?.colId === col.id;
+        const isColSelected = !isSummary && selectedColId === col.id;
+        const isCutCell = !isSummary && (cutColId === col.id || cutCellColIds.has(col.id));
+
         const tdStyle: React.CSSProperties = {
           width: col.width,
           minWidth: col.width,
           maxWidth: col.width,
           backgroundColor: cellStyle.backgroundColor ?? rowStyleBg,
           color: cellStyle.textColor ?? undefined,
+          ...(isColSelected ? { boxShadow: 'inset 2px 0 0 0 #2563eb, inset -2px 0 0 0 #2563eb' } : {}),
         };
-
-        const isFillHandle = !isSummary && focusedCell?.rowId === row.id && focusedCell?.colId === col.id && col.editable && col.type !== 'formula';
-        const isFillRangeCell = !isSummary && isFillTarget && fillAnchorCell?.colId === col.id;
-        const isColSelected = !isSummary && selectedColId === col.id;
 
         return (
           <td
@@ -303,13 +352,14 @@ const V3RowComponent: React.FC<V3RowProps> = ({
               ${isColSelected && !isSelected && !inRange && !cellStyle.backgroundColor ? 'bg-blue-50' : ''}
               ${isFillRangeCell && !cellStyle.backgroundColor ? 'bg-blue-50/60' : ''}
               ${col.type === 'formula' && !cellStyle.backgroundColor && !isColSelected ? 'bg-amber-50/40' : ''}
-              ${isEditable ? 'hover:cursor-text' : ''}
+              ${isEditing ? 'cursor-text' : ''}
             `}
             style={tdStyle}
-            onClick={(e) => {
+            onClick={(e) => handleClick(row.id, col.id, e)}
+            onDoubleClick={(e) => {
               if (!isSummary) {
-                if (ignoreCellClick.current) { ignoreCellClick.current = false; return; }
-                onCellClick(row.id, col.id, e);
+                lastClickRef.current = { time: Date.now(), rowId: row.id, colId: col.id }; // Mark as double click
+                onCellDoubleClick(row.id, col.id);
               }
             }}
             onContextMenu={(e) => !isSummary && onContextMenu(e, 'cell', row.id, col.id)}
@@ -331,6 +381,14 @@ const V3RowComponent: React.FC<V3RowProps> = ({
             {/* Custom cell border */}
             {(cellStyle.borderColor || row.style?.borderColor) && (
               <div className="absolute inset-0 border-2 pointer-events-none z-20" style={{ borderColor: cellStyle.borderColor ?? row.style?.borderColor }} />
+            )}
+            {/* Cut dashed border */}
+            {isCutCell && (
+              <div className="absolute inset-0 border-2 border-dashed border-blue-500 pointer-events-none z-[21]" />
+            )}
+            {/* Edit mode outer ring */}
+            {isEditing && (
+              <div className="absolute inset-0 pointer-events-none z-[55]" style={{ boxShadow: 'inset 0 0 0 2px #2563eb, 0 0 0 2px #93c5fd' }} />
             )}
 
             {/* Editing */}
@@ -387,4 +445,49 @@ const V3RowComponent: React.FC<V3RowProps> = ({
   );
 };
 
-export default V3RowComponent;
+// Custom comparator: only re-render a row if something relevant to THAT row changed.
+// This prevents all rows from re-rendering when focusedCell/editingCell/liveEdit changes
+// for a different row (the common case during arrow-key navigation and cell editing).
+function arePropsEqual(prev: V3RowProps, next: V3RowProps): boolean {
+  const rowId = prev.row.id;
+
+  if (prev.row !== next.row) return false;
+  if (prev.isSelected !== next.isSelected) return false;
+  if (prev.isExpanded !== next.isExpanded) return false;
+  if (prev.isSummary !== next.isSummary) return false;
+  if (prev.inRangeSelection !== next.inRangeSelection) return false;
+  if (prev.rangeColIds !== next.rangeColIds) return false;
+  if (prev.selectedColId !== next.selectedColId) return false;
+  if (prev.isScrolled !== next.isScrolled) return false;
+  if (prev.isAtEnd !== next.isAtEnd) return false;
+  if (prev.fontSize !== next.fontSize) return false;
+  if (prev.displayDensity !== next.displayDensity) return false;
+  if (prev.fillAnchorCell !== next.fillAnchorCell) return false;
+  if (prev.fillRangeRowIds !== next.fillRangeRowIds) return false;
+  if (prev.cutColId !== next.cutColId) return false;
+  if (prev.cutCellColIds !== next.cutCellColIds) return false;
+  if (prev.activeEditSource !== next.activeEditSource) return false;
+
+  // focusedCell: only care about THIS row's focused column
+  const prevFocCol = prev.focusedCell?.rowId === rowId ? prev.focusedCell.colId : null;
+  const nextFocCol = next.focusedCell?.rowId === rowId ? next.focusedCell.colId : null;
+  if (prevFocCol !== nextFocCol) return false;
+
+  // editingCell: only care about THIS row's editing column/mode
+  const prevEditCol = prev.editingCell?.rowId === rowId ? prev.editingCell.colId : null;
+  const nextEditCol = next.editingCell?.rowId === rowId ? next.editingCell.colId : null;
+  if (prevEditCol !== nextEditCol) return false;
+  if (prevEditCol !== null && nextEditCol !== null) {
+    if (prev.editingCell?.initial !== next.editingCell?.initial) return false;
+    if ((prev.editingCell as any)?.mode !== (next.editingCell as any)?.mode) return false;
+  }
+
+  // liveEdit: only care about THIS row's live value
+  const prevLive = prev.liveEdit?.rowId === rowId ? prev.liveEdit : null;
+  const nextLive = next.liveEdit?.rowId === rowId ? next.liveEdit : null;
+  if (prevLive?.colId !== nextLive?.colId || prevLive?.value !== nextLive?.value) return false;
+
+  return true;
+}
+
+export default React.memo(V3RowComponent, arePropsEqual);
