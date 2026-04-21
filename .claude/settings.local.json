@@ -11,7 +11,10 @@
       "Bash(grep -r \"Settings\\\\|SettingsIcon\\\\|GearIcon\\\\|gear\\\\|cog\" C:UsersdamieProjectsLinarc-Data-Sheet-Table/src --include=*.tsx --include=*.ts --include=*.jsx --include=*.js)",
       "Bash(node:*)",
       "Bash(npx tsc *)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "mcp__plugin_figma_figma__get_metadata",
+      "Bash(curl -s http://localhost:5173 -o /dev/null -w \"%{http_code}\")",
+      "mcp__plugin_figma_figma__search_design_system"
     ]
   }
 }

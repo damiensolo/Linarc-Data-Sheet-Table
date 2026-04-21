@@ -190,11 +190,18 @@ const V3RowComponent: React.FC<V3RowProps> = ({
     const raw = row.cells[col.id];
     if (liveEdit?.rowId === row.id && liveEdit.colId === col.id) return liveEdit.value;
 
-    if (col.type === 'formula' && col.formula) {
-      const result = evaluateFormula(col.formula, row.cells);
+    // Handle Formulas (both Column-level and Cell-level)
+    const isFormulaCol = col.type === 'formula' && col.formula;
+    const isManualFormula = typeof raw === 'string' && raw.startsWith('=');
+
+    if (isFormulaCol || isManualFormula) {
+      const formula = isFormulaCol ? col.formula! : (raw as string);
+      const result = evaluateFormula(formula, row.cells);
       return (
-        <span className="text-blue-700 font-medium">
-          {typeof result === 'number' ? formatCurrency(result) : result}
+        <span className={`${isFormulaCol ? 'text-blue-700' : 'text-blue-600'} font-medium`}>
+          {typeof result === 'number' 
+            ? (col.type === 'currency' ? formatCurrency(result) : result.toLocaleString()) 
+            : result}
         </span>
       );
     }

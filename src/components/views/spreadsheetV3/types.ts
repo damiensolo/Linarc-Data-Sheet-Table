@@ -62,9 +62,13 @@ export function evaluateFormula(formula: string, cells: Record<string, CellValue
   const expr = formula.slice(1);
 
   try {
-    // Replace column references with their values
+    // Replace column references with their values (case-insensitive fallback)
     const evalExpr = expr.replace(/[a-zA-Z_][a-zA-Z0-9_]*/g, (match) => {
-      const val = cells[match];
+      let val = cells[match];
+      if (val === undefined || val === null) {
+        val = cells[match.toLowerCase()];
+      }
+
       if (val === null || val === undefined || val === '') return '0';
       if (typeof val === 'boolean') return val ? '1' : '0';
       return String(val).replace(/,/g, '');
@@ -84,4 +88,18 @@ export function evaluateFormula(formula: string, cells: Record<string, CellValue
   } catch {
     return '#ERR';
   }
+}
+
+/** Convert a display label into a valid identifier for formulas (lowercase, safe chars) */
+export function slugifyLabel(label: string): string {
+  const slug = label
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9_]/g, '_')
+    .replace(/_{2,}/g, '_')
+    .replace(/^_+|_+$/g, '');
+    
+  // Ensure it starts with a letter or underscore to be a valid variable name
+  if (/^[0-9]/.test(slug)) return '_' + slug;
+  return slug || 'col';
 }

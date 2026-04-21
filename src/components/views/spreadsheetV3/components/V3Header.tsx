@@ -159,6 +159,7 @@ const V3Header: React.FC<V3HeaderProps> = ({
               onDragStart={(e) => handleDragStart(e, col.id)}
               onDragOver={(e) => handleDragOver(e, col.id)}
               onDrop={(e) => handleDrop(e, col.id)}
+              title={`Column ID: ${col.id}`}
               onDragLeave={() => setDropIndicator(null)}
             >
               {dropIndicator?.id === col.id && (

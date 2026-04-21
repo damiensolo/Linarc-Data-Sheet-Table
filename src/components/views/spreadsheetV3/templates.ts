@@ -4,14 +4,17 @@ import { V3Sheet, V3Template } from './types';
 const blankSheet = (): V3Sheet => ({
   id: 'sheet-1',
   name: 'Sheet 1',
-  columns: Array.from({ length: 26 }, (_, i) => ({
-    id: `col-${String.fromCharCode(97 + i)}`,
-    label: String.fromCharCode(65 + i),
-    type: 'text' as const,
-    width: i === 0 ? 200 : 150,
-    editable: true,
-    visible: true,
-  })),
+  columns: Array.from({ length: 26 }, (_, i) => {
+    const label = String.fromCharCode(65 + i);
+    return {
+      id: label.toLowerCase(),
+      label,
+      type: 'text' as const,
+      width: i === 0 ? 200 : 150,
+      editable: true,
+      visible: true,
+    };
+  }),
   rows: Array.from({ length: 100 }, (_, i) => ({
     id: `row-${i + 1}`,
     cells: {},

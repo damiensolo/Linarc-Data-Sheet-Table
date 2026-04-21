@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { V3Sheet, V3Row, V3Column, V3CellStyle, CellValue, V3Template, evaluateFormula } from './types';
+import { V3Sheet, V3Row, V3Column, V3CellStyle, CellValue, V3Template, evaluateFormula, slugifyLabel } from './types';
 import { createTemplateSheets } from './templates';
 import TemplatePicker from './components/TemplatePicker';
 import FormulaBar from './components/FormulaBar';
@@ -853,7 +853,13 @@ const SpreadsheetViewV3: React.FC = () => {
 
   // ── Column CRUD ────────────────────────────────────────────────────────
   const handleAddColumn = (colDef: Omit<V3Column, 'id'>) => {
-    const newCol: V3Column = { ...colDef, id: uid('col') };
+    let newId = slugifyLabel(colDef.label);
+    if (activeSheet?.columns.some(c => c.id === newId)) {
+      let i = 1;
+      while (activeSheet?.columns.some(c => c.id === `${newId}_${i}`)) i++;
+      newId = `${newId}_${i}`;
+    }
+    const newCol: V3Column = { ...colDef, id: newId };
     updateSheet({ columns: [...(activeSheet?.columns ?? []), newCol] });
     setShowAddColumn(false);
   };
@@ -909,8 +915,59 @@ const SpreadsheetViewV3: React.FC = () => {
   }, [activeSheet, updateSheet]);
 
   const handleRenameColumn = useCallback((colId: string, newLabel: string) => {
-    handleUpdateColumn(colId, { label: newLabel });
-  }, [handleUpdateColumn]);
+    if (!activeSheet) return;
+
+    const oldId = colId;
+    let newId = slugifyLabel(newLabel);
+
+    // Collision check
+    if (activeSheet.columns.some(c => c.id === newId && c.id !== oldId)) {
+      let i = 1;
+      while (activeSheet.columns.some(c => c.id === `${newId}_${i}`)) i++;
+      newId = `${newId}_${i}`;
+    }
+
+    // 1. Update Columns (including formulas in other columns that refer to this one)
+    const newColumns = activeSheet.columns.map(c => {
+      if (c.id === oldId) return { ...c, label: newLabel, id: newId };
+      if (c.type === 'formula' && c.formula && oldId !== newId) {
+        const regex = new RegExp(`\\b${oldId}\\b`, 'g');
+        return { ...c, formula: c.formula.replace(regex, newId) };
+      }
+      return c;
+    });
+
+    // 2. Migrate row data and cell formulas if ID changed
+    const migrateRows = (rows: V3Row[]): V3Row[] => rows.map(r => {
+      let cells = { ...r.cells };
+      if (oldId !== newId && oldId in cells) {
+        cells[newId] = cells[oldId];
+        delete cells[oldId];
+      }
+      // Migrate row-specific formulas if we ever support them in non-formula columns
+      // (Currently formulas are mostly column-level or typed with '=')
+      Object.keys(cells).forEach(key => {
+        const val = cells[key];
+        if (typeof val === 'string' && val.startsWith('=') && oldId !== newId) {
+          const regex = new RegExp(`\\b${oldId}\\b`, 'g');
+          cells[key] = val.replace(regex, newId);
+        }
+      });
+
+      let next: V3Row = { ...r, cells };
+      if (r.children) next.children = migrateRows(r.children);
+      return next;
+    });
+
+    // 3. Update all state references to the old column ID
+    updateSheet({ columns: newColumns });
+    updateRows(migrateRows);
+
+    if (focusedCell?.colId === oldId) setFocusedCell({ ...focusedCell, colId: newId });
+    if (selectedColId === oldId) setSelectedColId(newId);
+    if (editingCell?.colId === oldId) setEditingCell({ ...editingCell, colId: newId });
+    if (liveCellEdit?.colId === oldId) setLiveCellEdit({ ...liveCellEdit, colId: newId });
+  }, [activeSheet, updateSheet, updateRows, focusedCell, selectedColId, editingCell, liveCellEdit, setFocusedCell, setLiveCellEdit]);
 
   const handleAddManyRows = useCallback(() => {
     const count = Math.max(1, Math.min(1000, addRowCount));
@@ -923,7 +980,8 @@ const SpreadsheetViewV3: React.FC = () => {
     const cols = [...(activeSheet?.columns ?? [])];
     const idx = cols.findIndex(c => c.id === colId);
     if (idx < 0) return;
-    const newCol: V3Column = { id: uid('col'), label: `Col ${cols.length + 1}`, type: 'text', width: 150, editable: true, visible: true };
+    const label = `Col ${cols.length + 1}`;
+    const newCol: V3Column = { id: slugifyLabel(label), label, type: 'text', width: 150, editable: true, visible: true };
     cols.splice(idx, 0, newCol);
     updateSheet({ columns: cols });
   }, [activeSheet, updateSheet]);
@@ -932,7 +990,8 @@ const SpreadsheetViewV3: React.FC = () => {
     const cols = [...(activeSheet?.columns ?? [])];
     const idx = cols.findIndex(c => c.id === colId);
     if (idx < 0) return;
-    const newCol: V3Column = { id: uid('col'), label: `Col ${cols.length + 1}`, type: 'text', width: 150, editable: true, visible: true };
+    const label = `Col ${cols.length + 1}`;
+    const newCol: V3Column = { id: slugifyLabel(label), label, type: 'text', width: 150, editable: true, visible: true };
     cols.splice(idx + 1, 0, newCol);
     updateSheet({ columns: cols });
   }, [activeSheet, updateSheet]);
