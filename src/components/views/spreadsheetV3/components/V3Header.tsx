@@ -102,7 +102,10 @@ const V3Header: React.FC<V3HeaderProps> = ({
     <thead className={`bg-gray-50 text-gray-700 font-semibold sticky top-0 z-40 transition-shadow duration-200
       ${isVerticalScrolled ? 'shadow-[0_4px_6px_-2px_rgba(0,0,0,0.1),0_2px_4px_-2px_rgba(0,0,0,0.05)]' : ''}`}
     >
-      <tr className={heightClass}>
+      <tr
+        className={heightClass}
+        style={{ height: { compact: 32, standard: 40, comfortable: 48 }[displayDensity] || 40 }}
+      >
         {/* Row number / checkbox col */}
         <th
           className={`sticky left-0 z-[51] border-r border-gray-200 bg-gray-50 text-center p-0 transition-all

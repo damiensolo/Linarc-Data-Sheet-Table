@@ -39,6 +39,10 @@ interface V3RowProps {
   editingCell: { rowId: string; colId: string; initial?: string; cursorAtEnd?: boolean; mode?: 'append' } | null;
   inRangeSelection: boolean;
   rangeColIds: Set<string>;
+  isRangeTopRow: boolean;
+  isRangeBottomRow: boolean;
+  rangeStartColId: string | null;
+  rangeEndColId: string | null;
   selectedColId: string | null;
   isScrolled: boolean;
   isAtEnd: boolean;
@@ -50,7 +54,6 @@ interface V3RowProps {
   cutCellColIds: Set<string>;
   liveEdit: { rowId: string; colId: string; value: string } | null;
   activeEditSource: 'cell' | 'formula' | null;
-  rangeEdges: { r0: number; r1: number; c0: number; c1: number } | null;
   onToggleSelect: (id: string) => void;
   onToggleExpand: (id: string) => void;
   onLiveEditChange: (rowId: string, colId: string, value: string) => void;
@@ -69,9 +72,10 @@ const HEIGHT: Record<string, string> = { compact: 'h-7', standard: 'h-9', comfor
 
 const V3RowComponent: React.FC<V3RowProps> = ({
   row, rowIndex, level, columns, isSelected, isExpanded, isSummary,
-  focusedCell, editingCell, inRangeSelection, rangeColIds, selectedColId,
-  isScrolled, isAtEnd, fontSize, displayDensity,
-  fillAnchorCell, fillRangeRowIds, cutColId, cutCellColIds, liveEdit, activeEditSource, rangeEdges,
+  focusedCell, editingCell, inRangeSelection, rangeColIds, 
+  isRangeTopRow, isRangeBottomRow, rangeStartColId, rangeEndColId,
+  selectedColId, isScrolled, isAtEnd, fontSize, displayDensity,
+  fillAnchorCell, fillRangeRowIds, cutColId, cutCellColIds, liveEdit, activeEditSource,
   onToggleSelect, onToggleExpand, onCellClick, onCellDoubleClick,
   onLiveEditChange, onStopEdit, onUpdateCell, onContextMenu, onCellMouseDown, onCellMouseEnter,
   onFillHandleMouseDown, onRowMouseEnter,
@@ -280,8 +284,12 @@ const V3RowComponent: React.FC<V3RowProps> = ({
 
   return (
     <tr
-      className={`group relative transition-colors ${hClass} ${rowBg}`}
-      style={{ color: row.style?.textColor, backgroundColor: rowStyleBg }}
+      className={`group relative transition-colors ${rowBg}`}
+      style={{ 
+        color: row.style?.textColor, 
+        backgroundColor: rowStyleBg,
+        height: { compact: 28, standard: 36, comfortable: 44 }[displayDensity] || 28
+      }}
       onMouseEnter={() => !isSummary && onRowMouseEnter(row.id)}
     >
       {/* Row number / checkbox */}
@@ -342,20 +350,15 @@ const V3RowComponent: React.FC<V3RowProps> = ({
           ...(isColSelected ? { boxShadow: 'inset 2px 0 0 0 #2563eb, inset -2px 0 0 0 #2563eb' } : {}),
         };
 
-        const isRangeTop = rangeEdges && rowIndex === rangeEdges.r0 && colIndex >= rangeEdges.c0 && colIndex <= rangeEdges.c1;
-        const isRangeBottom = rangeEdges && rowIndex === rangeEdges.r1 && colIndex >= rangeEdges.c0 && colIndex <= rangeEdges.c1;
-        const isRangeLeft = rangeEdges && colIndex === rangeEdges.c0 && rowIndex >= rangeEdges.r0 && rowIndex <= rangeEdges.r1;
-        const isRangeRight = rangeEdges && colIndex === rangeEdges.c1 && rowIndex >= rangeEdges.r0 && rowIndex <= rangeEdges.r1;
-
         return (
           <td
             key={col.id}
             className={`border-r border-b border-gray-200 px-2 relative transition-colors cursor-default
               ${col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'}
               ${isSummary ? 'bg-gray-50' : ''}
-              ${isSelected && !cellStyle.backgroundColor && !isSummary ? 'bg-blue-50/50' : ''}
-              ${inRange && !isFocused ? 'bg-blue-50/60' : ''}
-              ${isColSelected && !isSelected && !inRange && !cellStyle.backgroundColor ? 'bg-blue-50/30' : ''}
+              ${isSelected && !cellStyle.backgroundColor && !isSummary ? 'bg-blue-50' : ''}
+              ${inRange ? 'bg-blue-50' : ''}
+              ${isColSelected && !isSelected && !inRange && !cellStyle.backgroundColor ? 'bg-blue-50' : ''}
               ${isFillRangeCell && !cellStyle.backgroundColor ? 'bg-blue-50/60' : ''}
               ${col.type === 'formula' && !cellStyle.backgroundColor && !isColSelected ? 'bg-amber-50/40' : ''}
               ${isEditing ? 'cursor-text' : ''}
@@ -372,18 +375,32 @@ const V3RowComponent: React.FC<V3RowProps> = ({
             onMouseDown={(e) => !isSummary && onCellMouseDown(row.id, col.id, e)}
             onMouseEnter={() => !isSummary && onCellMouseEnter(row.id, col.id)}
           >
-            {/* Range selection edges (Unified Border) */}
-            {inRange && (
-              <div className="absolute inset-0 pointer-events-none z-20">
-                {isRangeTop && <div className="absolute top-0 left-0 right-0 h-0.5 bg-blue-600" />}
-                {isRangeBottom && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />}
-                {isRangeLeft && <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-blue-600" />}
-                {isRangeRight && <div className="absolute right-0 top-0 bottom-0 w-0.5 bg-blue-600" />}
-              </div>
-            )}
             {/* Focus ring */}
             {isFocused && !isEditing && (
               <div className="absolute inset-0 border-2 border-blue-600 pointer-events-none z-20 shadow-[inset_0_0_0_1px_rgba(37,99,235,0.3)]" />
+            )}
+
+            {/* Range Borders — rendered on the edges of the range */}
+            {inRange && !isSummary && (
+              <div className="absolute inset-0 pointer-events-none z-[25]">
+                {isRangeTopRow && <div className="absolute top-0 left-0 right-0 h-0.5 bg-blue-600" />}
+                {isRangeBottomRow && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />}
+                {col.id === rangeStartColId && <div className="absolute top-0 bottom-0 left-0 w-0.5 bg-blue-600" />}
+                {col.id === rangeEndColId && <div className="absolute top-0 bottom-0 right-0 w-0.5 bg-blue-600" />}
+                
+                {/* Fill handle only at the absolute bottom-right of the range */}
+                {isRangeBottomRow && col.id === rangeEndColId && (
+                  <div 
+                    className="absolute w-2.5 h-2.5 bg-blue-600 border-2 border-white rounded-sm pointer-events-auto cursor-crosshair shadow-sm z-30"
+                    style={{ bottom: -5, right: -5 }}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onFillHandleMouseDown(row.id, col.id);
+                    }}
+                  />
+                )}
+              </div>
             )}
             {/* Fill range dashed border */}
             {isFillRangeCell && (
@@ -422,21 +439,6 @@ const V3RowComponent: React.FC<V3RowProps> = ({
               </div>
             )}
 
-            {/* Fill handle — larger transparent hit area with centered visual square */}
-            {isFillHandle && (
-              <div
-                className="absolute z-30 cursor-crosshair select-none flex items-end justify-end"
-                style={{ bottom: -8, right: -8, width: 18, height: 18, padding: 3 }}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  ignoreCellClick.current = true;
-                  onFillHandleMouseDown(row.id, col.id);
-                }}
-              >
-                <div style={{ width: 9, height: 9, backgroundColor: '#1a73e8', border: '2px solid white', borderRadius: 1, boxShadow: '0 0 0 1px #1a73e8' }} />
-              </div>
-            )}
           </td>
         );
       })}
