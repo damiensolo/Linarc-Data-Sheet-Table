@@ -201,17 +201,21 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
   }, []);
 
   const activeView = useMemo<View>(() => {
-    if (activeViewId === null) {
-      if (transientView && transientView.type === activeViewMode) {
-        return transientView;
-      }
-      return { id: `transient-${Date.now()}`, name: 'Default View', ...getDefaultViewConfig(activeViewMode) };
+    if (activeViewId !== null) {
+      const foundView = views.find(v => v.id === activeViewId);
+      if (foundView) return foundView;
     }
-    const foundView = views.find(v => v.id === activeViewId);
-    if (!foundView) {
-        return { id: `transient-fallback-${Date.now()}`, name: 'Default View', ...getDefaultViewConfig(activeViewMode) };
+    
+    // Fallback to transient view or a stable default
+    if (transientView && transientView.type === activeViewMode) {
+      return transientView;
     }
-    return foundView;
+    
+    return { 
+      id: `transient-${activeViewMode}`, 
+      name: `Default ${activeViewMode.charAt(0).toUpperCase() + activeViewMode.slice(1)}`, 
+      ...getDefaultViewConfig(activeViewMode) 
+    } as View;
   }, [views, activeViewId, activeViewMode, transientView]);
 
   const activeViewRef = useRef<View>(activeView);

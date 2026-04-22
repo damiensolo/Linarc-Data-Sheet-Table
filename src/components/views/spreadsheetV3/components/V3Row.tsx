@@ -66,6 +66,7 @@ interface V3RowProps {
   onCellMouseEnter: (rowId: string, colId: string) => void;
   onFillHandleMouseDown: (rowId: string, colId: string) => void;
   onRowMouseEnter: (rowId: string) => void;
+  allRows: V3Row[];
 }
 
 const HEIGHT: Record<string, string> = { compact: 'h-7', standard: 'h-9', comfortable: 'h-11' };
@@ -78,7 +79,7 @@ const V3RowComponent: React.FC<V3RowProps> = ({
   fillAnchorCell, fillRangeRowIds, cutColId, cutCellColIds, liveEdit, activeEditSource,
   onToggleSelect, onToggleExpand, onCellClick, onCellDoubleClick,
   onLiveEditChange, onStopEdit, onUpdateCell, onContextMenu, onCellMouseDown, onCellMouseEnter,
-  onFillHandleMouseDown, onRowMouseEnter,
+  onFillHandleMouseDown, onRowMouseEnter, allRows,
 }) => {
   const hClass = HEIGHT[displayDensity] ?? 'h-7';
   const hasChildren = !!row.children?.length;
@@ -176,7 +177,7 @@ const V3RowComponent: React.FC<V3RowProps> = ({
       if (col.isTotal && row.children) {
         const sum = row.children.reduce((acc, c) => {
           const v = col.type === 'formula' && col.formula
-            ? Number(evaluateFormula(col.formula, c.cells) || 0)
+            ? Number(evaluateFormula(col.formula, c.cells, allRows, columns) || 0)
             : Number(c.cells[col.id] || 0);
           return acc + v;
         }, 0);
@@ -196,7 +197,7 @@ const V3RowComponent: React.FC<V3RowProps> = ({
 
     if (isFormulaCol || isManualFormula) {
       const formula = isFormulaCol ? col.formula! : (raw as string);
-      const result = evaluateFormula(formula, row.cells);
+      const result = evaluateFormula(formula, row.cells, allRows, columns);
       return (
         <span className={`${isFormulaCol ? 'text-blue-700' : 'text-blue-600'} font-medium`}>
           {typeof result === 'number' 
@@ -328,8 +329,9 @@ const V3RowComponent: React.FC<V3RowProps> = ({
         {/* Custom border stripes */}
         {row.style?.borderColor && (
           <>
-            <div className="absolute top-0 left-0 right-0 h-px pointer-events-none z-40" style={{ backgroundColor: row.style.borderColor }} />
-            <div className="absolute bottom-0 left-0 right-0 h-px pointer-events-none z-40" style={{ backgroundColor: row.style.borderColor }} />
+            <div className="absolute top-0 left-0 right-0 h-[2px] pointer-events-none z-40" style={{ backgroundColor: row.style.borderColor }} />
+            <div className="absolute bottom-0 left-0 right-0 h-[2px] pointer-events-none z-40" style={{ backgroundColor: row.style.borderColor }} />
+            <div className="absolute top-0 bottom-0 left-0 w-[2px] pointer-events-none z-40" style={{ backgroundColor: row.style.borderColor }} />
           </>
         )}
       </td>
@@ -352,8 +354,8 @@ const V3RowComponent: React.FC<V3RowProps> = ({
           width: col.width,
           minWidth: col.width,
           maxWidth: col.width,
-          backgroundColor: cellStyle.backgroundColor ?? rowStyleBg,
-          color: cellStyle.textColor ?? undefined,
+          backgroundColor: cellStyle.backgroundColor || rowStyleBg || undefined,
+          color: cellStyle.textColor || row.style?.textColor || undefined,
           ...(isColSelected ? { boxShadow: 'inset 2px 0 0 0 #2563eb, inset -2px 0 0 0 #2563eb' } : {}),
         };
 
@@ -370,6 +372,7 @@ const V3RowComponent: React.FC<V3RowProps> = ({
               ${col.type === 'formula' && !cellStyle.backgroundColor && !isColSelected ? 'bg-amber-50/40' : ''}
               ${isEditing ? 'cursor-text' : ''}
             `}
+            data-bg-applied={cellStyle.backgroundColor}
             style={tdStyle}
             onClick={(e) => handleClick(row.id, col.id, e)}
             onDoubleClick={(e) => {
@@ -413,9 +416,16 @@ const V3RowComponent: React.FC<V3RowProps> = ({
             {isFillRangeCell && (
               <div className="absolute inset-0 border border-dashed border-blue-500 pointer-events-none z-20" />
             )}
+            {/* Custom row border */}
+            {row.style?.borderColor && !cellStyle.borderColor && (
+              <>
+                <div className="absolute top-0 left-0 right-0 h-[2px] pointer-events-none z-20" style={{ backgroundColor: row.style.borderColor }} />
+                <div className="absolute bottom-0 left-0 right-0 h-[2px] pointer-events-none z-20" style={{ backgroundColor: row.style.borderColor }} />
+              </>
+            )}
             {/* Custom cell border */}
-            {(cellStyle.borderColor || row.style?.borderColor) && (
-              <div className="absolute inset-0 border-2 pointer-events-none z-20" style={{ borderColor: cellStyle.borderColor ?? row.style?.borderColor }} />
+            {cellStyle.borderColor && (
+              <div className="absolute inset-0 border-2 pointer-events-none z-20" style={{ borderColor: cellStyle.borderColor }} />
             )}
             {/* Cut dashed border */}
             {isCutCell && (
@@ -451,7 +461,14 @@ const V3RowComponent: React.FC<V3RowProps> = ({
       })}
 
       {/* Add-column placeholder cell */}
-      <td className="border-r border-gray-200 bg-transparent" style={{ width: 44, minWidth: 44 }} />
+      <td className="border-r border-gray-200 bg-transparent relative" style={{ width: 44, minWidth: 44 }}>
+        {row.style?.borderColor && (
+           <>
+              <div className="absolute top-0 left-0 right-0 h-[2px] pointer-events-none z-20" style={{ backgroundColor: row.style.borderColor }} />
+              <div className="absolute bottom-0 left-0 right-0 h-[2px] pointer-events-none z-20" style={{ backgroundColor: row.style.borderColor }} />
+           </>
+        )}
+      </td>
 
       {/* Sticky right actions */}
       <td
@@ -460,7 +477,16 @@ const V3RowComponent: React.FC<V3RowProps> = ({
           ${!isAtEnd ? 'before:content-[""] before:absolute before:top-0 before:bottom-0 before:-left-[6px] before:w-[6px] before:bg-gradient-to-l before:from-black/[0.12] before:to-transparent before:pointer-events-none' : ''}
         `}
         style={{ width: ACTIONS_WIDTH, minWidth: ACTIONS_WIDTH, maxWidth: ACTIONS_WIDTH, backgroundColor: isSelected || isSummary || isGroup ? undefined : row.style?.backgroundColor }}
-      />
+      >
+        {/* Custom row border end */}
+        {row.style?.borderColor && (
+          <>
+            <div className="absolute top-0 left-0 right-0 h-[2px] pointer-events-none z-40" style={{ backgroundColor: row.style.borderColor }} />
+            <div className="absolute bottom-0 left-0 right-0 h-[2px] pointer-events-none z-40" style={{ backgroundColor: row.style.borderColor }} />
+            <div className="absolute top-0 bottom-0 right-0 w-[2px] pointer-events-none z-40" style={{ backgroundColor: row.style.borderColor }} />
+          </>
+        )}
+      </td>
     </tr>
   );
 };

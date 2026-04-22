@@ -94,6 +94,7 @@ export const Popover: React.FC<PopoverProps> = ({
       {isOpen && createPortal(
         <div
           ref={contentRef}
+          data-popover-content="true"
           className={cn(
             "fixed z-50 rounded-md border border-slate-200 bg-white shadow-md outline-none animate-in fade-in-0 zoom-in-95",
             className

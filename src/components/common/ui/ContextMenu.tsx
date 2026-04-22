@@ -42,15 +42,27 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ position, items, onClo
       setCoords({ x, y });
       setIsPositioned(true);
     }
-  }, [position]);
+  }, [position, items]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => { 
-        if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        const target = event.target as Node;
+        // Do not close if click originates from inside a Popover
+        if (target instanceof Element && target.closest('[data-popover-content="true"]')) {
+            return;
+        }
+        
+        if (menuRef.current && !menuRef.current.contains(target)) {
             onClose(); 
         }
     };
-    const handleScroll = () => { onClose(); };
+    const handleScroll = (event: Event) => {
+        const target = event.target as Node;
+        if (target instanceof Element && target.closest('[data-popover-content="true"]')) {
+            return;
+        }
+        onClose(); 
+    };
     const handleResize = () => { onClose(); };
 
     document.addEventListener('mousedown', handleClickOutside);
@@ -68,7 +80,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ position, items, onClo
     <div
       ref={menuRef}
       className={cn(
-        "fixed z-[9999] min-w-[220px] bg-white rounded-lg shadow-xl border border-gray-200 py-1.5 transition-all duration-75 origin-top-left",
+        "fixed z-[9999] min-w-[260px] bg-white rounded-lg shadow-xl border border-gray-200 py-1.5 transition-all duration-75 origin-top-left",
         isPositioned ? "opacity-100 scale-100" : "opacity-0 scale-95"
       )}
       style={{ top: coords.y, left: coords.x }}

@@ -9,10 +9,11 @@ import V3RowComponent from './components/V3Row';
 import SpreadsheetToolbar from '../spreadsheet/components/SpreadsheetToolbar';
 import AddColumnModal from './components/AddColumnModal';
 import { ContextMenu, ContextMenuItem } from '../../common/ui/ContextMenu';
+import ColorPicker from '../../common/ui/ColorPicker';
 import {
   PlusIcon, ScissorsIcon, CopyIcon, ClipboardIcon, TrashIcon,
   ArrowUpIcon, ArrowDownIcon, ChevronLeftIcon, ChevronRightIcon, XIcon,
-  FillColorIcon, IndentIcon, OutdentIcon,
+  FillColorIcon, IndentIcon, OutdentIcon, TextColorIcon, BorderColorIcon,
 } from '../../common/Icons';
 import { BACKGROUND_COLORS, TEXT_BORDER_COLORS } from '../../../constants/designTokens';
 import { SPREADSHEET_INDEX_COLUMN_WIDTH } from '../../../constants/spreadsheetLayout';
@@ -42,12 +43,12 @@ function flattenRows(rows: V3Row[], expandedIds: Set<string>, level = 0, showSub
 }
 
 // ─── Column totals ─────────────────────────────────────────────────────────────
-function sumColumn(rows: V3Row[], col: V3Column): number {
+function sumColumn(rows: V3Row[], col: V3Column, allRows: V3Row[], allColumns: V3Column[]): number {
   let total = 0;
   const recurse = (items: V3Row[]) => {
     for (const r of items) {
       const val = col.type === 'formula' && col.formula
-        ? Number(evaluateFormula(col.formula, r.cells) || 0)
+        ? Number(evaluateFormula(col.formula, r.cells, allRows, allColumns) || 0)
         : Number(r.cells[col.id] || 0);
       if (!r.children?.length) total += isNaN(val) ? 0 : val;
       if (r.children) recurse(r.children);
@@ -116,9 +117,28 @@ function collectExpandableIdsFromRow(row: V3Row): string[] {
 const SpreadsheetViewV3: React.FC = () => {
   const { activeView, updateView } = useProject();
 
-  // ── Sheets stored in the View object so duplication and persistence work ──
-  const sheets: V3Sheet[] = activeView.v3Sheets ?? [];
-  const showTemplatePicker = !activeView.v3Sheets || activeView.v3Sheets.length === 0;
+  // ── Sheet state sync ────────────────────────────────────────────────────────
+  const [localSheets, setLocalSheets] = useState<V3Sheet[]>(activeView.v3Sheets || []);
+  
+  // Sync context -> local
+  useEffect(() => {
+    if (activeView.v3Sheets) {
+      setLocalSheets(activeView.v3Sheets);
+    }
+  }, [activeView.v3Sheets]);
+
+  // Push local -> context
+  const setSheets = useCallback((updater: V3Sheet[] | ((prev: V3Sheet[]) => V3Sheet[])) => {
+    setLocalSheets(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      // We also update the project context immediately to keep everything in sync
+      updateView({ v3Sheets: next });
+      return next;
+    });
+  }, [updateView]);
+
+  const sheets = localSheets;
+  const showTemplatePicker = !sheets || sheets.length === 0;
 
   const [activeSheetId, setActiveSheetId] = useState<string>(() => activeView.v3ActiveSheetId ?? '');
 
@@ -130,19 +150,13 @@ const SpreadsheetViewV3: React.FC = () => {
 
   const handleSelectTemplate = (template: V3Template) => {
     const newSheets = createTemplateSheets(template);
-    updateView({ v3Sheets: newSheets, v3ActiveSheetId: newSheets[0].id });
-    setActiveSheetId(newSheets[0].id);
+    setSheets(newSheets);
+    handleSetActiveSheetId(newSheets[0].id);
   };
 
   // sheetsRef always holds the latest sheets — lets setSheets be stable (no stale closures)
-  const sheetsRef = useRef<V3Sheet[]>(activeView.v3Sheets ?? []);
-  sheetsRef.current = activeView.v3Sheets ?? [];
-
-  const setSheets = useCallback((updater: V3Sheet[] | ((prev: V3Sheet[]) => V3Sheet[])) => {
-    const next = typeof updater === 'function' ? updater(sheetsRef.current) : updater;
-    sheetsRef.current = next;
-    updateView({ v3Sheets: next });
-  }, [updateView]); // stable — does not depend on activeView.v3Sheets
+  const sheetsRef = useRef<V3Sheet[]>(sheets);
+  sheetsRef.current = sheets;
 
   const activeSheet = useMemo(() => sheets.find(s => s.id === activeSheetId) ?? sheets[0], [sheets, activeSheetId]);
 
@@ -248,7 +262,7 @@ const SpreadsheetViewV3: React.FC = () => {
   const flatRows = useMemo(() => {
     const showSub = activeSheet?.id !== 'sheet-schedule';
     return flattenRows(sortedRows, expandedIds, 0, showSub);
-  }, [sortedRows, expandedIds, activeSheet, sortedRows]);
+  }, [sortedRows, expandedIds, activeSheet]);
 
   const rangeMarkers = useMemo(() => {
     if (!rangeAnchor) return null;
@@ -326,13 +340,15 @@ const SpreadsheetViewV3: React.FC = () => {
   // ── Sheet helpers ─────────────────────────────────────────────────────
   const updateSheet = useCallback((updates: Partial<V3Sheet>) => {
     setSheets(prev => prev.map(s => s.id === activeSheetId ? { ...s, ...updates } : s));
-  }, [activeSheetId]);
+  }, [activeSheetId, setSheets]);
 
   const updateRows = useCallback((updater: (rows: V3Row[]) => V3Row[]) => {
-    setSheets(prev => prev.map(s =>
-      s.id === activeSheetId ? { ...s, rows: updater(s.rows) } : s
-    ));
-  }, [activeSheetId]);
+    setSheets(prev => {
+      const targetId = activeSheetId || (prev.length > 0 ? prev[0].id : null);
+      if (!targetId) return prev;
+      return prev.map(s => s.id === targetId ? { ...s, rows: updater(s.rows) } : s);
+    });
+  }, [activeSheetId, setSheets]);
 
   // ── Undo / Redo ────────────────────────────────────────────────────────
   const handleUndo = useCallback(() => {
@@ -340,14 +356,14 @@ const SpreadsheetViewV3: React.FC = () => {
     const prev = undoStack.current.pop()!;
     redoStack.current.push(JSON.parse(JSON.stringify(activeSheet.rows)));
     setSheets(s => s.map(sh => sh.id === activeSheetId ? { ...sh, rows: prev } : sh));
-  }, [activeSheet, activeSheetId]);
+  }, [activeSheet, activeSheetId, setSheets]);
 
   const handleRedo = useCallback(() => {
     if (!redoStack.current.length || !activeSheet) return;
     const next = redoStack.current.pop()!;
     undoStack.current.push(JSON.parse(JSON.stringify(activeSheet.rows)));
     setSheets(s => s.map(sh => sh.id === activeSheetId ? { ...sh, rows: next } : sh));
-  }, [activeSheet, activeSheetId]);
+  }, [activeSheet, activeSheetId, setSheets]);
 
   // ── Fill handle ────────────────────────────────────────────────────────
   const handleFillHandleMouseDown = useCallback((rowId: string, colId: string) => {
@@ -837,13 +853,80 @@ const SpreadsheetViewV3: React.FC = () => {
 
   // ── Style update ─────────────────────────────────────────────────────────
   const handleStyleUpdate = (style: Partial<V3CellStyle>, ids?: Set<string>) => {
-    const target = ids ?? selectedRowIds;
+    let target = ids;
+
+    if (!target) {
+      if (selectedRowIds.size > 0) {
+        target = selectedRowIds;
+      } else if (contextMenu?.rowId) {
+        target = new Set([contextMenu.rowId]);
+      }
+    }
+
+    if (!target || !target.size) return;
+    
+    if (activeSheet) {
+      undoStack.current.push(JSON.parse(JSON.stringify(activeSheet.rows)));
+      redoStack.current = [];
+    }
+
     const update = (rows: V3Row[]): V3Row[] => rows.map(r => {
       let next = r;
-      if (target.has(r.id)) {
-        const merged = { ...(r.style ?? {}), ...style };
-        Object.keys(style).forEach(k => { if ((style as any)[k] === undefined) delete (merged as any)[k]; });
+      if (target!.has(r.id)) {
+        const currentStyle = r.style ?? {};
+        const merged = { ...currentStyle, ...style };
+        Object.keys(style).forEach(k => { 
+          if ((style as any)[k] === undefined || (style as any)[k] === null) {
+            delete (merged as any)[k]; 
+          }
+        });
         next = { ...r, style: merged };
+      }
+      if (next.children) next = { ...next, children: update(next.children) };
+      return next;
+    });
+    updateRows(update);
+  };
+
+  const handleCellStyleUpdate = (style: Partial<V3CellStyle>, explicitRowIds?: Set<string>, explicitColIds?: Set<string>) => {
+    if (!activeSheet) return;
+    
+    let targetRowIds = explicitRowIds;
+    let colIds = explicitColIds;
+
+    if (!targetRowIds || !colIds) {
+      if (rangeSet) {
+        targetRowIds = new Set(flatRows.slice(rangeSet.r0, rangeSet.r1 + 1).map(f => f.row.id));
+        colIds = new Set(columns.slice(rangeSet.c0, rangeSet.c1 + 1).map(c => c.id));
+      } else if (focusedCell) {
+        targetRowIds = new Set([focusedCell.rowId]);
+        colIds = new Set([focusedCell.colId]);
+      } else if (contextMenu?.type === 'cell' && contextMenu.rowId && contextMenu.colId) {
+        targetRowIds = new Set([contextMenu.rowId]);
+        colIds = new Set([contextMenu.colId]);
+      }
+    }
+
+    if (!targetRowIds?.size || !colIds?.size) return;
+
+    undoStack.current.push(JSON.parse(JSON.stringify(activeSheet.rows)));
+    redoStack.current = [];
+
+    const update = (rows: V3Row[]): V3Row[] => rows.map(r => {
+      let next = r;
+      if (targetRowIds!.has(r.id)) {
+        const newCellStyles = { ...(r.cellStyles ?? {}) };
+        colIds!.forEach(cid => {
+          const currentStyle = newCellStyles[cid] ?? {};
+          const merged = { ...currentStyle, ...style };
+          Object.keys(style).forEach(k => { 
+            if ((style as any)[k] === undefined || (style as any)[k] === null) {
+              delete (merged as any)[k]; 
+            }
+          });
+          newCellStyles[cid] = merged;
+        });
+        next = { ...r, cellStyles: newCellStyles };
       }
       if (next.children) next = { ...next, children: update(next.children) };
       return next;
@@ -927,13 +1010,42 @@ const SpreadsheetViewV3: React.FC = () => {
       newId = `${newId}_${i}`;
     }
 
-    // 1. Update Columns (including formulas in other columns that refer to this one)
+    const oldCol = activeSheet.columns.find(c => c.id === oldId);
+    const oldLabel = oldCol?.label || '';
+
+    const updateFormula = (formula: string | undefined): string | undefined => {
+      if (!formula || !formula.startsWith('=')) return formula;
+      
+      const escL = oldLabel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const escI = oldId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+      // Match bracketed version [Old Label] or the ID/Label followed by digits or a boundary
+      const patterns: string[] = [];
+      if (oldLabel) patterns.push(`\\[${escL}\\]`);
+      
+      const ids: string[] = [escI];
+      if (oldLabel && !oldLabel.includes(' ')) ids.push(escL);
+      const uniqueIds = Array.from(new Set(ids.filter(Boolean)));
+      
+      if (uniqueIds.length > 0) {
+        // Match the ID/Label if it's either a standalone word or followed by row numbers
+        patterns.push(`\\b(${uniqueIds.join('|')})(?=\\b|\\d)`);
+      }
+
+      if (patterns.length === 0) return formula;
+      
+      const regex = new RegExp(patterns.join('|'), 'gi');
+      return formula.replace(regex, (match, p1) => {
+        if (match.startsWith('[')) return `[${newLabel}]`;
+        // If we matched the second pattern (standalone or with digits), replace only the identifier part
+        return newId;
+      });
+    };
+
+    // 1. Update Columns
     const newColumns = activeSheet.columns.map(c => {
       if (c.id === oldId) return { ...c, label: newLabel, id: newId };
-      if (c.type === 'formula' && c.formula && oldId !== newId) {
-        const regex = new RegExp(`\\b${oldId}\\b`, 'g');
-        return { ...c, formula: c.formula.replace(regex, newId) };
-      }
+      if (c.type === 'formula') return { ...c, formula: updateFormula(c.formula) };
       return c;
     });
 
@@ -944,13 +1056,10 @@ const SpreadsheetViewV3: React.FC = () => {
         cells[newId] = cells[oldId];
         delete cells[oldId];
       }
-      // Migrate row-specific formulas if we ever support them in non-formula columns
-      // (Currently formulas are mostly column-level or typed with '=')
       Object.keys(cells).forEach(key => {
         const val = cells[key];
-        if (typeof val === 'string' && val.startsWith('=') && oldId !== newId) {
-          const regex = new RegExp(`\\b${oldId}\\b`, 'g');
-          cells[key] = val.replace(regex, newId);
+        if (typeof val === 'string' && val.startsWith('=')) {
+          cells[key] = updateFormula(val) as string;
         }
       });
 
@@ -1300,6 +1409,27 @@ const SpreadsheetViewV3: React.FC = () => {
 
     // ── Cell context menu ─────────────────────────────────────────────────
     if (type === 'cell' && rowId && colId) {
+      const renderColorRow = (l: string, i: React.ReactNode, t: 'bg' | 'text' | 'border', onClrClose: () => void) => (
+        <div className="flex items-center justify-between px-3 py-1 hover:bg-gray-50 transition-colors">
+          <div className="flex items-center gap-2 flex-1 mr-3">
+            <span className="text-gray-600 flex-shrink-0">{i}</span>
+            <span className="text-[11px] text-gray-900 font-medium whitespace-nowrap">{l}</span>
+          </div>
+          <div className="flex-shrink-0">
+            <ColorPicker
+              icon={<div className="w-3.5 h-3.5 rounded-full border border-gray-300" style={{ backgroundColor: '#fff' }} />}
+              label={l}
+              onColorSelect={(color) => {
+                const s = t === 'bg' ? { backgroundColor: color } : t === 'text' ? { textColor: color } : { borderColor: color };
+                handleCellStyleUpdate(s);
+                onClrClose();
+              }}
+              presets={t === 'bg' ? BACKGROUND_COLORS : TEXT_BORDER_COLORS}
+            />
+          </div>
+        </div>
+      );
+
       return [
         { label: 'Cut',   icon: <ScissorsIcon className="w-4 h-4" />,   shortcut: '⌘X', onClick: () => contextMenuCellCopy(rowId, colId, true) },
         { label: 'Copy',  icon: <CopyIcon className="w-4 h-4" />,        shortcut: '⌘C', onClick: () => contextMenuCellCopy(rowId, colId, false) },
@@ -1314,23 +1444,9 @@ const SpreadsheetViewV3: React.FC = () => {
         { label: 'Indent row',  shortcut: '⌘]',  icon: <IndentIcon className="w-4 h-4" />,  onClick: () => handleIndentRow(rowId) },
         { label: 'Outdent row', shortcut: '⌘[', icon: <OutdentIcon className="w-4 h-4" />, onClick: () => handleOutdentRow(rowId) },
         { separator: true } as any,
-        {
-          label: 'Background Color', icon: <FillColorIcon className="w-4 h-4 text-gray-600" />, onClick: () => {},
-          render: (onClose) => (
-            <div className="px-3 py-2">
-              <div className="text-[10px] text-gray-500 mb-1.5 font-semibold uppercase tracking-wide">Background</div>
-              <div className="flex flex-wrap gap-1">
-                <button className="w-5 h-5 rounded border border-gray-300 text-gray-400 text-xs flex items-center justify-center hover:bg-gray-100 font-bold"
-                  onClick={() => { handleStyleUpdate({ backgroundColor: undefined }, new Set([rowId])); onClose(); }}>✕</button>
-                {BACKGROUND_COLORS.map(c => (
-                  <button key={c} className="w-5 h-5 rounded-full border border-gray-200 hover:scale-110 transition-transform"
-                    style={{ backgroundColor: c }}
-                    onClick={() => { handleStyleUpdate({ backgroundColor: c }, new Set([rowId])); onClose(); }} />
-                ))}
-              </div>
-            </div>
-          ),
-        } as any,
+        { label: 'Cell Background', render: (close) => renderColorRow('Cell Background', <FillColorIcon className="w-4 h-4" />, 'bg', close) } as any,
+        { label: 'Cell Text Color', render: (close) => renderColorRow('Cell Text Color', <TextColorIcon className="w-4 h-4" />, 'text', close) } as any,
+        { label: 'Cell Border Color', render: (close) => renderColorRow('Cell Border Color', <BorderColorIcon className="w-4 h-4" />, 'border', close) } as any,
         { separator: true } as any,
         { label: 'Delete row', icon: <TrashIcon className="w-4 h-4" />, danger: true, onClick: () => handleDeleteRows(new Set([rowId])) },
       ];
@@ -1338,6 +1454,27 @@ const SpreadsheetViewV3: React.FC = () => {
 
     // ── Row context menu (row number click) ──────────────────────────────
     if (rowId) {
+      const renderRowColorRow = (l: string, i: React.ReactNode, t: 'bg' | 'text' | 'border', onClrClose: () => void) => (
+        <div className="flex items-center justify-between px-3 py-1 hover:bg-gray-50 transition-colors">
+          <div className="flex items-center gap-2 flex-1 mr-3">
+            <span className="text-gray-600 flex-shrink-0">{i}</span>
+            <span className="text-[11px] text-gray-900 font-medium whitespace-nowrap">{l}</span>
+          </div>
+          <div className="flex-shrink-0">
+            <ColorPicker
+              icon={<div className="w-3.5 h-3.5 rounded-full border border-gray-300" style={{ backgroundColor: '#fff' }} />}
+              label={l}
+              onColorSelect={(color) => {
+                const s = t === 'bg' ? { backgroundColor: color } : t === 'text' ? { textColor: color } : { borderColor: color };
+                handleStyleUpdate(s);
+                onClrClose();
+              }}
+              presets={t === 'bg' ? BACKGROUND_COLORS : TEXT_BORDER_COLORS}
+            />
+          </div>
+        </div>
+      );
+
       return [
         { label: 'Insert row above', icon: <ArrowUpIcon className="w-4 h-4" />,   onClick: () => handleInsertRow(rowId) },
         { label: 'Insert row below', icon: <ArrowDownIcon className="w-4 h-4" />, onClick: () => handleInsertRow(rowId) },
@@ -1346,23 +1483,9 @@ const SpreadsheetViewV3: React.FC = () => {
         { label: 'Indent row',  icon: <IndentIcon className="w-4 h-4" />,  onClick: () => handleIndentRow(rowId) },
         { label: 'Outdent row', icon: <OutdentIcon className="w-4 h-4" />, onClick: () => handleOutdentRow(rowId) },
         { separator: true } as any,
-        {
-          label: 'Background Color', icon: <FillColorIcon className="w-4 h-4 text-gray-600" />, onClick: () => {},
-          render: (onClose) => (
-            <div className="px-3 py-2">
-              <div className="text-[10px] text-gray-500 mb-1.5 font-semibold uppercase tracking-wide">Background</div>
-              <div className="flex flex-wrap gap-1">
-                <button className="w-5 h-5 rounded border border-gray-300 text-gray-400 text-xs flex items-center justify-center hover:bg-gray-100 font-bold"
-                  onClick={() => { handleStyleUpdate({ backgroundColor: undefined }, new Set([rowId])); onClose(); }}>✕</button>
-                {BACKGROUND_COLORS.map(c => (
-                  <button key={c} className="w-5 h-5 rounded-full border border-gray-200 hover:scale-110 transition-transform"
-                    style={{ backgroundColor: c }}
-                    onClick={() => { handleStyleUpdate({ backgroundColor: c }, new Set([rowId])); onClose(); }} />
-                ))}
-              </div>
-            </div>
-          ),
-        } as any,
+        { label: 'Row Background', render: (close) => renderRowColorRow('Row Background', <FillColorIcon className="w-4 h-4" />, 'bg', close) } as any,
+        { label: 'Row Text Color', render: (close) => renderRowColorRow('Row Text Color', <TextColorIcon className="w-4 h-4" />, 'text', close) } as any,
+        { label: 'Row Border Color', render: (close) => renderRowColorRow('Row Border Color', <BorderColorIcon className="w-4 h-4" />, 'border', close) } as any,
         { separator: true } as any,
         { label: 'Delete row', icon: <TrashIcon className="w-4 h-4" />, danger: true, onClick: () => handleDeleteRows(new Set([rowId])) },
       ];
@@ -1371,14 +1494,16 @@ const SpreadsheetViewV3: React.FC = () => {
     return [];
   };
 
+  const memoizedRows = useMemo(() => flatRows.map(f => f.row), [flatRows]);
+
   // ── Totals ────────────────────────────────────────────────────────────
   const totals = useMemo(() => {
     const result: Record<string, number> = {};
     for (const col of columns) {
-      if (col.isTotal) result[col.id] = sumColumn(activeSheet?.rows ?? [], col);
+      if (col.isTotal) result[col.id] = sumColumn(activeSheet?.rows ?? [], col, memoizedRows, columns);
     }
     return result;
-  }, [columns, activeSheet]);
+  }, [columns, activeSheet, memoizedRows]);
 
   // ── Formula bar selection ─────────────────────────────────────────────
   const formulaBarSelection = useMemo(() => {
@@ -1392,7 +1517,7 @@ const SpreadsheetViewV3: React.FC = () => {
     handleUpdateCell(rowId, colId, value);
   };
 
-  // ── Template picker shown until user picks ────────────────────────────
+  // ── Early returns (AFTER all hooks) ──────────────────────────────────
   if (showTemplatePicker) return <TemplatePicker onSelect={handleSelectTemplate} />;
   if (!activeSheet) return null;
 
@@ -1436,7 +1561,7 @@ const SpreadsheetViewV3: React.FC = () => {
         {/* ── Formula bar ── */}
         <FormulaBar
           selection={formulaBarSelection}
-          rows={flatRows.map(f => f.row)}
+          rows={memoizedRows}
           columns={columns}
           liveEdit={liveCellEdit}
           onStartEdit={handleFormulaBarStartEdit}
@@ -1527,6 +1652,7 @@ const SpreadsheetViewV3: React.FC = () => {
                   activeEditSource={editSource}
                   onLiveEditChange={handleLiveCellEditChange}
                   onStopEdit={() => { setEditingCell(null); setEditSource(null); setLiveCellEdit(null); }}
+                  allRows={memoizedRows}
                 />
               ))}
             </tbody>
