@@ -3,6 +3,11 @@
 
 export type V3ColumnType = 'text' | 'number' | 'currency' | 'date' | 'formula' | 'select' | 'checkbox';
 
+export interface V3SelectOption {
+  label: string;
+  color?: string; // Optional hex color for the status dot
+}
+
 export interface V3Column {
   id: string;
   label: string;
@@ -12,8 +17,8 @@ export interface V3Column {
   visible?: boolean;
   editable?: boolean;
   isTotal?: boolean;
-  /** For 'select' columns: list of options */
-  options?: string[];
+  /** For 'select' columns: list of options (can be strings or objects with color) */
+  options?: (string | V3SelectOption)[];
   /** For 'formula' columns: the formula string e.g. "=labor+material+equipment" */
   formula?: string;
 }

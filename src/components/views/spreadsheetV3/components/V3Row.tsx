@@ -212,12 +212,20 @@ const V3RowComponent: React.FC<V3RowProps> = ({
     if (col.type === 'checkbox') return (
       <input type="checkbox" checked={!!raw} readOnly className="h-4 w-4 rounded border-gray-300 text-blue-600 cursor-pointer" />
     );
-    if (col.type === 'select' && raw) {
-      const colorClass = STATUS_COLORS[String(raw)] ?? 'bg-gray-100 text-gray-600';
+    if (col.type === 'select') {
+      const val = String(raw || '');
+      const option = col.options?.find(o => 
+        typeof o === 'string' ? o === val : o.label === val
+      );
+      const color = (typeof option === 'object' && option.color) ? option.color : undefined;
+      const bgClass = STATUS_COLORS[val] ?? 'bg-gray-100 text-gray-700';
+
       return (
-        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${colorClass}`}>
-          {String(raw)}
-        </span>
+        <div className={`group/select inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold border transition-all ${color ? 'bg-white border-gray-200 text-gray-700 shadow-sm' : bgClass}`}>
+          {color && <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />}
+          <span>{val || '—'}</span>
+          <ChevronDownIcon className="w-2.5 h-2.5 text-gray-400 group-hover/select:text-gray-600 transition-colors" />
+        </div>
       );
     }
     if (col.type === 'date' && raw) {

@@ -20,6 +20,7 @@ import { SPREADSHEET_INDEX_COLUMN_WIDTH } from '../../../constants/spreadsheetLa
 import { useProject } from '../../../context/ProjectContext';
 import { COLUMN_TYPES } from './components/AddColumnModal';
 import { V3ColumnType } from './types';
+import { Pencil } from 'lucide-react';
 
 // ─── Flat row representation for rendering ────────────────────────────────────
 interface FlatRow {
@@ -199,7 +200,7 @@ const SpreadsheetViewV3: React.FC = () => {
   const density = (activeView?.displayDensity ?? 'compact') as 'compact' | 'standard' | 'comfortable';
   const fontSize = activeView?.fontSize ?? 12;
   const [showAddColumn, setShowAddColumn] = useState(false);
-  const [editingColumnId, setEditingColumnId] = useState<string | null>(null);
+  const [editingColumn, setEditingColumn] = useState<{ id: string; targetType?: V3ColumnType } | null>(null);
   const [addRowCount, setAddRowCount] = useState(10);
   const [contextMenu, setContextMenu] = useState<{
     visible: boolean; position: { x: number; y: number };
@@ -1423,7 +1424,7 @@ const SpreadsheetViewV3: React.FC = () => {
                       }`}
                     onClick={(e) => {
                       if (ct.id === 'formula' || ct.id === 'select') {
-                        setEditingColumnId(colId);
+                        setEditingColumn({ id: colId, targetType: ct.id });
                       } else {
                         handleUpdateColumn(colId, {
                           type: ct.id,
@@ -1444,8 +1445,8 @@ const SpreadsheetViewV3: React.FC = () => {
           ),
         } as any,
         {
-          label: 'Edit Column…', icon: <span className="w-4 h-4 flex items-center justify-center text-gray-500 text-xs">✎</span>,
-          onClick: () => setEditingColumnId(colId),
+          label: 'Edit Column…', icon: <Pencil className="w-4 h-4 text-gray-500" />,
+          onClick: () => setEditingColumn({ id: colId }),
         },
         { separator: true } as any,
         { label: 'Clear column',  icon: <XIcon className="w-4 h-4" />,      onClick: () => handleClearColumn(colId) },
@@ -1789,18 +1790,23 @@ const SpreadsheetViewV3: React.FC = () => {
       {showAddColumn && (
         <AddColumnModal onAdd={handleAddColumn} onClose={() => setShowAddColumn(false)} />
       )}
-      {editingColumnId && (() => {
-        const col = columns.find(c => c.id === editingColumnId);
+      {editingColumn && (() => {
+        const col = columns.find(c => c.id === editingColumn.id);
         if (!col) return null;
         return (
           <AddColumnModal
             mode="edit"
-            initialValues={{ label: col.label, type: col.type, formula: col.formula, options: col.options }}
-            onAdd={(updates) => {
-              handleUpdateColumn(editingColumnId, updates);
-              setEditingColumnId(null);
+            initialValues={{ 
+              label: col.label, 
+              type: editingColumn.targetType ?? col.type, 
+              formula: col.formula, 
+              options: col.options 
             }}
-            onClose={() => setEditingColumnId(null)}
+            onAdd={(updates) => {
+              handleUpdateColumn(editingColumn.id, updates);
+              setEditingColumn(null);
+            }}
+            onClose={() => setEditingColumn(null)}
           />
         );
       })()}
