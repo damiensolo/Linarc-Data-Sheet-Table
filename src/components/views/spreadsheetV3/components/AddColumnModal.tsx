@@ -100,7 +100,7 @@ const AddColumnModal: React.FC<AddColumnModalProps> = ({ onAdd, onClose, mode = 
                 placeholder="=labor+material+equipment"
                 className="w-full px-3 py-2 text-sm font-mono border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
-              <p className="mt-1 text-xs text-gray-400">Reference other column IDs. E.g. =labor+material</p>
+              <p className="mt-1 text-xs text-gray-400">Reference other column names or cell IDs. E.g. =Labor+Material or =A1+B1</p>
             </div>
           )}
 
