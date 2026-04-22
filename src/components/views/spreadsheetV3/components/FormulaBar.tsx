@@ -114,7 +114,7 @@ const FormulaBar: React.FC<FormulaBarProps> = ({ selection, rows, columns, liveE
             inputRef.current?.blur();
           }
         }}
-        placeholder={selection ? (selectedCol?.editable ? 'Enter value or formula (e.g. =Labor+[Material Cost] or =A1+B2)' : 'Read-only formula') : 'Select a cell'}
+        placeholder={selection ? (selectedCol?.editable ? 'Enter value or formula (e.g. =Labor+Material Cost or =A1+B2)' : 'Read-only formula') : 'Select a cell'}
         className={`flex-1 h-full min-h-[26px] px-3 text-xs font-mono text-gray-800 outline-none bg-transparent transition-colors
           ${isEditing ? 'bg-blue-50' : ''}
           ${!selection ? 'text-gray-400' : ''}

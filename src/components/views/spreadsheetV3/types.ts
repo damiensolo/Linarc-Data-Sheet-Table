@@ -179,6 +179,7 @@ export function evaluateFormula(
 
     // Safe numeric eval
     // eslint-disable-next-line no-new-func
+    const result = new Function(`return ${evalExpr}`)();
     return typeof result === 'number' && !isNaN(result) ? result : null;
   } catch {
     return '#ERR';

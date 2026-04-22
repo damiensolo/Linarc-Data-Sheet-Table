@@ -934,6 +934,52 @@ const SpreadsheetViewV3: React.FC = () => {
     updateRows(update);
   };
 
+  const handleClearAllStyling = (type: 'row' | 'cell', rId?: string, cId?: string) => {
+    if (!activeSheet) return;
+    undoStack.current.push(JSON.parse(JSON.stringify(activeSheet.rows)));
+    redoStack.current = [];
+
+    if (type === 'row') {
+      const targetRows = rId ? new Set([rId]) : (selectedRowIds.size > 0 ? selectedRowIds : new Set());
+      if (targetRows.size === 0) return;
+      updateRows(rows => {
+        const update = (items: V3Row[]): V3Row[] => items.map(r => {
+          let next = r;
+          if (targetRows.has(r.id)) next = { ...r, style: undefined, cellStyles: undefined };
+          if (next.children) next.children = update(next.children);
+          return next;
+        });
+        return update(rows);
+      });
+    } else {
+      let targetRows: Set<string>;
+      let targetCols: Set<string>;
+      if (rangeSet) {
+        targetRows = new Set(flatRows.slice(rangeSet.r0, rangeSet.r1 + 1).map(f => f.row.id));
+        targetCols = new Set(columns.slice(rangeSet.c0, rangeSet.c1 + 1).map(c => c.id));
+      } else {
+        const rid = rId || focusedCell?.rowId;
+        const cid = cId || focusedCell?.colId;
+        if (!rid || !cid) return;
+        targetRows = new Set([rid]);
+        targetCols = new Set([cid]);
+      }
+      updateRows(rows => {
+        const update = (items: V3Row[]): V3Row[] => items.map(r => {
+          let next = r;
+          if (targetRows.has(r.id)) {
+            const newCellStyles = { ...(r.cellStyles ?? {}) };
+            targetCols.forEach(cid => delete newCellStyles[cid]);
+            next = { ...r, cellStyles: newCellStyles };
+          }
+          if (next.children) next.children = update(next.children);
+          return next;
+        });
+        return update(rows);
+      });
+    }
+  };
+
   // ── Column CRUD ────────────────────────────────────────────────────────
   const handleAddColumn = (colDef: Omit<V3Column, 'id'>) => {
     let newId = slugifyLabel(colDef.label);
@@ -1447,6 +1493,7 @@ const SpreadsheetViewV3: React.FC = () => {
         { label: 'Cell Background', render: (close) => renderColorRow('Cell Background', <FillColorIcon className="w-4 h-4" />, 'bg', close) } as any,
         { label: 'Cell Text Color', render: (close) => renderColorRow('Cell Text Color', <TextColorIcon className="w-4 h-4" />, 'text', close) } as any,
         { label: 'Cell Border Color', render: (close) => renderColorRow('Cell Border Color', <BorderColorIcon className="w-4 h-4" />, 'border', close) } as any,
+        { label: 'Clear all styling', icon: <XIcon className="w-4 h-4" />, onClick: () => handleClearAllStyling('cell', rowId, colId) },
         { separator: true } as any,
         { label: 'Delete row', icon: <TrashIcon className="w-4 h-4" />, danger: true, onClick: () => handleDeleteRows(new Set([rowId])) },
       ];
@@ -1486,6 +1533,7 @@ const SpreadsheetViewV3: React.FC = () => {
         { label: 'Row Background', render: (close) => renderRowColorRow('Row Background', <FillColorIcon className="w-4 h-4" />, 'bg', close) } as any,
         { label: 'Row Text Color', render: (close) => renderRowColorRow('Row Text Color', <TextColorIcon className="w-4 h-4" />, 'text', close) } as any,
         { label: 'Row Border Color', render: (close) => renderRowColorRow('Row Border Color', <BorderColorIcon className="w-4 h-4" />, 'border', close) } as any,
+        { label: 'Clear all styling', icon: <XIcon className="w-4 h-4" />, onClick: () => handleClearAllStyling('row', rowId) },
         { separator: true } as any,
         { label: 'Delete row', icon: <TrashIcon className="w-4 h-4" />, danger: true, onClick: () => handleDeleteRows(new Set([rowId])) },
       ];
