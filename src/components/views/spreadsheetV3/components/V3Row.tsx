@@ -141,7 +141,7 @@ const V3RowComponent: React.FC<V3RowProps> = ({
     if (editingCell?.rowId === row.id) {
       editMountTime.current = Date.now();
     }
-  }, [editingCell]);
+  }, [editingCell, columns, row.id]);
 
   const handleKeyDown = (e: React.KeyboardEvent, colId: string) => {
     e.stopPropagation();
@@ -166,9 +166,12 @@ const V3RowComponent: React.FC<V3RowProps> = ({
     if (isSummary) return;
     if (ignoreCellClick.current) { ignoreCellClick.current = false; return; }
     
-    // In Navigation Mode, a single click just selects the cell.
-    // If we are already editing, SpreadsheetViewV3 will handle the click-outside.
-    onCellClick(rowId, colId, e);
+    const col = columns.find(c => c.id === colId);
+    if (col?.type === 'select') {
+      onCellDoubleClick(rowId, colId);
+    } else {
+      onCellClick(rowId, colId, e);
+    }
   };
 
   const renderCellContent = (col: V3Column): React.ReactNode => {
@@ -221,10 +224,16 @@ const V3RowComponent: React.FC<V3RowProps> = ({
       const bgClass = STATUS_COLORS[val] ?? 'bg-gray-100 text-gray-700';
 
       return (
-        <div className={`group/select inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold border transition-all ${color ? 'bg-white border-gray-200 text-gray-700 shadow-sm' : bgClass}`}>
-          {color && <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />}
-          <span>{val || '—'}</span>
-          <ChevronDownIcon className="w-2.5 h-2.5 text-gray-400 group-hover/select:text-gray-600 transition-colors" />
+        <div className="flex items-center w-full h-full">
+          {val ? (
+            <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${color ? 'bg-white border-gray-200 text-gray-700 shadow-sm' : bgClass}`}>
+              {color && <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />}
+              <span>{val}</span>
+            </div>
+          ) : (
+            <span className="text-gray-400 italic text-[10px] opacity-0 group-hover/cell:opacity-100 transition-opacity">Select</span>
+          )}
+          <ChevronDownIcon className="w-3 h-3 text-gray-400 opacity-0 group-hover/cell:opacity-100 transition-opacity ml-auto" />
         </div>
       );
     }
@@ -237,18 +246,56 @@ const V3RowComponent: React.FC<V3RowProps> = ({
   const renderEditInput = (col: V3Column) => {
     if (col.type === 'select' && col.options?.length) {
       return (
-        <select
-          ref={selectRef}
-          defaultValue={String(row.cells[col.id] ?? '')}
-          onChange={(e) => { onUpdateCell(row.id, col.id, e.target.value); onStopEdit(); }}
-          onBlur={() => onStopEdit()}
+        <div 
+          className="absolute left-0 top-0 min-w-full bg-white border border-gray-200 rounded-md shadow-2xl z-[100] py-1 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200"
+          style={{ width: Math.max(col.width, 160) }}
           onClick={(e) => e.stopPropagation()}
-          autoFocus
-          className="absolute inset-0 w-full h-full px-2 bg-white border-2 border-blue-600 outline-none z-50 text-xs"
         >
-          <option value="">—</option>
-          {col.options.map(o => <option key={o} value={o}>{o}</option>)}
-        </select>
+          <div className="px-3 py-1.5 border-b border-gray-50 mb-1">
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Select Status</span>
+          </div>
+          
+          <div className="max-h-60 overflow-y-auto">
+            {col.options.map((o, idx) => {
+              const label = typeof o === 'string' ? o : o.label;
+              const color = typeof o === 'object' ? o.color : undefined;
+              const bgClass = STATUS_COLORS[label] ?? 'bg-gray-100 text-gray-700';
+
+              return (
+                <button
+                  key={idx}
+                  onClick={(e) => { 
+                    e.stopPropagation(); 
+                    onUpdateCell(row.id, col.id, label); 
+                    onStopEdit(); 
+                  }}
+                  className="w-full text-left px-3 py-2 hover:bg-gray-50 transition-colors flex items-center group/opt"
+                >
+                  <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold border transition-all group-hover/opt:scale-105 ${color ? 'bg-white border-gray-200 text-gray-700 shadow-sm' : bgClass}`}>
+                    {color && <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />}
+                    <span>{label}</span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mt-1 border-t border-gray-50 pt-1">
+            <button
+              onClick={(e) => { 
+                e.stopPropagation(); 
+                onUpdateCell(row.id, col.id, ''); 
+                onStopEdit(); 
+              }}
+              className="w-full text-left px-3 py-2 hover:bg-red-50 text-[10px] text-gray-400 hover:text-red-500 transition-colors flex items-center gap-2"
+            >
+              <div className="w-4 h-4 rounded-full border border-dashed border-gray-300 flex items-center justify-center">
+                <span className="w-2 h-[1px] bg-gray-300 rotate-45" />
+              </div>
+              Clear selection
+            </button>
+          </div>
+        </div>
       );
     }
     if (col.type === 'checkbox') {
@@ -364,19 +411,19 @@ const V3RowComponent: React.FC<V3RowProps> = ({
           maxWidth: col.width,
           backgroundColor: cellStyle.backgroundColor || rowStyleBg || undefined,
           color: cellStyle.textColor || row.style?.textColor || undefined,
-          ...(isColSelected ? { boxShadow: 'inset 2px 0 0 0 #2563eb, inset -2px 0 0 0 #2563eb' } : {}),
         };
 
         return (
           <td
             key={col.id}
-            className={`border-r border-b border-gray-200 px-2 relative transition-colors cursor-default
+            className={`border-r border-b border-gray-200 px-2 relative transition-colors cursor-default group/cell
               ${col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'}
               ${isSummary ? 'bg-gray-50' : ''}
               ${isSelected && !cellStyle.backgroundColor && !isSummary ? 'bg-blue-50' : ''}
               ${inRange ? 'bg-blue-50' : ''}
               ${isColSelected && !isSelected && !inRange && !cellStyle.backgroundColor ? 'bg-blue-50' : ''}
               ${isFillRangeCell && !cellStyle.backgroundColor ? 'bg-blue-50/60' : ''}
+              ${col.type === 'select' ? 'hover:bg-gray-50/80' : ''}
               ${col.type === 'formula' && !cellStyle.backgroundColor && !isColSelected ? 'bg-amber-50/40' : ''}
               ${isEditing ? 'cursor-text' : ''}
             `}
@@ -398,13 +445,21 @@ const V3RowComponent: React.FC<V3RowProps> = ({
               <div className="absolute inset-0 border-2 border-blue-600 pointer-events-none z-20 shadow-[inset_0_0_0_1px_rgba(37,99,235,0.3)]" />
             )}
 
+            {/* Column Selection Borders */}
+            {isColSelected && (
+              <div className="absolute inset-0 pointer-events-none z-[25]">
+                <div className="absolute top-[-1px] bottom-[-1px] left-0 w-[2px] bg-blue-600" />
+                <div className="absolute top-[-1px] bottom-[-1px] right-0 w-[2px] bg-blue-600" />
+              </div>
+            )}
+
             {/* Range Borders — rendered on the edges of the range */}
             {inRange && !isSummary && (
               <div className="absolute inset-0 pointer-events-none z-[25]">
-                {isRangeTopRow && <div className="absolute top-0 left-0 right-0 h-0.5 bg-blue-600" />}
-                {isRangeBottomRow && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />}
-                {col.id === rangeStartColId && <div className="absolute top-0 bottom-0 left-0 w-0.5 bg-blue-600" />}
-                {col.id === rangeEndColId && <div className="absolute top-0 bottom-0 right-0 w-0.5 bg-blue-600" />}
+                {isRangeTopRow && <div className="absolute top-[-1px] left-[-1px] right-[-1px] h-[2px] bg-blue-600" />}
+                {isRangeBottomRow && <div className="absolute bottom-[-1px] left-[-1px] right-[-1px] h-[2px] bg-blue-600" />}
+                {col.id === rangeStartColId && <div className="absolute top-[-1px] bottom-[-1px] left-[-1px] w-[2px] bg-blue-600" />}
+                {col.id === rangeEndColId && <div className="absolute top-[-1px] bottom-[-1px] right-[-1px] w-[2px] bg-blue-600" />}
                 
                 {/* Fill handle only at the absolute bottom-right of the range */}
                 {isRangeBottomRow && col.id === rangeEndColId && (
@@ -458,9 +513,9 @@ const V3RowComponent: React.FC<V3RowProps> = ({
                     {isExpanded ? <ChevronDownIcon className="w-3.5 h-3.5" /> : <ChevronRightIcon className="w-3.5 h-3.5" />}
                   </button>
                 )}
-                <span className="truncate text-xs" style={{ fontSize }}>
+                <div className="truncate text-xs w-full h-full" style={{ fontSize }}>
                   {renderCellContent(col)}
-                </span>
+                </div>
               </div>
             )}
 
