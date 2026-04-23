@@ -11,6 +11,7 @@ export interface ContextMenuItem {
   tooltip?: string;
   danger?: boolean;
   separator?: boolean;
+  hint?: string;          // Renders an amber inline warning banner instead of a normal item
   render?: (onClose: () => void) => React.ReactNode;
 }
 
@@ -95,6 +96,23 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ position, items, onClo
           return <div key={index} className="h-px bg-gray-200 my-1.5 mx-1" />;
         }
 
+        // Inline amber warning banner — explains why certain actions are blocked
+        if (item.hint) {
+          return (
+            <div
+              key={index}
+              className="mx-2 my-1 px-2.5 py-2 rounded-md bg-amber-50 border border-amber-200 flex items-start gap-2"
+            >
+              <span className="flex-shrink-0 mt-0.5 text-amber-500">
+                <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                </svg>
+              </span>
+              <span className="text-[10.5px] leading-[1.4] text-amber-800 font-medium">{item.hint}</span>
+            </div>
+          );
+        }
+
         if (item.render) {
           return <div key={index}>{item.render(onClose)}</div>;
         }
@@ -113,7 +131,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ position, items, onClo
             title={item.tooltip}
             className={cn(
               "w-full flex items-center px-3 py-2 text-xs text-left transition-colors relative",
-              item.disabled ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-100",
+              item.disabled ? "opacity-40 cursor-not-allowed" : "hover:bg-gray-100",
               item.danger ? "text-red-600 hover:bg-red-50" : "text-gray-700"
             )}
           >
