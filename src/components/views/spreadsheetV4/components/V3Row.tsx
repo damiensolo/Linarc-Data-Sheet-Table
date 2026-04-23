@@ -1,7 +1,87 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { V3Row, V3Column, V3CellStyle, CellValue, evaluateFormula } from '../types';
 import { ChevronRightIcon, ChevronDownIcon, AlertTriangleIcon } from '../../../common/Icons';
+import { Calendar } from '../../../common/ui/Calendar';
+import { format as formatDate, isValid as isValidDate } from 'date-fns';
 import { ROW_NUM_WIDTH, ACTIONS_WIDTH } from './V3Header';
+
+// ─── DateCellPicker ────────────────────────────────────────────────────────────
+// Renders the Shadcn-style Calendar in a portal anchored to the trigger element.
+// This bypasses the table's overflow:hidden clipping.
+
+interface DateCellPickerProps {
+  anchorRef: React.RefObject<HTMLElement>;
+  value: string | null | undefined;
+  onSelect: (dateStr: string) => void;
+  onClose: () => void;
+}
+
+const DateCellPicker: React.FC<DateCellPickerProps> = ({ anchorRef, value, onSelect, onClose }) => {
+  const [coords, setCoords] = useState({ top: 0, left: 0 });
+  const popupRef = useRef<HTMLDivElement>(null);
+
+  // Parse existing value
+  const parsed = value ? new Date(String(value)) : undefined;
+  const selected = parsed && isValidDate(parsed) ? parsed : undefined;
+
+  // Position the popup below the anchor cell
+  useLayoutEffect(() => {
+    if (anchorRef.current) {
+      const rect = anchorRef.current.getBoundingClientRect();
+      const POPUP_HEIGHT = 320;
+      const below = rect.bottom + 4;
+      const above = rect.top - POPUP_HEIGHT - 4;
+      const top = below + POPUP_HEIGHT > window.innerHeight - 8 && above > 8 ? above : below;
+      let left = rect.left;
+      const POPUP_WIDTH = 252;
+      if (left + POPUP_WIDTH > window.innerWidth - 8) left = window.innerWidth - POPUP_WIDTH - 8;
+      setCoords({ top, left });
+    }
+  }, [anchorRef]);
+
+  // Close on outside click
+  useEffect(() => {
+    const handleDown = (e: MouseEvent) => {
+      if (
+        popupRef.current && !popupRef.current.contains(e.target as Node) &&
+        anchorRef.current && !anchorRef.current.contains(e.target as Node)
+      ) {
+        onClose();
+      }
+    };
+    document.addEventListener('mousedown', handleDown);
+    return () => document.removeEventListener('mousedown', handleDown);
+  }, [onClose, anchorRef]);
+
+  // Focus calendar on mount for keyboard nav
+  useEffect(() => {
+    const el = popupRef.current?.querySelector('[data-calendar-container="true"]') as HTMLElement;
+    if (el) el.focus();
+  }, []);
+
+  return createPortal(
+    <div
+      ref={popupRef}
+      style={{ position: 'fixed', top: coords.top, left: coords.left, zIndex: 9999 }}
+      onMouseDown={(e) => e.stopPropagation()}
+    >
+      <Calendar
+        mode="single"
+        selected={selected}
+        onSelect={(d) => {
+          if (d) {
+            onSelect(formatDate(d, 'yyyy-MM-dd'));
+          }
+          onClose();
+        }}
+        className="shadow-2xl"
+      />
+    </div>,
+    document.body
+  );
+};
+
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -95,6 +175,8 @@ const V3RowComponent: React.FC<V3RowProps> = ({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const ignoreCellClick = useRef(false);
   const isFillTarget = fillRangeRowIds.has(row.id);
+  // Refs keyed by colId so DateCellPicker can anchor to the correct <td>
+  const cellTdRefs = useRef<Record<string, HTMLTableCellElement | null>>({});
   const skipNextCommitRef = useRef(false);
 
   useEffect(() => {
@@ -119,6 +201,17 @@ const V3RowComponent: React.FC<V3RowProps> = ({
       }
     }
   }, [editingCell, activeEditSource, row.id]);
+
+  useEffect(() => {
+    if (editingCell?.rowId === row.id && dropdownRef.current) {
+      dropdownRef.current.focus();
+    }
+    // New: focus the calendar container if it exists
+    if (editingCell?.rowId === row.id) {
+      const cal = document.querySelector('[data-calendar-container="true"]') as HTMLElement;
+      if (cal) cal.focus();
+    }
+  }, [editingCell, row.id]);
 
   const commitEdit = (colId: string, dir?: 'up' | 'down' | 'left' | 'right') => {
     if (skipNextCommitRef.current) return;
@@ -193,7 +286,8 @@ const V3RowComponent: React.FC<V3RowProps> = ({
     if (isSummary) return;
     if (ignoreCellClick.current) { ignoreCellClick.current = false; return; }
     const col = columns.find(c => c.id === colId);
-    if (col?.type === 'select') {
+    if (col?.type === 'select' || col?.type === 'date') {
+      e.stopPropagation(); // prevent td onClick (handleCellClick) from clearing editingCell
       onCellDoubleClick(rowId, colId);
     } else {
       onCellClick(rowId, colId, e);
@@ -330,6 +424,21 @@ const V3RowComponent: React.FC<V3RowProps> = ({
         />
       );
     }
+    if (col.type === 'date') {
+      const anchorRef = { current: cellTdRefs.current[col.id] } as React.RefObject<HTMLElement>;
+      return (
+        <DateCellPicker
+          anchorRef={anchorRef}
+          value={row.cells[col.id] as string | null | undefined}
+          onSelect={(dateStr) => {
+            onUpdateCell(row.id, col.id, dateStr);
+            onStopEdit();
+          }}
+          onClose={onStopEdit}
+        />
+      );
+    }
+
     return (
       <input
         ref={inputRef}
@@ -338,7 +447,6 @@ const V3RowComponent: React.FC<V3RowProps> = ({
         onBlur={() => commitEdit(col.id)}
         onKeyDown={(e) => handleKeyDown(e, col.id)}
         onClick={(e) => e.stopPropagation()}
-        type={col.type === 'date' ? 'date' : 'text'}
         className="absolute inset-0 w-full h-full px-2 bg-white text-gray-900 border border-blue-500 outline-none z-50 shadow-sm text-xs font-mono"
         style={{ fontSize }}
       />
@@ -402,6 +510,7 @@ const V3RowComponent: React.FC<V3RowProps> = ({
         return (
           <td
             key={col.id}
+            ref={(el) => { cellTdRefs.current[col.id] = el; }}
             className={`border-r border-b border-gray-200 px-2 relative transition-colors cursor-default group/cell
               ${col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'}
               ${isSummary ? 'bg-gray-50' : ''}
