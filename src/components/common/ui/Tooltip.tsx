@@ -50,13 +50,13 @@ export const TooltipTrigger: React.FC<{ children: React.ReactNode; asChild?: boo
           (context.triggerRef as React.MutableRefObject<HTMLElement | null>).current = node;
       }
 
-      // Handle child's existing ref
-      const childRef = (child as any).ref;
+      // Handle child's existing ref (In React 19, ref is in props)
+      const childRef = child.props.ref || (child as any).ref;
       if (childRef) {
           if (typeof childRef === 'function') {
               childRef(node);
-          } else {
-              (childRef as React.MutableRefObject<HTMLElement | null>).current = node;
+          } else if (childRef && typeof childRef === 'object' && 'current' in childRef) {
+              (childRef as any).current = node;
           }
       }
   };

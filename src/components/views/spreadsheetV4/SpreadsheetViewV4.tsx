@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { V3Sheet, V3Row, V3Column, V3CellStyle, CellValue, V3Template, evaluateFormula, slugifyLabel } from './types';
 import { createTemplateSheets } from './templates';
-import TemplatePicker from './components/TemplatePicker';
 import FormulaBar from './components/FormulaBar';
 import SheetTabs from './components/SheetTabs';
 import V3Header, { ROW_NUM_WIDTH, ACTIONS_WIDTH } from './components/V3Header';
@@ -14,6 +13,7 @@ import {
   PlusIcon, ScissorsIcon, CopyIcon, ClipboardIcon, TrashIcon,
   ArrowUpIcon, ArrowDownIcon, ChevronLeftIcon, ChevronRightIcon, XIcon,
   FillColorIcon, IndentIcon, OutdentIcon, TextColorIcon, BorderColorIcon,
+  AlertTriangleIcon,
 } from '../../common/Icons';
 import { BACKGROUND_COLORS, TEXT_BORDER_COLORS } from '../../../constants/designTokens';
 import { SPREADSHEET_INDEX_COLUMN_WIDTH } from '../../../constants/spreadsheetLayout';
@@ -115,17 +115,23 @@ function collectExpandableIdsFromRow(row: V3Row): string[] {
 }
 
 // ─── Main component ──────────────────────────────────────────────────────────
-const SpreadsheetViewV3: React.FC = () => {
+const SpreadsheetViewV4: React.FC = () => {
   const { activeView, updateView } = useProject();
 
   // ── Sheet state sync ────────────────────────────────────────────────────────
-  const [localSheets, setLocalSheets] = useState<V3Sheet[]>(activeView.v3Sheets || []);
+  const [localSheets, setLocalSheets] = useState<V3Sheet[]>(() => {
+    if (activeView.v3Sheets && activeView.v3Sheets.length > 0) {
+      return activeView.v3Sheets;
+    }
+    return createTemplateSheets('schedule');
+  });
   
   const lastSyncedSheetsRef = useRef<V3Sheet[] | null>(null);
 
   // Sync context -> local
   useEffect(() => {
     if (activeView.v3Sheets && activeView.v3Sheets.length > 0) {
+      // Only update local state if the reference actually changed from what we last synced
       if (activeView.v3Sheets !== lastSyncedSheetsRef.current) {
         setLocalSheets(activeView.v3Sheets);
         lastSyncedSheetsRef.current = activeView.v3Sheets;
@@ -144,6 +150,7 @@ const SpreadsheetViewV3: React.FC = () => {
   // Sync local sheets to project context (persistence)
   useEffect(() => {
     if (localSheets && localSheets.length > 0) {
+      // Only push to context if this is a new version of the data
       if (localSheets !== lastSyncedSheetsRef.current) {
         updateView({ v3Sheets: localSheets });
         lastSyncedSheetsRef.current = localSheets;
@@ -152,9 +159,10 @@ const SpreadsheetViewV3: React.FC = () => {
   }, [localSheets, updateView]);
 
   const sheets = localSheets;
-  const showTemplatePicker = !sheets || sheets.length === 0;
 
-  const [activeSheetId, setActiveSheetId] = useState<string>(() => activeView.v3ActiveSheetId ?? '');
+  const [activeSheetId, setActiveSheetId] = useState<string>(() => {
+    return activeView.v3ActiveSheetId || (localSheets.length > 0 ? localSheets[0].id : '');
+  });
 
   // Keep v3ActiveSheetId in sync with local selection
   const handleSetActiveSheetId = useCallback((id: string) => {
@@ -162,15 +170,21 @@ const SpreadsheetViewV3: React.FC = () => {
     updateView({ v3ActiveSheetId: id });
   }, [updateView]);
 
-  const handleSelectTemplate = (template: V3Template) => {
-    const newSheets = createTemplateSheets(template);
-    setSheets(newSheets);
-    handleSetActiveSheetId(newSheets[0].id);
-  };
-
   // sheetsRef always holds the latest sheets — lets setSheets be stable (no stale closures)
   const sheetsRef = useRef<V3Sheet[]>(sheets);
   sheetsRef.current = sheets;
+
+  const updateSheet = useCallback((updates: Partial<V3Sheet>) => {
+    setSheets(prev => prev.map(s => s.id === activeSheetId ? { ...s, ...updates } : s));
+  }, [activeSheetId, setSheets]);
+
+  const updateRows = useCallback((updater: (rows: V3Row[]) => V3Row[]) => {
+    setSheets(prev => {
+      const targetId = activeSheetId || (prev.length > 0 ? prev[0].id : null);
+      if (!targetId) return prev;
+      return prev.map(s => s.id === targetId ? { ...s, rows: updater(s.rows) } : s);
+    });
+  }, [activeSheetId, setSheets]);
 
   const activeSheet = useMemo(() => sheets.find(s => s.id === activeSheetId) ?? sheets[0], [sheets, activeSheetId]);
 
@@ -191,12 +205,25 @@ const SpreadsheetViewV3: React.FC = () => {
     setExpandedIds(defaults);
   }, [activeSheetId]);
 
+
+
   const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
   const [focusedCell, _setFocusedCell] = useState<{ rowId: string; colId: string } | null>(null);
   const setFocusedCell = useCallback((cell: { rowId: string; colId: string } | null) => {
     focusedCellRef.current = cell;
     _setFocusedCell(cell);
   }, []);
+
+  const [visitedDraftIds, setVisitedDraftIds] = useState<Set<string>>(new Set());
+  
+  useEffect(() => {
+    if (focusedCell?.rowId) {
+      setVisitedDraftIds(prev => {
+        if (prev.has(focusedCell.rowId)) return prev;
+        return new Set([...prev, focusedCell.rowId]);
+      });
+    }
+  }, [focusedCell?.rowId]);
 
   const [editingCell, setEditingCell] = useState<{ rowId: string; colId: string; initial?: string; mode?: 'append' | 'overwrite' } | null>(null);
   const [editSource, setEditSource] = useState<'cell' | 'formula' | null>(null);
@@ -362,18 +389,22 @@ const SpreadsheetViewV3: React.FC = () => {
     return new Set(columns.slice(rangeSet.c0, rangeSet.c1 + 1).map(c => c.id));
   }, [rangeSet, columns]);
 
-  // ── Sheet helpers ─────────────────────────────────────────────────────
-  const updateSheet = useCallback((updates: Partial<V3Sheet>) => {
-    setSheets(prev => prev.map(s => s.id === activeSheetId ? { ...s, ...updates } : s));
-  }, [activeSheetId, setSheets]);
 
-  const updateRows = useCallback((updater: (rows: V3Row[]) => V3Row[]) => {
-    setSheets(prev => {
-      const targetId = activeSheetId || (prev.length > 0 ? prev[0].id : null);
-      if (!targetId) return prev;
-      return prev.map(s => s.id === targetId ? { ...s, rows: updater(s.rows) } : s);
-    });
-  }, [activeSheetId, setSheets]);
+
+  // GUIDED CREATION: Ensure there's always one empty draft row at the end of the Schedule
+  useEffect(() => {
+    if (activeSheetId !== 'sheet-schedule' || !activeSheet) return;
+    
+    const targetColId = 'name';
+    const rows = activeSheet.rows;
+    const lastRow = rows[rows.length - 1];
+    
+    // Always ensure the very last row is an empty draft. It serves as a passive placeholder.
+    if (!lastRow || !lastRow.isDraft || lastRow.cells[targetColId]) {
+      const newDraft: V3Row = { id: uid('draft'), cells: {}, isDraft: true };
+      updateRows(prev => [...prev, newDraft]);
+    }
+  }, [activeSheet?.rows, activeSheetId, updateRows]);
 
   // ── Undo / Redo ────────────────────────────────────────────────────────
   const handleUndo = useCallback(() => {
@@ -433,10 +464,54 @@ const SpreadsheetViewV3: React.FC = () => {
   }, [fillAnchor, fillRangeRowIds, flatRows, activeSheet, updateRows]);
 
   // ── Row CRUD ────────────────────────────────────────────────────────────
+  const checkBlockingDraft = (): boolean => {
+    const isSchedule = activeSheetId === 'sheet-schedule';
+    const targetColId = isSchedule ? 'name' : (columns[0]?.id || 'name');
+    
+    const placeholderId = flatRows[flatRows.length - 1]?.row.id;
+    
+    // Find any row that has an empty task name and has been visited/interacted with
+    const blocking = flatRows.find(f => {
+      const isEmpty = !f.row.cells[targetColId];
+      const isVisited = visitedDraftIds.has(f.row.id);
+      
+      if (!isEmpty || !isVisited) return false;
+      
+      // The bottom placeholder is only blocking if it's currently focused (being edited)
+      if (f.row.id === placeholderId) {
+        return focusedCell?.rowId === placeholderId;
+      }
+      
+      return true;
+    });
+    
+    if (blocking) {
+      setFocusedCell({ rowId: blocking.row.id, colId: targetColId });
+      handleCellDoubleClick(blocking.row.id, targetColId);
+      return true;
+    }
+    return false;
+  };
+
   const handleAddRow = () => {
-    const newRow: V3Row = { id: uid('row'), cells: {} };
-    updateRows(rows => [...rows, newRow]);
-    setTimeout(() => scrollRef.current && (scrollRef.current.scrollTop = scrollRef.current.scrollHeight), 60);
+    const isSchedule = activeSheetId === 'sheet-schedule';
+    const targetColId = isSchedule ? 'name' : (columns[0]?.id || 'name');
+
+    if (checkBlockingDraft()) return;
+
+    // If there are no blocking drafts, just focus the bottom placeholder
+    const placeholderId = flatRows[flatRows.length - 1]?.row.id;
+    if (placeholderId) {
+      setFocusedCell({ rowId: placeholderId, colId: targetColId });
+      setEditingCell({ rowId: placeholderId, colId: targetColId, mode: 'append' });
+      setEditSource('cell');
+      setLiveCellEdit({ rowId: placeholderId, colId: targetColId, value: '' });
+      
+      // Scroll slightly delayed to ensure render
+      setTimeout(() => {
+        if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      }, 10);
+    }
   };
 
   const handleDeleteRows = (ids: Set<string>) => {
@@ -447,29 +522,98 @@ const SpreadsheetViewV3: React.FC = () => {
   };
 
   const handleInsertRow = (targetId: string, position: 'above' | 'below' = 'below') => {
-    const insert = (rows: V3Row[]): V3Row[] => {
-      const idx = rows.findIndex(r => r.id === targetId);
-      if (idx >= 0) {
-        const next = [...rows];
-        const insertIdx = position === 'above' ? idx : idx + 1;
-        next.splice(insertIdx, 0, { id: uid('row'), cells: {} });
-        return next;
-      }
-      return rows.map(r => ({ ...r, children: r.children ? insert(r.children) : undefined }));
-    };
-    updateRows(insert);
+    const isSchedule = activeSheetId === 'sheet-schedule';
+    const targetColId = isSchedule ? 'name' : (columns[0]?.id || 'name');
+
+    // Find the existing placeholder draft to "steal"
+    const placeholder = flatRows.find(f => f.row.isDraft && !f.row.cells[targetColId])?.row;
+    const newId = placeholder?.id || uid('row');
+
+    if (placeholder) {
+      // STEAL DRAFT: Remove from current location and insert at target
+      const steal = (rows: V3Row[]): V3Row[] => {
+        const remove = (items: V3Row[]): V3Row[] => 
+          items.filter(r => r.id !== placeholder.id).map(r => ({
+            ...r,
+            children: r.children ? remove(r.children) : undefined
+          }));
+        
+        const filtered = remove(rows);
+        
+        const insert = (items: V3Row[]): V3Row[] => {
+          const idx = items.findIndex(r => r.id === targetId);
+          if (idx >= 0) {
+            const next = [...items];
+            const insertIdx = position === 'above' ? idx : idx + 1;
+            next.splice(insertIdx, 0, { ...placeholder, isDraft: true });
+            return next;
+          }
+          return items.map(r => ({ ...r, children: r.children ? insert(r.children) : undefined }));
+        };
+        return insert(filtered);
+      };
+      updateRows(steal);
+    } else {
+      const insert = (rows: V3Row[]): V3Row[] => {
+        const idx = rows.findIndex(r => r.id === targetId);
+        if (idx >= 0) {
+          const next = [...rows];
+          const insertIdx = position === 'above' ? idx : idx + 1;
+          next.splice(insertIdx, 0, { id: newId, cells: {}, isDraft: true });
+          return next;
+        }
+        return rows.map(r => ({ ...r, children: r.children ? insert(r.children) : undefined }));
+      };
+      updateRows(insert);
+    }
+    
+    setFocusedCell({ rowId: newId, colId: targetColId });
+    setEditingCell({ rowId: newId, colId: targetColId, mode: 'append' });
+    setEditSource('cell');
+    setLiveCellEdit({ rowId: newId, colId: targetColId, value: '' });
   };
 
   const handleAddSubRow = (parentId: string) => {
-    const add = (rows: V3Row[]): V3Row[] => rows.map(r => {
-      if (r.id === parentId) {
-        const child: V3Row = { id: uid('row'), cells: {} };
-        return { ...r, children: [...(r.children ?? []), child], isExpanded: true };
-      }
-      return { ...r, children: r.children ? add(r.children) : undefined };
-    });
-    updateRows(add);
+    const isSchedule = activeSheetId === 'sheet-schedule';
+    const targetColId = isSchedule ? 'name' : (columns[0]?.id || 'name');
+
+    const placeholder = flatRows.find(f => f.row.isDraft && !f.row.cells[targetColId])?.row;
+    const newId = placeholder?.id || uid('row');
+
+    if (placeholder) {
+      const steal = (rows: V3Row[]): V3Row[] => {
+        const remove = (items: V3Row[]): V3Row[] => 
+          items.filter(r => r.id !== placeholder.id).map(r => ({
+            ...r,
+            children: r.children ? remove(r.children) : undefined
+          }));
+        
+        const filtered = remove(rows);
+        
+        const add = (items: V3Row[]): V3Row[] => items.map(r => {
+          if (r.id === parentId) {
+            return { ...r, children: [...(r.children ?? []), { ...placeholder, isDraft: true }], isExpanded: true };
+          }
+          return { ...r, children: r.children ? add(r.children) : undefined };
+        });
+        return add(filtered);
+      };
+      updateRows(steal);
+    } else {
+      const add = (rows: V3Row[]): V3Row[] => rows.map(r => {
+        if (r.id === parentId) {
+          return { ...r, children: [...(r.children ?? []), { id: newId, cells: {}, isDraft: true }], isExpanded: true };
+        }
+        return { ...r, children: r.children ? add(r.children) : undefined };
+      });
+      updateRows(add);
+    }
+    
     setExpandedIds(prev => new Set([...prev, parentId]));
+    setFocusedCell({ rowId: newId, colId: targetColId });
+    setEditingCell({ rowId: newId, colId: targetColId, mode: 'append' });
+    setEditSource('cell');
+    setLiveCellEdit({ rowId: newId, colId: targetColId, value: '' });
   };
 
   const handleIndentRow = useCallback((rowId: string) => {
@@ -497,7 +641,17 @@ const SpreadsheetViewV3: React.FC = () => {
     }
 
     const update = (rows: V3Row[]): V3Row[] => rows.map(r => {
-      if (r.id === rowId) return { ...r, cells: { ...r.cells, [colId]: value } };
+      if (r.id === rowId) {
+        const isSchedule = activeSheetId === 'sheet-schedule';
+        const targetColId = isSchedule ? 'name' : (columns[0]?.id || 'name');
+        
+        const nextRow = { ...r, cells: { ...r.cells, [colId]: value } };
+        // If required field is filled, convert from draft to normal row
+        if (colId === targetColId && value && r.isDraft) {
+          nextRow.isDraft = false;
+        }
+        return nextRow;
+      }
       return { ...r, children: r.children ? update(r.children) : undefined };
     });
     updateRows(update);
@@ -714,10 +868,28 @@ const SpreadsheetViewV3: React.FC = () => {
     }
 
     const moveTo = (nr: number, nc: number) => {
-      const nextRow = flatRows[Math.max(0, Math.min(flatRows.length - 1, nr))];
-      const nextCol = columns[Math.max(0, Math.min(columns.length - 1, nc))];
-      setFocusedCell({ rowId: nextRow.row.id, colId: nextCol.id });
-      return { nextRow, nextCol };
+      const isSchedule = activeSheetId === 'sheet-schedule';
+      const targetColId = isSchedule ? 'name' : (columns[0]?.id || 'name');
+
+      const nextRowIdx = Math.max(0, Math.min(flatRows.length - 1, nr));
+      const nextRow = flatRows[nextRowIdx];
+      let nextColId = columns[Math.max(0, Math.min(columns.length - 1, nc))].id;
+      
+      const isDraftEmpty = nextRow.row.isDraft && !nextRow.row.cells[targetColId];
+
+      // GUIDED NAVIGATION: If row is draft & empty, force focus to Task Name
+      if (isDraftEmpty) {
+        nextColId = targetColId;
+      }
+      
+      setFocusedCell({ rowId: nextRow.row.id, colId: nextColId });
+
+      // AUTO-EDIT: If we just moved INTO the draft row, start editing immediately
+      if (isDraftEmpty && nr !== rIdx) {
+        setTimeout(() => handleCellDoubleClick(nextRow.row.id, targetColId), 10);
+      }
+
+      return { nextRow, nextCol: columns.find(c => c.id === nextColId)! };
     };
 
     const move = (dr: number, dc: number) => {
@@ -1418,6 +1590,11 @@ const SpreadsheetViewV3: React.FC = () => {
     if (!contextMenu) return [];
     const { type, rowId, colId } = contextMenu;
 
+    // Check if the current row's task name is empty to block further row creation
+    const targetRow = rowId ? flatRows.find(f => f.row.id === rowId)?.row : null;
+    const isTaskNameEmpty = targetRow ? !targetRow.cells['name'] : false;
+    const rowCreationDisabledWarning = isTaskNameEmpty ? "Please enter a Task Name before adding more rows." : undefined;
+
     // ── Column context menu ───────────────────────────────────────────────
     if (type === 'column' && colId) {
       const currentCol = columns.find(c => c.id === colId);
@@ -1509,9 +1686,9 @@ const SpreadsheetViewV3: React.FC = () => {
         { separator: true } as any,
         { label: 'Clear cell', icon: <XIcon className="w-4 h-4" />, onClick: () => handleUpdateCell(rowId, colId, null) },
         { separator: true } as any,
-        { label: 'Insert row above', icon: <ArrowUpIcon className="w-4 h-4" />,   onClick: () => handleInsertRow(rowId, 'above') },
-        { label: 'Insert row below', icon: <ArrowDownIcon className="w-4 h-4" />, onClick: () => handleInsertRow(rowId, 'below') },
-        { label: 'Add child row',    icon: <PlusIcon className="w-4 h-4" />,      onClick: () => handleAddSubRow(rowId) },
+        { label: 'Insert row above', icon: <ArrowUpIcon className="w-4 h-4" />,   disabled: isTaskNameEmpty, tooltip: rowCreationDisabledWarning, onClick: () => handleInsertRow(rowId, 'above') },
+        { label: 'Insert row below', icon: <ArrowDownIcon className="w-4 h-4" />, disabled: isTaskNameEmpty, tooltip: rowCreationDisabledWarning, onClick: () => handleInsertRow(rowId, 'below') },
+        { label: 'Add child row',    icon: <PlusIcon className="w-4 h-4" />,      disabled: isTaskNameEmpty, tooltip: rowCreationDisabledWarning, onClick: () => handleAddSubRow(rowId) },
         { separator: true } as any,
         { label: 'Indent row',  shortcut: '⌘]',  icon: <IndentIcon className="w-4 h-4" />,  onClick: () => handleIndentRow(rowId) },
         { label: 'Outdent row', shortcut: '⌘[', icon: <OutdentIcon className="w-4 h-4" />, onClick: () => handleOutdentRow(rowId) },
@@ -1549,9 +1726,9 @@ const SpreadsheetViewV3: React.FC = () => {
       );
 
       return [
-        { label: 'Insert row above', icon: <ArrowUpIcon className="w-4 h-4" />,   onClick: () => handleInsertRow(rowId, 'above') },
-        { label: 'Insert row below', icon: <ArrowDownIcon className="w-4 h-4" />, onClick: () => handleInsertRow(rowId, 'below') },
-        { label: 'Add child row',    icon: <PlusIcon className="w-4 h-4" />,      onClick: () => handleAddSubRow(rowId) },
+        { label: 'Insert row above', icon: <ArrowUpIcon className="w-4 h-4" />,   disabled: isTaskNameEmpty, tooltip: rowCreationDisabledWarning, onClick: () => handleInsertRow(rowId, 'above') },
+        { label: 'Insert row below', icon: <ArrowDownIcon className="w-4 h-4" />, disabled: isTaskNameEmpty, tooltip: rowCreationDisabledWarning, onClick: () => handleInsertRow(rowId, 'below') },
+        { label: 'Add child row',    icon: <PlusIcon className="w-4 h-4" />,      disabled: isTaskNameEmpty, tooltip: rowCreationDisabledWarning, onClick: () => handleAddSubRow(rowId) },
         { separator: true } as any,
         { label: 'Indent row',  icon: <IndentIcon className="w-4 h-4" />,  onClick: () => handleIndentRow(rowId) },
         { label: 'Outdent row', icon: <OutdentIcon className="w-4 h-4" />, onClick: () => handleOutdentRow(rowId) },
@@ -1592,7 +1769,6 @@ const SpreadsheetViewV3: React.FC = () => {
   };
 
   // ── Early returns (AFTER all hooks) ──────────────────────────────────
-  if (showTemplatePicker) return <TemplatePicker onSelect={handleSelectTemplate} />;
   if (!activeSheet) return null;
 
   return (
@@ -1642,6 +1818,21 @@ const SpreadsheetViewV3: React.FC = () => {
           onLiveChange={handleLiveCellEditChange}
           onCommit={handleFormulaBarCommit}
         />
+
+        {/* GUIDED CREATION WARNING */}
+        {activeSheetId === 'sheet-schedule' && flatRows.some(f => 
+          f.row.isDraft && 
+          !f.row.cells['name'] && 
+          visitedDraftIds.has(f.row.id) && 
+          focusedCell?.rowId !== f.row.id
+        ) && (
+          <div className="bg-amber-50 border-b border-amber-100 px-4 py-1.5 flex items-center gap-2.5 animate-in slide-in-from-top duration-300 shrink-0">
+            <AlertTriangleIcon className="w-3.5 h-3.5 text-amber-500" />
+            <span className="text-amber-800 text-[10px] font-semibold tracking-tight uppercase">
+              Draft Required: Enter a Task Name to unlock row creation
+            </span>
+          </div>
+        )}
 
         {/* ── Main scroll area ── */}
         <div className="overflow-auto relative select-none focus:outline-none min-h-0 flex-grow" ref={scrollRef}>
@@ -1724,6 +1915,7 @@ const SpreadsheetViewV3: React.FC = () => {
                   cutCellColIds={cutSource?.type === 'cells' && cutSource.rowIds.has(row.id) ? cutSource.colIds : emptySetRef.current}
                   liveEdit={liveCellEdit}
                   activeEditSource={editSource}
+                  isVisitedDraft={visitedDraftIds.has(row.id)}
                   onLiveEditChange={handleLiveCellEditChange}
                   onStopEdit={() => { setEditingCell(null); setEditSource(null); setLiveCellEdit(null); }}
                   allRows={memoizedRows}
@@ -1767,7 +1959,7 @@ const SpreadsheetViewV3: React.FC = () => {
           </table>
         </div>
 
-        {/* ── Add row / Add more rows ── */}
+        {/* ── Add row ── */}
         <div className="px-3 py-2 border-t border-gray-200 bg-gray-50 flex items-center gap-4 flex-wrap">
           <button
             onClick={handleAddRow}
@@ -1778,25 +1970,6 @@ const SpreadsheetViewV3: React.FC = () => {
             </div>
             Add row
           </button>
-          <div className="w-px h-4 bg-gray-300" />
-          <div className="flex items-center gap-1.5 text-sm text-gray-500">
-            <span>Add</span>
-            <input
-              type="number"
-              min={1}
-              max={1000}
-              value={addRowCount}
-              onChange={e => setAddRowCount(Math.max(1, Math.min(1000, parseInt(e.target.value) || 1)))}
-              className="w-14 px-1.5 py-0.5 border border-gray-300 rounded text-center text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400"
-            />
-            <span>more rows</span>
-            <button
-              onClick={handleAddManyRows}
-              className="px-2.5 py-0.5 text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded font-medium transition-colors border border-blue-200 hover:border-blue-400"
-            >
-              Add
-            </button>
-          </div>
         </div>
       </div>
 
@@ -1848,4 +2021,4 @@ const SpreadsheetViewV3: React.FC = () => {
   );
 };
 
-export default SpreadsheetViewV3;
+export default SpreadsheetViewV4;

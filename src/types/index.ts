@@ -140,7 +140,7 @@ export interface SpreadsheetColumn {
     visible?: boolean;
 }
 
-export type ViewMode = 'table' | 'spreadsheet' | 'spreadsheetV2' | 'spreadsheetV3' | 'board' | 'gantt' | 'lookahead' | 'dashboard';
+export type ViewMode = 'table' | 'spreadsheet' | 'spreadsheetV2' | 'spreadsheetV3' | 'spreadsheetV4' | 'board' | 'gantt' | 'lookahead' | 'dashboard';
 
 export enum ViewCategory {
   System = 'system',
@@ -173,7 +173,7 @@ export interface View {
   columns: Column[];
   displayDensity: DisplayDensity;
   showGridLines: boolean;
-  showColoredRows?: boolean;
+
   spreadsheetData?: BudgetLineItem[];
   spreadsheetColumns?: SpreadsheetColumn[];
   taskStyles?: { [taskId: number]: TaskStyle };

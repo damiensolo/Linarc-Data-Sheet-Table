@@ -15,7 +15,7 @@ const getDefaultViewConfig = (viewMode: ViewMode): Omit<View, 'id' | 'name' | 'c
     sort: null,
     displayDensity: 'comfortable' as DisplayDensity,
     showGridLines: false,
-    showColoredRows: false,
+
     fontSize: 12,
     groupBy: [],
     showToolbarLabels: true,
@@ -35,9 +35,10 @@ const getDefaultViewConfig = (viewMode: ViewMode): Omit<View, 'id' | 'name' | 'c
         spreadsheetColumns: getDefaultSpreadsheetColumns(),
       };
     case 'spreadsheetV3':
+    case 'spreadsheetV4':
       return {
         ...baseConfig,
-        type: 'spreadsheetV3',
+        type: viewMode,
         displayDensity: 'compact' as DisplayDensity,
         columns: [],
         v3Sheets: null,
@@ -128,7 +129,7 @@ interface ProjectContextType {
   setColumns: (updater: SetStateAction<Column[]>) => void;
   setDisplayDensity: (density: DisplayDensity) => void;
   setShowGridLines: (show: boolean) => void;
-  setShowColoredRows: (show: boolean) => void;
+
   setFontSize: (size: number) => void;
   setShowToolbarLabels: (show: boolean) => void;
   handleSort: (columnId: ColumnId) => void;
@@ -254,10 +255,18 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     if (activeViewId === null) {
       setTransientView(prev => {
         const base = prev ?? activeViewRef.current;
+        // Bail out if no properties actually changed
+        const hasChanges = Object.entries(updatedProps).some(([key, value]) => (base as any)[key] !== value);
+        if (!hasChanges) return prev;
         return { ...base, ...updatedProps };
       });
     } else {
-      setViews(prev => prev.map(v => v.id === activeViewId ? { ...v, ...updatedProps } : v));
+      setViews(prev => prev.map(v => {
+        if (v.id !== activeViewId) return v;
+        const hasChanges = Object.entries(updatedProps).some(([key, value]) => (v as any)[key] !== value);
+        if (!hasChanges) return v;
+        return { ...v, ...updatedProps };
+      }));
     }
   }, [activeViewId]);
 
@@ -278,7 +287,7 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
   const setDisplayDensity = (density: View['displayDensity']) => updateView({ displayDensity: density });
   const setShowGridLines = (show: boolean) => updateView({ showGridLines: show });
-  const setShowColoredRows = (show: boolean) => updateView({ showColoredRows: show });
+
   const setFontSize = (size: number) => updateView({ fontSize: size });
 
   const handleSort = (columnId: ColumnId) => {
@@ -550,7 +559,7 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     setColumns,
     setDisplayDensity,
     setShowGridLines,
-    setShowColoredRows,
+
     setFontSize,
     setShowToolbarLabels: (show: boolean) => updateView({ showToolbarLabels: show }),
     isPDFModalOpen,

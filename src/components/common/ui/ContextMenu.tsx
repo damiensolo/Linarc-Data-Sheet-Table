@@ -8,6 +8,7 @@ export interface ContextMenuItem {
   shortcut?: string;
   onClick: () => void;
   disabled?: boolean;
+  tooltip?: string;
   danger?: boolean;
   separator?: boolean;
   render?: (onClose: () => void) => React.ReactNode;
@@ -39,7 +40,10 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ position, items, onClo
         y = window.innerHeight - rect.height - 8;
       }
 
-      setCoords({ x, y });
+      setCoords(prev => {
+        if (prev.x === x && prev.y === y) return prev;
+        return { x, y };
+      });
       setIsPositioned(true);
     }
   }, [position, items]);
@@ -106,6 +110,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ position, items, onClo
               }
             }}
             disabled={item.disabled}
+            title={item.tooltip}
             className={cn(
               "w-full flex items-center px-3 py-2 text-xs text-left transition-colors relative",
               item.disabled ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-100",

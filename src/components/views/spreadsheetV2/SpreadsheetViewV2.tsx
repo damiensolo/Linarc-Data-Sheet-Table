@@ -34,7 +34,7 @@ const SpreadsheetViewV2: React.FC = () => {
       return cols.filter(c => c.visible !== false);
   }, [activeView.spreadsheetColumns]);
   const displayDensity = activeView.displayDensity;
-  const showColoredRows = activeView.showColoredRows ?? true;
+
 
   // Implement Sorting
   const sortedData = useMemo(() => {
@@ -970,7 +970,7 @@ const SpreadsheetViewV2: React.FC = () => {
                         onContextMenu={handleContextMenu}
                         filters={activeView.filters}
                         highlights={displayHighlights}
-                        showColoredRows={showColoredRows}
+
                     />
                 ))}
                 </tbody>

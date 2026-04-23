@@ -59,20 +59,27 @@ const DensityButton: React.FC<{
 
 
 const FieldsMenu: React.FC<SettingsMenuProps> = ({ onClose, className, disableClickOutside }) => {
-  const { activeView, updateView, setColumns, setDisplayDensity, setShowGridLines, setShowColoredRows, setFontSize, setShowToolbarLabels, activeViewMode } = useProject();
-  const { displayDensity, showGridLines, showColoredRows, fontSize } = activeView;
+  const { activeView, updateView, setColumns, setDisplayDensity, setShowGridLines, setFontSize, setShowToolbarLabels, activeViewMode } = useProject();
+  const { displayDensity, fontSize } = activeView;
   const menuRef = useRef<HTMLDivElement>(null);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dropIndicatorIndex, setDropIndicatorIndex] = useState<number | null>(null);
   
   const isSpreadsheet = activeViewMode === 'spreadsheet';
   const isSpreadsheetV2 = activeViewMode === 'spreadsheetV2';
-  const isAnySpreadsheet = isSpreadsheet || isSpreadsheetV2;
+  const isSpreadsheetV3 = activeViewMode === 'spreadsheetV3';
+  const isSpreadsheetV4 = activeViewMode === 'spreadsheetV4';
+  const isV3OrV4 = isSpreadsheetV3 || isSpreadsheetV4;
+  const isAnySpreadsheet = isSpreadsheet || isSpreadsheetV2 || isV3OrV4;
   const isDashboard = activeViewMode === 'dashboard';
   const showFields = !isDashboard; 
-  const showGridLinesOption = showFields && !isAnySpreadsheet && activeViewMode !== 'gantt' && activeViewMode !== 'lookahead';
 
-  const columns = isAnySpreadsheet ? (activeView.spreadsheetColumns || []) : activeView.columns;
+  const activeSheetId = activeView.v3ActiveSheetId;
+  const activeSheet = isV3OrV4 ? (activeView.v3Sheets?.find(s => s.id === activeSheetId) || activeView.v3Sheets?.[0]) : null;
+
+  const columns = isV3OrV4
+      ? (activeSheet?.columns || [])
+      : (isAnySpreadsheet ? (activeView.spreadsheetColumns || []) : activeView.columns);
 
   useEffect(() => {
     if (disableClickOutside) return;
@@ -86,8 +93,12 @@ const FieldsMenu: React.FC<SettingsMenuProps> = ({ onClose, className, disableCl
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [onClose, disableClickOutside]);
 
-  const handleVisibilityChange = (id: ColumnId) => {
-    if (isAnySpreadsheet) {
+  const handleVisibilityChange = (id: string) => {
+    if (isV3OrV4 && activeSheet && activeView.v3Sheets) {
+        const newCols = columns.map(c => c.id === id ? { ...c, visible: !(c.visible ?? true) } : c);
+        const newSheets = activeView.v3Sheets.map(s => s.id === activeSheet.id ? { ...s, columns: newCols } : s);
+        updateView({ v3Sheets: newSheets });
+    } else if (isSpreadsheet || isSpreadsheetV2) {
         const newCols = columns.map(c => c.id === id ? { ...c, visible: !(c.visible ?? true) } : c);
         updateView({ spreadsheetColumns: newCols });
     } else {
@@ -116,7 +127,14 @@ const FieldsMenu: React.FC<SettingsMenuProps> = ({ onClose, className, disableCl
     if (draggedIndex === null || dropIndicatorIndex === null || draggedIndex === dropIndicatorIndex) {
       // no change or invalid drop
     } else {
-        if (isAnySpreadsheet) {
+        if (isV3OrV4 && activeSheet && activeView.v3Sheets) {
+            const newColumns = [...columns];
+            const [removed] = newColumns.splice(draggedIndex, 1);
+            const adjustedDropIndex = draggedIndex < dropIndicatorIndex ? dropIndicatorIndex - 1 : dropIndicatorIndex;
+            newColumns.splice(adjustedDropIndex, 0, removed);
+            const newSheets = activeView.v3Sheets.map(s => s.id === activeSheet.id ? { ...s, columns: newColumns } : s);
+            updateView({ v3Sheets: newSheets });
+        } else if (isSpreadsheet || isSpreadsheetV2) {
             const newColumns = [...columns];
             const [removed] = newColumns.splice(draggedIndex, 1);
             const adjustedDropIndex = draggedIndex < dropIndicatorIndex ? dropIndicatorIndex - 1 : dropIndicatorIndex;
@@ -143,7 +161,10 @@ const FieldsMenu: React.FC<SettingsMenuProps> = ({ onClose, className, disableCl
   };
 
   const onResetColumns = () => {
-    if (isAnySpreadsheet) {
+    if (isV3OrV4 && activeSheet && activeView.v3Sheets) {
+        // Can't easily reset V3/V4 without knowing the template, skip for now or set to defaults
+        // If needed, we would need to call createTemplateSheets
+    } else if (isSpreadsheet || isSpreadsheetV2) {
         updateView({ spreadsheetColumns: getDefaultSpreadsheetColumns() });
     } else {
         setColumns(getDefaultTableColumns());
@@ -162,9 +183,7 @@ const FieldsMenu: React.FC<SettingsMenuProps> = ({ onClose, className, disableCl
         <div className="flex gap-2">
           <DensityButton label="Compact" density="compact" current={displayDensity} onClick={setDisplayDensity} icon={<CompactIcon />} />
           <DensityButton label="Standard" density="standard" current={displayDensity} onClick={setDisplayDensity} icon={<StandardIcon />} />
-          {!isSpreadsheet && (
-            <DensityButton label="Comfortable" density="comfortable" current={displayDensity} onClick={setDisplayDensity} icon={<ComfortableIcon />} />
-          )}
+          <DensityButton label="Comfortable" density="comfortable" current={displayDensity} onClick={setDisplayDensity} icon={<ComfortableIcon />} />
         </div>
       </div>
 
@@ -192,43 +211,7 @@ const FieldsMenu: React.FC<SettingsMenuProps> = ({ onClose, className, disableCl
         </div>
       </div>
       
-      {/* Grid Lines Section - Hidden for Gantt and Lookahead */}
-      {showGridLinesOption && (
-        <div className="p-3 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-                <h4 className="text-sm font-medium text-gray-700">Show grid lines</h4>
-                <label htmlFor="grid-toggle" className="relative inline-flex items-center cursor-pointer">
-                    <input 
-                        type="checkbox" 
-                        id="grid-toggle" 
-                        className="sr-only peer" 
-                        checked={showGridLines} 
-                        onChange={(e) => setShowGridLines(e.target.checked)} 
-                    />
-                    <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-4 peer-focus:ring-blue-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </label>
-            </div>
-        </div>
-      )}
 
-      {/* Colored Rows Section - Only for Spreadsheet Views */}
-      {isAnySpreadsheet && (
-        <div className="p-3 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-                <h4 className="text-sm font-medium text-gray-700">Show colored rows</h4>
-                <label htmlFor="colored-rows-toggle" className="relative inline-flex items-center cursor-pointer">
-                    <input 
-                        type="checkbox" 
-                        id="colored-rows-toggle" 
-                        className="sr-only peer" 
-                        checked={showColoredRows ?? true} 
-                        onChange={(e) => setShowColoredRows(e.target.checked)} 
-                    />
-                    <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-4 peer-focus:ring-blue-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </label>
-            </div>
-        </div>
-      )}
 
       {/* Toolbar Labels Toggle */}
       <div className="p-3 border-b border-gray-200">
