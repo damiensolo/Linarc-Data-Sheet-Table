@@ -15,7 +15,7 @@ const getDefaultViewConfig = (viewMode: ViewMode): Omit<View, 'id' | 'name' | 'c
     sort: null,
     displayDensity: 'comfortable' as DisplayDensity,
     showGridLines: false,
-    showColoredRows: false,
+
     fontSize: 12,
     groupBy: [],
     showToolbarLabels: true,
@@ -33,6 +33,16 @@ const getDefaultViewConfig = (viewMode: ViewMode): Omit<View, 'id' | 'name' | 'c
         columns: [],
         spreadsheetData: JSON.parse(JSON.stringify(MOCK_BUDGET_DATA)),
         spreadsheetColumns: getDefaultSpreadsheetColumns(),
+      };
+    case 'spreadsheetV3':
+    case 'spreadsheetV4':
+      return {
+        ...baseConfig,
+        type: viewMode,
+        displayDensity: 'compact' as DisplayDensity,
+        columns: [],
+        v3Sheets: null,
+        v3ActiveSheetId: null,
       };
     case 'lookahead':
        return { ...baseConfig, displayDensity: 'standard' as DisplayDensity, type: 'lookahead', columns: JSON.parse(JSON.stringify(getDefaultTableColumns())) };
@@ -119,7 +129,7 @@ interface ProjectContextType {
   setColumns: (updater: SetStateAction<Column[]>) => void;
   setDisplayDensity: (density: DisplayDensity) => void;
   setShowGridLines: (show: boolean) => void;
-  setShowColoredRows: (show: boolean) => void;
+
   setFontSize: (size: number) => void;
   setShowToolbarLabels: (show: boolean) => void;
   handleSort: (columnId: ColumnId) => void;
@@ -157,7 +167,7 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [views, setViews] = useState<View[]>([]);
   const [activeViewId, setActiveViewId] = useState<string | null>(null);
   const [defaultViewId, setDefaultViewId] = useState<string>('');
-  const [activeViewMode, setActiveViewMode] = useState<ViewMode>('spreadsheetV2');
+  const [activeViewMode, setActiveViewMode] = useState<ViewMode>('table');
   const [transientView, setTransientView] = useState<View | null>(null);
   
   const [viewManagerShareId, setViewManagerShareId] = useState<string | null>(null);
@@ -192,17 +202,21 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
   }, []);
 
   const activeView = useMemo<View>(() => {
-    if (activeViewId === null) {
-      if (transientView && transientView.type === activeViewMode) {
-        return transientView;
-      }
-      return { id: `transient-${Date.now()}`, name: 'Default View', ...getDefaultViewConfig(activeViewMode) };
+    if (activeViewId !== null) {
+      const foundView = views.find(v => v.id === activeViewId);
+      if (foundView) return foundView;
     }
-    const foundView = views.find(v => v.id === activeViewId);
-    if (!foundView) {
-        return { id: `transient-fallback-${Date.now()}`, name: 'Default View', ...getDefaultViewConfig(activeViewMode) };
+    
+    // Fallback to transient view or a stable default
+    if (transientView && transientView.type === activeViewMode) {
+      return transientView;
     }
-    return foundView;
+    
+    return { 
+      id: `transient-${activeViewMode}`, 
+      name: `Default ${activeViewMode.charAt(0).toUpperCase() + activeViewMode.slice(1)}`, 
+      ...getDefaultViewConfig(activeViewMode) 
+    } as View;
   }, [views, activeViewId, activeViewMode, transientView]);
 
   const activeViewRef = useRef<View>(activeView);
@@ -241,10 +255,18 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     if (activeViewId === null) {
       setTransientView(prev => {
         const base = prev ?? activeViewRef.current;
+        // Bail out if no properties actually changed
+        const hasChanges = Object.entries(updatedProps).some(([key, value]) => (base as any)[key] !== value);
+        if (!hasChanges) return prev;
         return { ...base, ...updatedProps };
       });
     } else {
-      setViews(prev => prev.map(v => v.id === activeViewId ? { ...v, ...updatedProps } : v));
+      setViews(prev => prev.map(v => {
+        if (v.id !== activeViewId) return v;
+        const hasChanges = Object.entries(updatedProps).some(([key, value]) => (v as any)[key] !== value);
+        if (!hasChanges) return v;
+        return { ...v, ...updatedProps };
+      }));
     }
   }, [activeViewId]);
 
@@ -265,7 +287,7 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
   const setDisplayDensity = (density: View['displayDensity']) => updateView({ displayDensity: density });
   const setShowGridLines = (show: boolean) => updateView({ showGridLines: show });
-  const setShowColoredRows = (show: boolean) => updateView({ showColoredRows: show });
+
   const setFontSize = (size: number) => updateView({ fontSize: size });
 
   const handleSort = (columnId: ColumnId) => {
@@ -537,7 +559,7 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     setColumns,
     setDisplayDensity,
     setShowGridLines,
-    setShowColoredRows,
+
     setFontSize,
     setShowToolbarLabels: (show: boolean) => updateView({ showToolbarLabels: show }),
     isPDFModalOpen,

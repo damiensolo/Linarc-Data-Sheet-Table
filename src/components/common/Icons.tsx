@@ -42,6 +42,13 @@ export const SpreadsheetIcon: React.FC<IconProps> = ({ title, ...props }) => (
   </svg>
 );
 
+export const AdvancedSheetIcon: React.FC<IconProps> = ({ title, ...props }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    {title && <title>{title}</title>}
+    <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><line x1="3" x2="21" y1="9" y2="9"/><line x1="3" x2="21" y1="15" y2="15"/><line x1="9" x2="9" y1="9" y2="21"/><line x1="15" x2="15" y1="9" y2="21"/>
+  </svg>
+);
+
 export const BoardIcon: React.FC<IconProps> = ({ title, ...props }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
     {title && <title>{title}</title>}
@@ -118,10 +125,10 @@ export const FilterIcon: React.FC<IconProps> = ({ title, ...props }) => (
   </svg>
 );
 
-export const FlameIcon: React.FC<IconProps> = ({ title, ...props }) => (
+export const GridPlusIcon: React.FC<IconProps> = ({ title, ...props }) => (
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
         {title && <title>{title}</title>}
-        <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path>
+        <path d="M12 3v17a1 1 0 0 1-1 1H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6a1 1 0 0 1-1 1H3"/><path d="M16 19h6"/><path d="M19 22v-6"/>
     </svg>
 );
 
@@ -446,6 +453,26 @@ export const FolderIcon: React.FC<IconProps> = ({ title, ...props }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
     {title && <title>{title}</title>}
     <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z"></path>
+  </svg>
+);
+
+export const IndentIcon: React.FC<IconProps> = ({ title, ...props }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    {title && <title>{title}</title>}
+    <polyline points="3 8 7 12 3 16"></polyline>
+    <line x1="21" y1="12" x2="11" y2="12"></line>
+    <line x1="21" y1="6" x2="3" y2="6"></line>
+    <line x1="21" y1="18" x2="3" y2="18"></line>
+  </svg>
+);
+
+export const OutdentIcon: React.FC<IconProps> = ({ title, ...props }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    {title && <title>{title}</title>}
+    <polyline points="7 8 3 12 7 16"></polyline>
+    <line x1="21" y1="12" x2="11" y2="12"></line>
+    <line x1="21" y1="6" x2="3" y2="6"></line>
+    <line x1="21" y1="18" x2="3" y2="18"></line>
   </svg>
 );
 

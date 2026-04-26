@@ -69,10 +69,10 @@ export const QuickCreateMenu: React.FC = () => {
         };
     }, [isOpen]);
 
-    // Handle keyboard shortcuts (Shift + C)
+    // Handle keyboard shortcuts (Shift + Q)
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.shiftKey && (event.key === 'C' || event.key === 'c')) {
+            if (event.shiftKey && (event.key === 'Q' || event.key === 'q')) {
                 event.preventDefault();
                 setIsOpen(prev => !prev);
             }
@@ -144,7 +144,7 @@ export const QuickCreateMenu: React.FC = () => {
                             {/* Footer Hint */}
                             <div className="px-3 py-2 bg-gray-50 border-t border-gray-100 text-[10px] text-gray-400 text-center flex justify-between items-center">
                                 <span>Quick Add</span>
-                                <span className="font-mono bg-gray-200 px-1.5 py-0.5 rounded text-gray-500">Shift + C</span>
+                                <span className="font-mono bg-gray-200 px-1.5 py-0.5 rounded text-gray-500">Shift + Q</span>
                             </div>
                         </motion.div>
                     )}

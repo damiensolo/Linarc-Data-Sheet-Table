@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { View, ViewMode, ViewCategory } from '../../types';
@@ -6,13 +6,15 @@ import { useProject } from '../../context/ProjectContext';
 import FilterMenu from './FilterMenu';
 import HighlightMenu from './HighlightMenu';
 import GroupMenu from './GroupMenu';
-import { PlusIcon, MoreHorizontalIcon, MoreVerticalIcon, TableIcon, BoardIcon, GanttIcon, LookaheadIcon, SearchIcon, FilterIcon, SpreadsheetIcon, DashboardIcon, ShareIcon, FillColorIcon, CopyIcon, GroupIcon, ChevronDownIcon, ChevronUpIcon, ChevronsDownIcon, XIcon, SettingsIcon, ViewManagerIcon } from '../common/Icons';
+import { PlusIcon, MoreHorizontalIcon, MoreVerticalIcon, TableIcon, BoardIcon, GanttIcon, LookaheadIcon, SearchIcon, FilterIcon, SpreadsheetIcon, AdvancedSheetIcon, GridPlusIcon, DashboardIcon, ShareIcon, FillColorIcon, CopyIcon, GroupIcon, ChevronDownIcon, ChevronUpIcon, ChevronsDownIcon, XIcon, SettingsIcon, ViewManagerIcon } from '../common/Icons';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../common/ui/Tooltip';
 
 const modes: { id: ViewMode; label: string; icon: React.FC<React.SVGProps<SVGSVGElement>> }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: DashboardIcon },
   { id: 'table', label: 'Table', icon: TableIcon },
   { id: 'spreadsheetV2', label: 'Spreadsheet', icon: SpreadsheetIcon },
+  { id: 'spreadsheetV4', label: 'Spreadsheet +', icon: GridPlusIcon },
+  { id: 'spreadsheetV3', label: 'Advanced Spreadsheet (v3.1)', icon: AdvancedSheetIcon },
   { id: 'board', label: 'Board', icon: BoardIcon },
   { id: 'gantt', label: 'Gantt', icon: GanttIcon },
   { id: 'lookahead', label: 'Lookahead', icon: LookaheadIcon },
@@ -330,7 +332,7 @@ const ViewControls: React.FC = () => {
       handleDuplicateView(viewId);
   };
 
-  const searchPlaceholder = activeViewMode === 'spreadsheet' || activeViewMode === 'spreadsheetV2' ? 'Search...' : 'Search tasks...';
+  const searchPlaceholder = activeViewMode === 'spreadsheet' || activeViewMode === 'spreadsheetV2' || activeViewMode === 'spreadsheetV3' || activeViewMode === 'spreadsheetV4' ? 'Search...' : 'Search tasks...';
   const showSearchAndFilter = activeViewMode !== 'dashboard';
 
   type ToolbarItem = 
@@ -339,21 +341,21 @@ const ViewControls: React.FC = () => {
       | { type: 'create'; isFirst: boolean; isLast: boolean }
       | { type: 'view'; view: View; index: number; isFirst: boolean; isLast: boolean };
 
-  const visibleViews = views.filter(v => v.isEnabled);
-  
-  // Sort visible views by category priority: System -> Personal -> Shared
-  const sortedViews = [
-      ...visibleViews.filter(v => v.category === ViewCategory.System),
-      ...visibleViews.filter(v => v.category === ViewCategory.Personal),
-      ...visibleViews.filter(v => v.category === ViewCategory.Shared),
-  ];
+  const sortedViews = React.useMemo(() => {
+    const visible = views.filter(v => v.isEnabled);
+    return [
+      ...visible.filter(v => v.category === ViewCategory.System),
+      ...visible.filter(v => v.category === ViewCategory.Personal),
+      ...visible.filter(v => v.category === ViewCategory.Shared),
+    ];
+  }, [views]);
 
-  const unifiedItems: ToolbarItem[] = [
+  const unifiedItems = React.useMemo((): ToolbarItem[] => [
       ...modes.map((mode, i) => ({ type: 'mode' as const, mode, isFirst: i === 0, isLast: i === modes.length - 1 })),
       ...(sortedViews.length > 0 ? [{ type: 'divider' as const }] : []),
       { type: 'create' as const, isFirst: true, isLast: sortedViews.length === 0 },
       ...sortedViews.map((view, index) => ({ type: 'view' as const, view, index, isFirst: false, isLast: index === sortedViews.length - 1 }))
-  ];
+  ], [sortedViews]);
 
   const renderViewModeItem = (mode: typeof modes[0], isFirst: boolean, isLast: boolean, isDropdown: boolean, closeDropdown?: () => void) => {
       const isActive = activeViewMode === mode.id && activeViewId === null;

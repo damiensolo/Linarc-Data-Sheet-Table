@@ -31,20 +31,50 @@ export const Popover: React.FC<PopoverProps> = ({
 
   const updateCoords = useCallback(() => {
     if (triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect();
-      let left = rect.left;
+      const triggerRect = triggerRef.current.getBoundingClientRect();
+      const content = contentRef.current;
       
-      // Basic alignment logic
-      if (align === 'center') {
-          left = rect.left + rect.width / 2; // Note: requires content centering logic which we'll skip for now to keep it simple like StatusSelector
-      } else if (align === 'end') {
-          left = rect.right; // Requires subtracting content width, will handle this simply by default align start
+      let top = triggerRect.bottom + sideOffset;
+      let left = triggerRect.left;
+
+      // If content is rendered, we can do smarter positioning
+      if (content) {
+        const contentRect = content.getBoundingClientRect();
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+
+        // Basic alignment calculation
+        if (align === 'center') {
+          left = triggerRect.left + (triggerRect.width / 2) - (contentRect.width / 2);
+        } else if (align === 'end') {
+          left = triggerRect.right - contentRect.width;
+        }
+
+        // Right side boundary
+        if (left + contentRect.width > viewportWidth - 12) {
+          left = viewportWidth - contentRect.width - 12;
+        }
+        // Left side boundary
+        if (left < 12) {
+          left = 12;
+        }
+
+        // Bottom boundary check - flip to top if it doesn't fit
+        if (top + contentRect.height > viewportHeight - 12) {
+          const above = triggerRect.top - contentRect.height - sideOffset;
+          // Only flip if it actually fits above, otherwise just clamp to bottom
+          if (above > 12) {
+            top = above;
+          } else {
+            top = viewportHeight - contentRect.height - 12;
+          }
+        }
       }
 
       setCoords({
-        top: rect.bottom + sideOffset,
-        left: left,
-        width: rect.width
+        top,
+        left,
+        width: triggerRect.width
       });
     }
   }, [align, sideOffset]);
@@ -94,6 +124,7 @@ export const Popover: React.FC<PopoverProps> = ({
       {isOpen && createPortal(
         <div
           ref={contentRef}
+          data-popover-content="true"
           className={cn(
             "fixed z-50 rounded-md border border-slate-200 bg-white shadow-md outline-none animate-in fade-in-0 zoom-in-95",
             className

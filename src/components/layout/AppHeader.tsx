@@ -14,6 +14,8 @@ const AppHeader: React.FC = () => {
         if (activeViewMode === 'table' || activeViewMode === 'board') return 'RFIs';
         if (activeViewMode === 'gantt') return 'Schedule';
         if (activeViewMode === 'lookahead') return 'Lookahead';
+        if (activeViewMode === 'spreadsheetV3') return 'Advanced Spreadsheet (v3.1)';
+        if (activeViewMode === 'spreadsheetV4') return 'Spreadsheet +';
         return 'Budget';
     };
 
@@ -37,9 +39,11 @@ const AppHeader: React.FC = () => {
 
     const { total, distributed, unallocated } = budgetTotals;
 
-    const isSpreadsheetView = activeViewMode === 'spreadsheet' || activeViewMode === 'spreadsheetV2';
+    const isScheduleActiveSheet = activeView.v3ActiveSheetId === 'sheet-schedule';
+    const isSpreadsheetView = (activeViewMode === 'spreadsheet' || activeViewMode === 'spreadsheetV2') && !isScheduleActiveSheet;
+    const isSpreadsheetV3 = activeViewMode === 'spreadsheetV3' || activeViewMode === 'spreadsheetV4';
     const isReadyToLock = isSpreadsheetView && unallocated === 0;
-    const showCreateButton = !isSpreadsheetView && activeViewMode !== 'dashboard';
+    const showCreateButton = !isSpreadsheetView && activeViewMode !== 'dashboard' && !isScheduleActiveSheet;
 
     // Status colors based on unallocated amount - used only for the status pill
     const statusClasses = unallocated === 0 

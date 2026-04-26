@@ -93,7 +93,7 @@ interface SidebarProps {
 
 
 const Sidebar: React.FC<SidebarProps> = ({ version = 'v1', bookmarks = [], onSelect, onToggleBookmark }) => {
-    const [activeItemKey, setActiveItemKey] = useState('dashboard');
+    const [activeItemKey, setActiveItemKey] = useState('logs');
     const [isBookmarksMenuVisible, setBookmarksMenuVisible] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
     const bookmarksMenuRef = useRef<HTMLDivElement>(null);

@@ -43,6 +43,7 @@ import HoverMenu from './HoverMenu';
 import ProjectDetailsCard from './ProjectDetailsCard';
 import BookmarksMenu from './FavoritesMenu';
 import Tooltip from './Tooltip';
+import { useProject } from '../../../context/ProjectContext';
 
 // --- Icon Definitions ---
 
@@ -477,13 +478,14 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
     const [isBookmarksMenuVisible, setBookmarksMenuVisible] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
-    const [activeCategoryKey, setActiveCategoryKey] = useState<StandardCategoryKey>('documentation');
-    const [activeSubcategoryKey, setActiveSubcategoryKey] = useState<string>('document');
+    const [activeCategoryKey, setActiveCategoryKey] = useState<StandardCategoryKey>('finance');
+    const [activeSubcategoryKey, setActiveSubcategoryKey] = useState<string>('finance');
     const [selectedProject, setSelectedProject] = useState<Project>(projects[0]);
     const mobileMenuRef = useRef<HTMLDivElement>(null);
     const hoverMenuRef = useRef<HTMLDivElement>(null);
     const bookmarksMenuRef = useRef<HTMLDivElement>(null);
     const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const { activeViewMode, activeView } = useProject();
     const { bookmarks, toggleBookmark, getBookmarkItems } = useBookmarks();
 
     const hoverCountRef = useRef(0);
@@ -520,6 +522,46 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
         window.addEventListener('resize', checkMobile);
         return () => window.removeEventListener('resize', checkMobile);
     }, []);
+
+    // Synchronize Top Nav with view modes and Advanced Spreadsheet templates
+    useEffect(() => {
+        // Specific logic for Advanced Spreadsheet templates (V3/V4)
+        if (activeViewMode === 'spreadsheetV3' || activeViewMode === 'spreadsheetV4') {
+            if (activeView.v3ActiveSheetId === 'sheet-schedule') {
+                setActiveCategoryKey('projectManagement');
+                setActiveSubcategoryKey('planner');
+                return;
+            } else if (activeView.v3ActiveSheetId === 'sheet-budget') {
+                setActiveCategoryKey('finance');
+                setActiveSubcategoryKey('finance');
+                return;
+            }
+            
+            // Default for Spreadsheet + (V4) if no specific sheet match
+            if (activeViewMode === 'spreadsheetV4') {
+                setActiveCategoryKey('projectManagement');
+                setActiveSubcategoryKey('planner');
+                return;
+            }
+        }
+
+        if (activeViewMode === 'dashboard') {
+            setActiveCategoryKey('projectManagement');
+            setActiveSubcategoryKey('project');
+        } else if (activeViewMode === 'table' || activeViewMode === 'board') {
+            setActiveCategoryKey('documentation');
+            setActiveSubcategoryKey('rfi');
+        } else if (activeViewMode.startsWith('spreadsheet')) {
+            setActiveCategoryKey('finance');
+            setActiveSubcategoryKey('finance');
+        } else if (activeViewMode === 'gantt') {
+            setActiveCategoryKey('projectManagement');
+            setActiveSubcategoryKey('schedule');
+        } else if (activeViewMode === 'lookahead') {
+            setActiveCategoryKey('projectManagement');
+            setActiveSubcategoryKey('planner');
+        }
+    }, [activeViewMode, activeView]);
 
     const categoryColors: { [key: string]: string } = {
         projectManagement: 'text-orange-500',

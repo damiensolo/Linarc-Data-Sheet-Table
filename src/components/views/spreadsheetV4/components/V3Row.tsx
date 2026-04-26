@@ -1,0 +1,555 @@
+import React, { useState, useRef, useEffect, useMemo, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { V3Row, V3Column, V3CellStyle, CellValue, evaluateFormula } from '../types';
+import { ChevronRightIcon, ChevronDownIcon, AlertTriangleIcon } from '../../../common/Icons';
+import { Calendar } from '../../../common/ui/Calendar';
+import { format as formatDate, isValid as isValidDate } from 'date-fns';
+import { ROW_NUM_WIDTH, ACTIONS_WIDTH } from './V3Header';
+
+// ─── DateCellPicker ────────────────────────────────────────────────────────────
+// Renders the Shadcn-style Calendar in a portal anchored to the trigger element.
+// This bypasses the table's overflow:hidden clipping.
+
+interface DateCellPickerProps {
+  anchorRef: React.RefObject<HTMLElement>;
+  value: string | null | undefined;
+  onSelect: (dateStr: string) => void;
+  onClose: () => void;
+}
+
+const DateCellPicker: React.FC<DateCellPickerProps> = ({ anchorRef, value, onSelect, onClose }) => {
+  const [coords, setCoords] = useState({ top: 0, left: 0 });
+  const popupRef = useRef<HTMLDivElement>(null);
+
+  // Parse existing value
+  const parsed = value ? new Date(String(value)) : undefined;
+  const selected = parsed && isValidDate(parsed) ? parsed : undefined;
+
+  // Position the popup below the anchor cell
+  useLayoutEffect(() => {
+    if (anchorRef.current) {
+      const rect = anchorRef.current.getBoundingClientRect();
+      const POPUP_HEIGHT = 320;
+      const below = rect.bottom + 4;
+      const above = rect.top - POPUP_HEIGHT - 4;
+      const top = below + POPUP_HEIGHT > window.innerHeight - 8 && above > 8 ? above : below;
+      let left = rect.left;
+      const POPUP_WIDTH = 252;
+      if (left + POPUP_WIDTH > window.innerWidth - 8) left = window.innerWidth - POPUP_WIDTH - 8;
+      setCoords({ top, left });
+    }
+  }, [anchorRef]);
+
+  // Close on outside click
+  useEffect(() => {
+    const handleDown = (e: MouseEvent) => {
+      if (
+        popupRef.current && !popupRef.current.contains(e.target as Node) &&
+        anchorRef.current && !anchorRef.current.contains(e.target as Node)
+      ) {
+        onClose();
+      }
+    };
+    document.addEventListener('mousedown', handleDown);
+    return () => document.removeEventListener('mousedown', handleDown);
+  }, [onClose, anchorRef]);
+
+  // Focus calendar on mount for keyboard nav
+  useEffect(() => {
+    const el = popupRef.current?.querySelector('[data-calendar-container="true"]') as HTMLElement;
+    if (el) el.focus();
+  }, []);
+
+  return createPortal(
+    <div
+      ref={popupRef}
+      style={{ position: 'fixed', top: coords.top, left: coords.left, zIndex: 9999 }}
+      onMouseDown={(e) => e.stopPropagation()}
+    >
+      <Calendar
+        mode="single"
+        selected={selected}
+        onSelect={(d) => {
+          if (d) {
+            onSelect(formatDate(d, 'yyyy-MM-dd'));
+          }
+          onClose();
+        }}
+        className="shadow-2xl"
+      />
+    </div>,
+    document.body
+  );
+};
+
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+const formatCurrency = (v: CellValue) => {
+  const n = Number(v);
+  if (isNaN(n)) return '';
+  const abs = Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return n < 0 ? `(${abs})` : abs;
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  'Completed':   'bg-green-100 text-green-700',
+  'Done':        'bg-green-100 text-green-700',
+  'In Progress': 'bg-blue-100 text-blue-700',
+  'Active':      'bg-blue-100 text-blue-700',
+  'In Review':   'bg-purple-100 text-purple-700',
+  'Not Started': 'bg-gray-100 text-gray-600',
+  'Planned':     'bg-gray-100 text-gray-600',
+  'Blocked':     'bg-red-100 text-red-700',
+  'Urgent':      'bg-red-100 text-red-700',
+  'High':        'bg-orange-100 text-orange-700',
+  'Medium':      'bg-yellow-100 text-yellow-700',
+  'Low':         'bg-green-100 text-green-700',
+};
+
+interface V3RowProps {
+  row: V3Row;
+  rowIndex: number;
+  level: number;
+  columns: V3Column[];
+  isSelected: boolean;
+  isExpanded: boolean;
+  isSummary?: boolean;
+  focusedCell: { rowId: string; colId: string } | null;
+  editingCell: { rowId: string; colId: string; initial?: string; cursorAtEnd?: boolean; mode?: 'append' } | null;
+  selectedColId: string | null;
+  isScrolled: boolean;
+  isAtEnd: boolean;
+  fontSize: number;
+  displayDensity: 'compact' | 'standard' | 'comfortable';
+  cutColId: string | null;
+  cutCellColIds: Set<string>;
+  liveEdit: { rowId: string; colId: string; value: string } | null;
+  activeEditSource: 'cell' | 'formula' | null;
+  isVisitedDraft: boolean;
+  onToggleSelect: (id: string) => void;
+  onToggleExpand: (id: string) => void;
+  onLiveEditChange: (rowId: string, colId: string, value: string) => void;
+  onCellClick: (rowId: string, colId: string, e: React.MouseEvent) => void;
+  onCellDoubleClick: (rowId: string, colId: string) => void;
+  onStopEdit: () => void;
+  onUpdateCell: (rowId: string, colId: string, value: CellValue, direction?: 'up' | 'down' | 'left' | 'right') => void;
+  onContextMenu: (e: React.MouseEvent, type: 'row' | 'cell', rowId: string, colId?: string) => void;
+  allRows: V3Row[];
+}
+
+const HEIGHT: Record<string, string> = { compact: 'h-7', standard: 'h-9', comfortable: 'h-11' };
+
+const V3RowComponent: React.FC<V3RowProps> = ({
+  row, rowIndex, level, columns, isSelected, isExpanded, isSummary,
+  focusedCell, editingCell, selectedColId, isScrolled, isAtEnd, fontSize, displayDensity,
+  cutColId,  cutCellColIds, liveEdit, activeEditSource, isVisitedDraft,
+  onToggleSelect, onToggleExpand, onCellClick, onCellDoubleClick,
+  onLiveEditChange, onStopEdit, onUpdateCell, onContextMenu, allRows,
+}) => {
+  const hClass = HEIGHT[displayDensity] ?? 'h-7';
+  const hasChildren = !!row.children?.length;
+  const isGroup = !!row.isGroup;
+  const [editValue, setEditValue] = useState('');
+  const [selectedOptionIdx, setSelectedOptionIdx] = useState<number>(-1);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const ignoreCellClick = useRef(false);
+  // Refs keyed by colId so DateCellPicker can anchor to the correct <td>
+  const cellTdRefs = useRef<Record<string, HTMLTableCellElement | null>>({});
+  const skipNextCommitRef = useRef(false);
+
+  useEffect(() => {
+    if (editingCell?.rowId === row.id) {
+      skipNextCommitRef.current = false;
+      const raw = row.cells[editingCell.colId];
+      setEditValue(editingCell.initial !== undefined ? editingCell.initial : raw === null || raw === undefined ? '' : String(raw));
+      setSelectedOptionIdx(-1);
+    }
+  }, [editingCell, row.cells]);
+
+  useEffect(() => {
+    if (activeEditSource !== 'cell') return;
+    if (editingCell?.rowId === row.id && inputRef.current) {
+      const input = inputRef.current;
+      input.focus();
+      if (editingCell.mode === 'append') {
+        const len = input.value.length;
+        input.setSelectionRange(len, len);
+      } else {
+        input.select();
+      }
+    }
+  }, [editingCell, activeEditSource, row.id]);
+
+  useEffect(() => {
+    if (editingCell?.rowId === row.id && dropdownRef.current) {
+      dropdownRef.current.focus();
+    }
+    // New: focus the calendar container if it exists
+    if (editingCell?.rowId === row.id) {
+      const cal = document.querySelector('[data-calendar-container="true"]') as HTMLElement;
+      if (cal) cal.focus();
+    }
+  }, [editingCell, row.id]);
+
+  const commitEdit = (colId: string, dir?: 'up' | 'down' | 'left' | 'right') => {
+    if (skipNextCommitRef.current) return;
+    skipNextCommitRef.current = true;
+    const col = columns.find(c => c.id === colId);
+    const currentEditValue = liveEdit?.rowId === row.id && liveEdit.colId === colId ? liveEdit.value : editValue;
+    let val: CellValue = currentEditValue;
+    if (col?.type === 'number' || col?.type === 'currency') {
+      val = currentEditValue === '' ? null : parseFloat(currentEditValue.replace(/,/g, '')) || 0;
+    } else if (col?.type === 'checkbox') {
+      val = currentEditValue === 'true';
+    }
+    onUpdateCell(row.id, colId, val, dir);
+    onStopEdit();
+  };
+
+  const editMountTime = useRef(Date.now());
+  useEffect(() => {
+    if (editingCell?.rowId === row.id) {
+      editMountTime.current = Date.now();
+    }
+  }, [editingCell, row.id]);
+
+  const handleKeyDown = (e: React.KeyboardEvent, colId: string) => {
+    e.stopPropagation();
+    const col = columns.find(c => c.id === colId);
+    
+    if (col?.type === 'select' && col.options) {
+      const options = col.options;
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault();
+          setSelectedOptionIdx(prev => Math.min(options.length - 1, prev + 1));
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          setSelectedOptionIdx(prev => Math.max(0, prev - 1));
+          break;
+        case 'Enter':
+          e.preventDefault();
+          if (selectedOptionIdx >= 0) {
+            const opt = options[selectedOptionIdx];
+            const label = typeof opt === 'string' ? opt : opt.label;
+            onUpdateCell(row.id, colId, label);
+            onStopEdit();
+          } else {
+            onStopEdit();
+          }
+          break;
+        case 'Escape':
+          e.preventDefault();
+          onStopEdit();
+          break;
+      }
+      return;
+    }
+
+    switch (e.key) {
+      case 'Enter':
+        if (e.repeat || Date.now() - editMountTime.current < 250) return;
+        e.preventDefault(); 
+        commitEdit(colId, e.shiftKey ? 'up' : 'down'); 
+        break;
+      case 'Tab':      e.preventDefault(); commitEdit(colId, e.shiftKey ? 'left' : 'right'); break;
+      case 'Escape':   e.preventDefault(); skipNextCommitRef.current = true; onStopEdit(); break;
+      case 'ArrowUp':    e.preventDefault(); commitEdit(colId, 'up'); break;
+      case 'ArrowDown':  e.preventDefault(); commitEdit(colId, 'down'); break;
+    }
+  };
+
+  const handleClick = (rowId: string, colId: string, e: React.MouseEvent) => {
+    if (isSummary) return;
+    if (ignoreCellClick.current) { ignoreCellClick.current = false; return; }
+    const col = columns.find(c => c.id === colId);
+    if (col?.type === 'select' || col?.type === 'date') {
+      e.stopPropagation(); // prevent td onClick (handleCellClick) from clearing editingCell
+      onCellDoubleClick(rowId, colId);
+    } else {
+      onCellClick(rowId, colId, e);
+    }
+  };
+
+  const renderCellContent = (col: V3Column): React.ReactNode => {
+    if (isSummary) {
+      if (col.id === 'name') return <span className="text-gray-500 italic text-xs">subtotal</span>;
+      if (col.isTotal && row.children) {
+        const sum = row.children.reduce((acc, c) => {
+          const v = col.type === 'formula' && col.formula
+            ? Number(evaluateFormula(col.formula, c.cells, allRows, columns) || 0)
+            : Number(c.cells[col.id] || 0);
+          return acc + v;
+        }, 0);
+        return col.type === 'currency' || col.type === 'formula' ? formatCurrency(sum) : sum || '';
+      }
+      return '';
+    }
+
+    const raw = row.cells[col.id];
+    if (liveEdit?.rowId === row.id && liveEdit.colId === col.id) return liveEdit.value;
+
+    const isFormulaCol = col.type === 'formula' && col.formula;
+    const isManualFormula = typeof raw === 'string' && raw.startsWith('=');
+
+    if (isFormulaCol || isManualFormula) {
+      const formula = isFormulaCol ? col.formula! : (raw as string);
+      const result = evaluateFormula(formula, row.cells, allRows, columns);
+      return (
+        <span className={`${isFormulaCol ? 'text-blue-700' : 'text-blue-600'} font-medium`}>
+          {typeof result === 'number' 
+            ? (col.type === 'currency' ? formatCurrency(result) : result.toLocaleString()) 
+            : result}
+        </span>
+      );
+    }
+
+    if (col.type === 'currency') return formatCurrency(raw);
+    if (col.type === 'number') return raw !== null && raw !== undefined ? Number(raw).toLocaleString() : '';
+    if (col.type === 'checkbox') return (
+      <input type="checkbox" checked={!!raw} readOnly className="h-4 w-4 rounded border-gray-300 text-blue-600 cursor-pointer" />
+    );
+    if (col.type === 'select') {
+      const val = String(raw || '');
+      const option = col.options?.find(o => typeof o === 'string' ? o === val : o.label === val);
+      const color = (typeof option === 'object' && option.color) ? option.color : undefined;
+      const bgClass = STATUS_COLORS[val] ?? 'bg-gray-100 text-gray-700';
+
+      return (
+        <div className="flex items-center w-full h-full">
+          {val ? (
+            <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${color ? 'bg-white border-gray-200 text-gray-700 shadow-sm' : bgClass}`}>
+              {color && <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />}
+              <span>{val}</span>
+            </div>
+          ) : (
+            <span className="text-gray-400 italic text-[10px] opacity-0 group-hover/cell:opacity-100 transition-opacity">Select</span>
+          )}
+          <ChevronDownIcon className="w-3 h-3 text-gray-400 opacity-0 group-hover/cell:opacity-100 transition-opacity ml-auto" />
+        </div>
+      );
+    }
+    if (col.type === 'date' && raw) return <span className="text-gray-700 font-mono text-xs">{String(raw)}</span>;
+    if (col.id === 'name' && !raw && isVisitedDraft && focusedCell?.rowId !== row.id) {
+      return (
+        <div className="flex items-center gap-2 group/msg" title="Enter a Task Name to create this row and unlock another row.">
+          <AlertTriangleIcon className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+          <span className="text-amber-800 text-[10px] font-semibold tracking-tight uppercase">Enter Task Name...</span>
+        </div>
+      );
+    }
+    return raw !== null && raw !== undefined ? String(raw) : '';
+  };
+
+  const renderEditInput = (col: V3Column) => {
+    if (col.type === 'select' && col.options?.length) {
+      return (
+        <div 
+          ref={dropdownRef}
+          tabIndex={0}
+          onKeyDown={(e) => handleKeyDown(e, col.id)}
+          className="absolute left-0 top-0 min-w-full bg-white border border-gray-200 rounded-md shadow-2xl z-[100] py-1 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200 outline-none"
+          style={{ width: Math.max(col.width, 160) }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="px-3 py-1.5 border-b border-gray-50 mb-1">
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Select Status</span>
+          </div>
+          <div className="max-h-60 overflow-y-auto">
+            {col.options.map((o, idx) => {
+              const label = typeof o === 'string' ? o : o.label;
+              const color = typeof o === 'object' ? o.color : undefined;
+              const bgClass = STATUS_COLORS[label] ?? 'bg-gray-100 text-gray-700';
+              const isSelectedOpt = idx === selectedOptionIdx;
+              return (
+                <button
+                  key={idx}
+                  onClick={(e) => { e.stopPropagation(); onUpdateCell(row.id, col.id, label); onStopEdit(); }}
+                  onMouseEnter={() => setSelectedOptionIdx(idx)}
+                  className={`w-full text-left px-3 py-2 transition-colors flex items-center group/opt ${isSelectedOpt ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
+                >
+                  <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold border transition-all group-hover/opt:scale-105 ${isSelectedOpt ? 'scale-105 border-blue-200 shadow-sm' : ''} ${color ? 'bg-white border-gray-200 text-gray-700 shadow-sm' : bgClass}`}>
+                    {color && <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />}
+                    <span>{label}</span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+          <div className="mt-1 border-t border-gray-50 pt-1">
+            <button
+              onClick={(e) => { e.stopPropagation(); onUpdateCell(row.id, col.id, ''); onStopEdit(); }}
+              className="w-full text-left px-3 py-2 hover:bg-red-50 text-[10px] text-gray-400 hover:text-red-500 transition-colors flex items-center gap-2"
+            >
+              <div className="w-4 h-4 rounded-full border border-dashed border-gray-300 flex items-center justify-center">
+                <span className="w-2 h-[1px] bg-gray-300 rotate-45" />
+              </div>
+              Clear selection
+            </button>
+          </div>
+        </div>
+      );
+    }
+    if (col.type === 'checkbox') {
+      return (
+        <input
+          type="checkbox"
+          defaultChecked={!!row.cells[col.id]}
+          onChange={(e) => { onUpdateCell(row.id, col.id, e.target.checked); onStopEdit(); }}
+          onClick={(e) => e.stopPropagation()}
+          className="h-4 w-4 rounded border-gray-300 text-blue-600 absolute inset-0 m-auto z-50"
+        />
+      );
+    }
+    if (col.type === 'date') {
+      const anchorRef = { current: cellTdRefs.current[col.id] } as React.RefObject<HTMLElement>;
+      return (
+        <DateCellPicker
+          anchorRef={anchorRef}
+          value={row.cells[col.id] as string | null | undefined}
+          onSelect={(dateStr) => {
+            onUpdateCell(row.id, col.id, dateStr);
+            onStopEdit();
+          }}
+          onClose={onStopEdit}
+        />
+      );
+    }
+
+    return (
+      <input
+        ref={inputRef}
+        value={liveEdit?.rowId === row.id && liveEdit.colId === col.id ? liveEdit.value : editValue}
+        onChange={(e) => { setEditValue(e.target.value); onLiveEditChange(row.id, col.id, e.target.value); }}
+        onBlur={() => commitEdit(col.id)}
+        onKeyDown={(e) => handleKeyDown(e, col.id)}
+        onClick={(e) => e.stopPropagation()}
+        className={`absolute inset-0 w-full h-full px-2 text-gray-900 border border-blue-500 outline-none z-50 shadow-sm text-xs font-mono
+          ${col.id === 'name' && row.isDraft && !editValue ? 'bg-amber-100/50' : 'bg-white'}`}
+        style={{ fontSize }}
+      />
+    );
+  };
+
+  const rowBg = useMemo(() => {
+    if (isSelected) return 'bg-blue-100';
+    if (isSummary) return 'bg-gray-50 font-bold';
+    if (isGroup) return 'bg-gray-50/80 font-semibold border-y border-gray-200';
+    return rowIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50/50';
+  }, [isSelected, isSummary, isGroup, rowIndex]);
+
+  const stickyBg = () => {
+    if (isSelected) return 'bg-blue-100';
+    if (isSummary) return 'bg-gray-50';
+    if (isGroup) return 'bg-gray-50';
+    return rowIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+  };
+
+  const rowStyleBg = (!isSelected && !isSummary && !isGroup) ? row.style?.backgroundColor : undefined;
+
+  return (
+    <tr
+      className={`group relative transition-colors ${rowBg}`}
+      style={{ 
+        color: row.style?.textColor, 
+        backgroundColor: rowStyleBg,
+        height: { compact: 28, standard: 36, comfortable: 44 }[displayDensity] || 28
+      }}
+    >
+      <td
+        onClick={() => !isSummary && onToggleSelect(row.id)}
+        onContextMenu={(e) => !isSummary && onContextMenu(e, 'row', row.id)}
+        className={`sticky left-0 z-30 border-r border-b border-gray-200 text-center p-0 cursor-pointer transition-colors
+          ${isSelected && !isSummary ? 'bg-blue-600 text-white' : stickyBg()}
+          ${isScrolled ? 'after:content-[""] after:absolute after:top-0 after:bottom-0 after:-right-[6px] after:w-[6px] after:bg-gradient-to-r after:from-black/[0.12] after:to-transparent after:pointer-events-none' : ''}
+        `}
+        style={{ width: ROW_NUM_WIDTH, minWidth: ROW_NUM_WIDTH, maxWidth: ROW_NUM_WIDTH }}
+      >
+        <div className="flex items-center justify-center h-full">
+          {!isSummary && (
+            <>
+              <span className={`font-mono text-gray-500 ${isSelected ? 'hidden' : 'group-hover:hidden'}`} style={{ fontSize }}>{rowIndex + 1}</span>
+              <input type="checkbox" checked={isSelected} onChange={() => onToggleSelect(row.id)} onClick={(e) => e.stopPropagation()} className={`h-4 w-4 rounded border-gray-300 text-blue-600 ${isSelected ? 'block' : 'hidden group-hover:block'}`} />
+            </>
+          )}
+        </div>
+      </td>
+
+      {columns.map((col, colIndex) => {
+        const isFirstCol = colIndex === 0;
+        const isFocused = focusedCell?.rowId === row.id && focusedCell?.colId === col.id;
+        const isEditing = activeEditSource === 'cell' && editingCell?.rowId === row.id && editingCell?.colId === col.id;
+        const cellStyle = row.cellStyles?.[col.id] ?? {};
+        const isColSelected = !isSummary && selectedColId === col.id;
+        const isCutCol = cutColId === col.id;
+        const isCutCell = cutCellColIds.has(col.id);
+        const hasValue = !!row.cells[col.id] || (liveEdit?.rowId === row.id && liveEdit.colId === col.id && !!liveEdit.value);
+        const isNameWarning = col.id === 'name' && row.isDraft && !hasValue && isVisitedDraft;
+
+        return (
+          <td
+            key={col.id}
+            ref={(el) => { cellTdRefs.current[col.id] = el; }}
+            className={`border-r border-b border-gray-200 px-2 relative transition-colors cursor-default group/cell
+              ${col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'}
+              ${isSummary ? 'bg-gray-50' : ''}
+              ${isSelected && !cellStyle.backgroundColor && !isSummary ? 'bg-blue-50' : ''}
+              ${isColSelected && !isSelected && !cellStyle.backgroundColor ? 'bg-blue-50' : ''}
+              ${isNameWarning ? 'bg-amber-100/40 shadow-[inset_0_0_0_1px_rgba(245,158,11,0.3)]' : ''}
+            `}
+            style={{ width: col.width, minWidth: col.width, maxWidth: col.width, backgroundColor: cellStyle.backgroundColor || rowStyleBg, color: cellStyle.textColor || row.style?.textColor }}
+            onClick={(e) => onCellClick(row.id, col.id, e)}
+            onDoubleClick={() => !isSummary && onCellDoubleClick(row.id, col.id)}
+            onContextMenu={(e) => !isSummary && onContextMenu(e, 'cell', row.id, col.id)}
+          >
+            {isFocused && !isEditing && <div className="absolute inset-0 border-2 border-blue-600 pointer-events-none z-20 shadow-[inset_0_0_0_1px_rgba(37,99,235,0.3)]" />}
+            {(isCutCol || isCutCell) && <div className="absolute inset-0 border-2 border-dashed border-blue-500 pointer-events-none z-20" />}
+            {isEditing && <div className="absolute inset-0 pointer-events-none z-[55]" style={{ boxShadow: 'inset 0 0 0 2px #2563eb, 0 0 0 2px #93c5fd' }} />}
+            {isEditing ? renderEditInput(col) : (
+              <div className={`flex items-center h-full w-full overflow-hidden relative z-10 ${col.align === 'right' ? 'justify-end' : col.align === 'center' ? 'justify-center' : 'justify-start'}`}
+                   style={{ paddingLeft: isFirstCol && (row.isGroup || level > 0) ? `${level * 16 + (hasChildren ? 0 : 20)}px` : undefined }}>
+                {isFirstCol && hasChildren && !isSummary && (
+                  <button onClick={(e) => { e.stopPropagation(); onToggleExpand(row.id); }} className="mr-1 p-0.5 rounded hover:bg-blue-100 text-blue-500 shrink-0 transition-colors">
+                    {isExpanded ? <ChevronDownIcon className="w-3.5 h-3.5" /> : <ChevronRightIcon className="w-3.5 h-3.5" />}
+                  </button>
+                )}
+                <div className="truncate text-xs w-full h-full" style={{ fontSize }}>{renderCellContent(col)}</div>
+              </div>
+            )}
+          </td>
+        );
+      })}
+
+      <td className="border-r border-gray-200 bg-transparent relative" style={{ width: 44, minWidth: 44 }} />
+      <td className={`sticky right-0 z-30 w-20 px-2 border-l border-gray-200 transition-all duration-200 relative ${stickyBg()}`}
+          style={{ width: ACTIONS_WIDTH, minWidth: ACTIONS_WIDTH, maxWidth: ACTIONS_WIDTH }}>
+      </td>
+    </tr>
+  );
+};
+
+function arePropsEqual(prev: V3RowProps, next: V3RowProps): boolean {
+  const rowId = prev.row.id;
+  if (prev.row !== next.row) return false;
+  if (prev.columns !== next.columns) return false;
+  if (prev.isSelected !== next.isSelected) return false;
+  if (prev.isExpanded !== next.isExpanded) return false;
+  if (prev.fontSize !== next.fontSize) return false;
+  if (prev.displayDensity !== next.displayDensity) return false;
+  if (prev.liveEdit !== next.liveEdit) return false;
+  const prevFoc = prev.focusedCell?.rowId === rowId ? prev.focusedCell.colId : null;
+  const nextFoc = next.focusedCell?.rowId === rowId ? next.focusedCell.colId : null;
+  if (prevFoc !== nextFoc) return false;
+  const prevEdit = prev.editingCell?.rowId === rowId ? prev.editingCell.colId : null;
+  const nextEdit = next.editingCell?.rowId === rowId ? next.editingCell.colId : null;
+  if (prevEdit !== nextEdit) return false;
+  if (prev.cutColId !== next.cutColId) return false;
+  if (prev.cutCellColIds !== next.cutCellColIds) return false;
+  if (prev.selectedColId !== next.selectedColId) return false;
+  return true;
+}
+
+export default React.memo(V3RowComponent, arePropsEqual);

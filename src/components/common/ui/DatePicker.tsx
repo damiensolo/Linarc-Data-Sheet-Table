@@ -1,6 +1,6 @@
 
-import React, { useState } from 'react';
-import { format } from 'date-fns';
+import React, { useState, useEffect, useRef } from 'react';
+import { format, isValid } from 'date-fns';
 import { cn } from '../../../lib/utils';
 import { Calendar } from './Calendar';
 import { Popover } from './Popover';
@@ -15,9 +15,20 @@ interface DatePickerProps {
 }
 
 export const DatePicker: React.FC<DatePickerProps> = ({ date, setDate, className, open, onOpenChange }) => {
-    // Internal state for uncontrolled usage, though usually controlled by Popover if props passed
     const [internalOpen, setInternalOpen] = useState(false);
     const isOpen = open !== undefined ? open : internalOpen;
+
+    // Focus the calendar when it opens
+    useEffect(() => {
+        if (isOpen) {
+            // Small timeout to ensure portal is rendered
+            const timer = setTimeout(() => {
+                const el = document.querySelector('[data-calendar-container="true"]') as HTMLElement;
+                if (el) el.focus();
+            }, 10);
+            return () => clearTimeout(timer);
+        }
+    }, [isOpen]);
 
     return (
         <Popover
@@ -27,15 +38,16 @@ export const DatePicker: React.FC<DatePickerProps> = ({ date, setDate, className
                 <button
                     type="button"
                     className={cn(
-                        "flex w-full h-full items-center justify-between text-left bg-transparent p-0 group focus:outline-none",
-                        !date && "text-slate-500",
+                        "flex w-full h-full items-center justify-between text-left bg-transparent p-0 group focus:outline-none transition-colors",
+                        !date && "text-slate-500 italic",
+                        isOpen && "bg-blue-50/50",
                         className
                     )}
                 >
-                    <span className="truncate flex-1 text-left">{date ? format(date, "M/d/yyyy") : "Pick a date"}</span>
+                    <span className="truncate flex-1 text-left px-2">{date && isValid(date) ? format(date, "M/d/yyyy") : "Pick a date"}</span>
                     <ChevronDownIcon className={cn(
-                        "w-4 h-4 text-gray-400 transition-opacity duration-200 ml-2 flex-shrink-0",
-                        isOpen ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                        "w-4 h-4 text-gray-400 transition-all duration-200 mr-2 flex-shrink-0",
+                        isOpen ? "opacity-100 rotate-180" : "opacity-0 group-hover:opacity-100"
                     )} />
                 </button>
             }
@@ -45,11 +57,10 @@ export const DatePicker: React.FC<DatePickerProps> = ({ date, setDate, className
                     selected={date}
                     onSelect={(d) => {
                         setDate(d);
-                        // Close the popover on select.
                         if (onOpenChange) onOpenChange(false);
                         else setInternalOpen(false);
                     }}
-                    className="rounded-md border border-slate-200"
+                    className="rounded-md"
                 />
             }
         />

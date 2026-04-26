@@ -70,7 +70,7 @@ const SidebarItem: React.FC<SidebarItemProps> = ({ item, isActive, onClick }) =>
 );
 
 const Sidebar: React.FC = () => {
-    const [activeItemKey, setActiveItemKey] = useState('dashboard');
+    const [activeItemKey, setActiveItemKey] = useState('logs');
 
     return (
         <aside className="w-[80px] bg-gray-50 border-r border-gray-200 flex flex-col shrink-0">
