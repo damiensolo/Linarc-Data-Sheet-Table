@@ -427,7 +427,8 @@ const V3RowComponent: React.FC<V3RowProps> = ({
         onBlur={() => commitEdit(col.id)}
         onKeyDown={(e) => handleKeyDown(e, col.id)}
         onClick={(e) => e.stopPropagation()}
-        className="absolute inset-0 w-full h-full px-2 bg-white text-gray-900 border border-blue-500 outline-none z-50 shadow-sm text-xs font-mono"
+        className={`absolute inset-0 w-full h-full px-2 text-gray-900 border border-blue-500 outline-none z-50 shadow-sm text-xs font-mono
+          ${col.id === 'name' && row.isDraft && !editValue ? 'bg-amber-100/50' : 'bg-white'}`}
         style={{ fontSize }}
       />
     );
@@ -485,6 +486,8 @@ const V3RowComponent: React.FC<V3RowProps> = ({
         const isColSelected = !isSummary && selectedColId === col.id;
         const isCutCol = cutColId === col.id;
         const isCutCell = cutCellColIds.has(col.id);
+        const hasValue = !!row.cells[col.id] || (liveEdit?.rowId === row.id && liveEdit.colId === col.id && !!liveEdit.value);
+        const isNameWarning = col.id === 'name' && row.isDraft && !hasValue && isVisitedDraft;
 
         return (
           <td
@@ -495,7 +498,7 @@ const V3RowComponent: React.FC<V3RowProps> = ({
               ${isSummary ? 'bg-gray-50' : ''}
               ${isSelected && !cellStyle.backgroundColor && !isSummary ? 'bg-blue-50' : ''}
               ${isColSelected && !isSelected && !cellStyle.backgroundColor ? 'bg-blue-50' : ''}
-              ${col.id === 'name' && !row.cells[col.id] && isVisitedDraft && focusedCell?.rowId !== row.id ? 'bg-amber-50/40 shadow-[inset_0_0_0_1px_rgba(245,158,11,0.4)]' : ''}
+              ${isNameWarning ? 'bg-amber-100/40 shadow-[inset_0_0_0_1px_rgba(245,158,11,0.3)]' : ''}
             `}
             style={{ width: col.width, minWidth: col.width, maxWidth: col.width, backgroundColor: cellStyle.backgroundColor || rowStyleBg, color: cellStyle.textColor || row.style?.textColor }}
             onClick={(e) => onCellClick(row.id, col.id, e)}
