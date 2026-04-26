@@ -117,19 +117,11 @@ interface V3RowProps {
   isSummary?: boolean;
   focusedCell: { rowId: string; colId: string } | null;
   editingCell: { rowId: string; colId: string; initial?: string; cursorAtEnd?: boolean; mode?: 'append' } | null;
-  inRangeSelection: boolean;
-  rangeColIds: Set<string>;
-  isRangeTopRow: boolean;
-  isRangeBottomRow: boolean;
-  rangeStartColId: string | null;
-  rangeEndColId: string | null;
   selectedColId: string | null;
   isScrolled: boolean;
   isAtEnd: boolean;
   fontSize: number;
   displayDensity: 'compact' | 'standard' | 'comfortable';
-  fillAnchorCell: { rowId: string; colId: string } | null;
-  fillRangeRowIds: Set<string>;
   cutColId: string | null;
   cutCellColIds: Set<string>;
   liveEdit: { rowId: string; colId: string; value: string } | null;
@@ -143,10 +135,6 @@ interface V3RowProps {
   onStopEdit: () => void;
   onUpdateCell: (rowId: string, colId: string, value: CellValue, direction?: 'up' | 'down' | 'left' | 'right') => void;
   onContextMenu: (e: React.MouseEvent, type: 'row' | 'cell', rowId: string, colId?: string) => void;
-  onCellMouseDown: (rowId: string, colId: string, e: React.MouseEvent) => void;
-  onCellMouseEnter: (rowId: string, colId: string) => void;
-  onFillHandleMouseDown: (rowId: string, colId: string) => void;
-  onRowMouseEnter: (rowId: string) => void;
   allRows: V3Row[];
 }
 
@@ -154,17 +142,10 @@ const HEIGHT: Record<string, string> = { compact: 'h-7', standard: 'h-9', comfor
 
 const V3RowComponent: React.FC<V3RowProps> = ({
   row, rowIndex, level, columns, isSelected, isExpanded, isSummary,
-  focusedCell, editingCell, inRangeSelection, rangeColIds, 
-  isRangeTopRow, isRangeBottomRow, rangeStartColId, rangeEndColId,
-  selectedColId, isScrolled, isAtEnd, fontSize, displayDensity,
-  fillAnchorCell, fillRangeRowIds, cutColId,  cutCellColIds,
-  liveEdit,
-  activeEditSource,
-  isVisitedDraft,
-  onToggleSelect,
-  onToggleExpand, onCellClick, onCellDoubleClick,
-  onLiveEditChange, onStopEdit, onUpdateCell, onContextMenu, onCellMouseDown, onCellMouseEnter,
-  onFillHandleMouseDown, onRowMouseEnter, allRows,
+  focusedCell, editingCell, selectedColId, isScrolled, isAtEnd, fontSize, displayDensity,
+  cutColId,  cutCellColIds, liveEdit, activeEditSource, isVisitedDraft,
+  onToggleSelect, onToggleExpand, onCellClick, onCellDoubleClick,
+  onLiveEditChange, onStopEdit, onUpdateCell, onContextMenu, allRows,
 }) => {
   const hClass = HEIGHT[displayDensity] ?? 'h-7';
   const hasChildren = !!row.children?.length;
@@ -174,7 +155,6 @@ const V3RowComponent: React.FC<V3RowProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const ignoreCellClick = useRef(false);
-  const isFillTarget = fillRangeRowIds.has(row.id);
   // Refs keyed by colId so DateCellPicker can anchor to the correct <td>
   const cellTdRefs = useRef<Record<string, HTMLTableCellElement | null>>({});
   const skipNextCommitRef = useRef(false);
@@ -477,7 +457,6 @@ const V3RowComponent: React.FC<V3RowProps> = ({
         backgroundColor: rowStyleBg,
         height: { compact: 28, standard: 36, comfortable: 44 }[displayDensity] || 28
       }}
-      onMouseEnter={() => !isSummary && onRowMouseEnter(row.id)}
     >
       <td
         onClick={() => !isSummary && onToggleSelect(row.id)}
@@ -502,10 +481,10 @@ const V3RowComponent: React.FC<V3RowProps> = ({
         const isFirstCol = colIndex === 0;
         const isFocused = focusedCell?.rowId === row.id && focusedCell?.colId === col.id;
         const isEditing = activeEditSource === 'cell' && editingCell?.rowId === row.id && editingCell?.colId === col.id;
-        const inRange = rangeColIds.has(col.id) && inRangeSelection;
         const cellStyle = row.cellStyles?.[col.id] ?? {};
-        const isFillRangeCell = !isSummary && fillRangeRowIds.has(row.id) && fillAnchorCell?.colId === col.id;
         const isColSelected = !isSummary && selectedColId === col.id;
+        const isCutCol = cutColId === col.id;
+        const isCutCell = cutCellColIds.has(col.id);
 
         return (
           <td
@@ -515,19 +494,16 @@ const V3RowComponent: React.FC<V3RowProps> = ({
               ${col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'}
               ${isSummary ? 'bg-gray-50' : ''}
               ${isSelected && !cellStyle.backgroundColor && !isSummary ? 'bg-blue-50' : ''}
-              ${inRange ? 'bg-blue-50' : ''}
-              ${isColSelected && !isSelected && !inRange && !cellStyle.backgroundColor ? 'bg-blue-50' : ''}
-              ${isFillRangeCell && !cellStyle.backgroundColor ? 'bg-blue-50/60' : ''}
+              ${isColSelected && !isSelected && !cellStyle.backgroundColor ? 'bg-blue-50' : ''}
               ${col.id === 'name' && !row.cells[col.id] && isVisitedDraft && focusedCell?.rowId !== row.id ? 'bg-amber-50/40 shadow-[inset_0_0_0_1px_rgba(245,158,11,0.4)]' : ''}
             `}
             style={{ width: col.width, minWidth: col.width, maxWidth: col.width, backgroundColor: cellStyle.backgroundColor || rowStyleBg, color: cellStyle.textColor || row.style?.textColor }}
-            onClick={(e) => handleClick(row.id, col.id, e)}
+            onClick={(e) => onCellClick(row.id, col.id, e)}
             onDoubleClick={() => !isSummary && onCellDoubleClick(row.id, col.id)}
             onContextMenu={(e) => !isSummary && onContextMenu(e, 'cell', row.id, col.id)}
-            onMouseDown={(e) => !isSummary && onCellMouseDown(row.id, col.id, e)}
-            onMouseEnter={() => !isSummary && onCellMouseEnter(row.id, col.id)}
           >
             {isFocused && !isEditing && <div className="absolute inset-0 border-2 border-blue-600 pointer-events-none z-20 shadow-[inset_0_0_0_1px_rgba(37,99,235,0.3)]" />}
+            {(isCutCol || isCutCell) && <div className="absolute inset-0 border-2 border-dashed border-blue-500 pointer-events-none z-20" />}
             {isEditing && <div className="absolute inset-0 pointer-events-none z-[55]" style={{ boxShadow: 'inset 0 0 0 2px #2563eb, 0 0 0 2px #93c5fd' }} />}
             {isEditing ? renderEditInput(col) : (
               <div className={`flex items-center h-full w-full overflow-hidden relative z-10 ${col.align === 'right' ? 'justify-end' : col.align === 'center' ? 'justify-center' : 'justify-start'}`}
@@ -567,6 +543,9 @@ function arePropsEqual(prev: V3RowProps, next: V3RowProps): boolean {
   const prevEdit = prev.editingCell?.rowId === rowId ? prev.editingCell.colId : null;
   const nextEdit = next.editingCell?.rowId === rowId ? next.editingCell.colId : null;
   if (prevEdit !== nextEdit) return false;
+  if (prev.cutColId !== next.cutColId) return false;
+  if (prev.cutCellColIds !== next.cutCellColIds) return false;
+  if (prev.selectedColId !== next.selectedColId) return false;
   return true;
 }
 

@@ -3,6 +3,7 @@ import { V3Column, V3ColumnType } from '../types';
 import { PlusIcon, ArrowUpIcon, ArrowDownIcon, ChevronDownIcon } from '../../../common/Icons';
 import { Resizer } from '../../../common/ui/Resizer';
 import { SPREADSHEET_INDEX_COLUMN_WIDTH } from '../../../../constants/spreadsheetLayout';
+import { COLUMN_TYPES } from './AddColumnModal';
 
 export const ROW_NUM_WIDTH = SPREADSHEET_INDEX_COLUMN_WIDTH;
 export const ACTIONS_WIDTH = 80;
@@ -131,10 +132,11 @@ const V3Header: React.FC<V3HeaderProps> = ({
           const isRenaming    = renamingColId === col.id;
           const showChevron   = (isHovered || isColSelected) && !isRenaming;
 
+
           return (
             <th
               key={col.id}
-              className={`border-r border-gray-200 px-2 whitespace-nowrap uppercase font-semibold relative group cursor-pointer select-none
+              className={`border-r border-gray-200 px-3 whitespace-nowrap uppercase font-semibold relative group cursor-pointer select-none
                 ${col.align === 'right' ? 'text-right' : 'text-left'}
                 ${isColSelected
                   ? 'bg-blue-200 text-blue-900'
@@ -159,7 +161,7 @@ const V3Header: React.FC<V3HeaderProps> = ({
               onDragStart={(e) => handleDragStart(e, col.id)}
               onDragOver={(e) => handleDragOver(e, col.id)}
               onDrop={(e) => handleDrop(e, col.id)}
-              title={`Column ID: ${col.id}`}
+              title={`Column ID: ${col.id} | Type: ${col.type}`}
               onDragLeave={() => setDropIndicator(null)}
             >
               {dropIndicator?.id === col.id && (
@@ -170,7 +172,7 @@ const V3Header: React.FC<V3HeaderProps> = ({
                 <div className="absolute inset-0 border-l-2 border-r-2 border-t-2 border-dashed border-blue-600 pointer-events-none z-20" />
               )}
 
-              <div className={`flex items-center h-full w-full gap-1 overflow-hidden ${showChevron ? 'pr-5' : ''}`}>
+              <div className={`flex items-center h-full w-full gap-2 overflow-hidden ${showChevron ? 'pr-7' : ''}`}>
                 {isRenaming ? (
                   <RenameInput
                     initialValue={col.label}
@@ -189,10 +191,10 @@ const V3Header: React.FC<V3HeaderProps> = ({
                 )}
               </div>
 
-              {/* Chevron dropdown button — shown on hover or when column is selected */}
+              {/* Chevron dropdown button — moved slightly left to avoid overlap with resizer handle */}
               {showChevron && (
                 <button
-                  className={`absolute right-0 top-0 h-full px-1.5 flex items-center justify-center z-10 transition-colors
+                  className={`absolute right-2.5 top-0 h-full px-1 flex items-center justify-center z-10 transition-colors
                     ${isColSelected ? 'text-blue-700 hover:bg-blue-300' : 'text-gray-500 hover:bg-gray-200'}`}
                   onMouseDown={(e) => e.stopPropagation()}
                   onClick={(e) => {

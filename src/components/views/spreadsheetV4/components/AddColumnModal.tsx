@@ -26,7 +26,6 @@ export const COLUMN_TYPES: { id: V3ColumnType; label: string; description: strin
   { id: 'date',     label: 'Date',     description: 'Date picker input',           icon: <Calendar className="w-4 h-4" /> },
   { id: 'select',   label: 'Select',   description: 'Dropdown with options',       icon: <List className="w-4 h-4" /> },
   { id: 'checkbox', label: 'Checkbox', description: 'True/false toggle',           icon: <CheckSquare className="w-4 h-4" /> },
-  { id: 'formula',  label: 'Formula',  description: 'Auto-calculated, e.g. =a+b', icon: <FunctionSquare className="w-4 h-4" />  },
 ];
 
 const AddColumnModal: React.FC<AddColumnModalProps> = ({ onAdd, onClose, mode = 'add', initialValues }) => {

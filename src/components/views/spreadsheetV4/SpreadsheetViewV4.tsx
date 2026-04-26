@@ -244,17 +244,7 @@ const SpreadsheetViewV4: React.FC = () => {
   >(null);
   const emptySetRef = useRef(new Set<string>());
 
-  // Range selection (shift-click / mouse drag)
-  const [rangeAnchor, setRangeAnchor] = useState<{ rowId: string; colId: string } | null>(null);
-  const [rangeEnd, setRangeEnd] = useState<{ rowId: string; colId: string } | null>(null);
-  const isDragging = useRef(false);
-
-  // Fill handle
-  const [fillAnchor, setFillAnchor] = useState<{ rowId: string; colId: string } | null>(null);
-  const [fillRangeRowIds, setFillRangeRowIds] = useState<Set<string>>(new Set());
-  const isFillDragging = useRef(false);
-  const fillJustApplied = useRef(false);
-  const applyFillRef = useRef<() => void>(() => {});
+  // Fill handle removed for simplified Spreadsheet + UI
 
   // Undo / Redo
   const undoStack = useRef<V3Row[][]>([]);
@@ -287,22 +277,7 @@ const SpreadsheetViewV4: React.FC = () => {
     return flattenRows(sortedRows, expandedIds, 0, showSub);
   }, [sortedRows, expandedIds, activeSheet]);
 
-  const rangeMarkers = useMemo(() => {
-    if (!rangeAnchor) return null;
-    const end = rangeEnd || rangeAnchor;
-    const rIdx1 = flatRows.findIndex(f => f.row.id === rangeAnchor.rowId);
-    const rIdx2 = flatRows.findIndex(f => f.row.id === end.rowId);
-    const cIdx1 = columns.findIndex(c => c.id === rangeAnchor.colId);
-    const cIdx2 = columns.findIndex(c => c.id === end.colId);
-    if (rIdx1 === -1 || rIdx2 === -1 || cIdx1 === -1 || cIdx2 === -1) return null;
-    
-    return {
-      startRowId: flatRows[Math.min(rIdx1, rIdx2)].row.id,
-      endRowId:   flatRows[Math.max(rIdx1, rIdx2)].row.id,
-      startColId: columns[Math.min(cIdx1, cIdx2)].id,
-      endColId:   columns[Math.max(cIdx1, cIdx2)].id,
-    };
-  }, [rangeAnchor, rangeEnd, flatRows, columns]);
+  // Range selection helpers removed
 
   const selectableFlat = useMemo(() => flatRows.filter(f => !f.isSummary), [flatRows]);
   const isAllSelected = selectableFlat.length > 0 && selectableFlat.every(f => selectedRowIds.has(f.row.id));
@@ -348,28 +323,7 @@ const SpreadsheetViewV4: React.FC = () => {
   }, [editingCell, editSource]);
 
   // ── Range selection helpers ───────────────────────────────────────────
-  const rangeSet = useMemo(() => {
-    if (!rangeAnchor || !rangeEnd) return null;
-    const aRowIdx = flatRows.findIndex(f => f.row.id === rangeAnchor.rowId);
-    const eRowIdx = flatRows.findIndex(f => f.row.id === rangeEnd.rowId);
-    const aColIdx = columns.findIndex(c => c.id === rangeAnchor.colId);
-    const eColIdx = columns.findIndex(c => c.id === rangeEnd.colId);
-    if (aRowIdx < 0 || eRowIdx < 0) return null;
-    const r0 = Math.min(aRowIdx, eRowIdx), r1 = Math.max(aRowIdx, eRowIdx);
-    const c0 = Math.min(aColIdx, eColIdx), c1 = Math.max(aColIdx, eColIdx);
-    return { r0, r1, c0, c1 };
-  }, [rangeAnchor, rangeEnd, flatRows, columns]);
-
-  const isInRange = (rowId: string): boolean => {
-    if (!rangeSet) return false;
-    const idx = flatRows.findIndex(f => f.row.id === rowId);
-    return idx >= rangeSet.r0 && idx <= rangeSet.r1;
-  };
-
-  const rangeColIds = useMemo(() => {
-    if (!rangeSet) return new Set<string>();
-    return new Set(columns.slice(rangeSet.c0, rangeSet.c1 + 1).map(c => c.id));
-  }, [rangeSet, columns]);
+  // Range selection helpers removed
 
 
 
@@ -415,47 +369,7 @@ const SpreadsheetViewV4: React.FC = () => {
     updateRows(() => next);
   }, [activeSheet, updateRows]);
 
-  // ── Fill handle ────────────────────────────────────────────────────────
-  const handleFillHandleMouseDown = useCallback((rowId: string, colId: string) => {
-    isFillDragging.current = true;
-    setFillAnchor({ rowId, colId });
-    setFillRangeRowIds(new Set());
-  }, []);
 
-  const handleFillRowEnter = useCallback((rowId: string) => {
-    if (!isFillDragging.current || !fillAnchor) return;
-    const anchorIdx = flatRows.findIndex(f => f.row.id === fillAnchor.rowId);
-    const endIdx = flatRows.findIndex(f => f.row.id === rowId);
-    if (anchorIdx < 0 || endIdx <= anchorIdx) { setFillRangeRowIds(new Set()); return; }
-    const ids = new Set<string>();
-    for (let i = anchorIdx + 1; i <= endIdx; i++) {
-      if (!flatRows[i].isSummary) ids.add(flatRows[i].row.id);
-    }
-    setFillRangeRowIds(ids);
-  }, [fillAnchor, flatRows]);
-
-  // Keep applyFillRef up to date so the stable mouseup handler can call it
-  useEffect(() => {
-    applyFillRef.current = () => {
-      if (!fillAnchor || fillRangeRowIds.size === 0) return;
-      const { rowId, colId } = fillAnchor;
-      const sourceRow = flatRows.find(f => f.row.id === rowId);
-      if (!sourceRow) return;
-      const value = sourceRow.row.cells[colId] ?? null;
-      undoStack.current.push(JSON.parse(JSON.stringify(activeSheet?.rows ?? [])));
-      if (undoStack.current.length > 100) undoStack.current.shift();
-      redoStack.current = [];
-      updateRows(rows => {
-        const apply = (items: V3Row[]): V3Row[] => items.map(r => {
-          if (fillRangeRowIds.has(r.id)) return { ...r, cells: { ...r.cells, [colId]: value } };
-          return { ...r, children: r.children ? apply(r.children) : undefined };
-        });
-        return apply(rows);
-      });
-      setFillAnchor(null);
-      setFillRangeRowIds(new Set());
-    };
-  }, [fillAnchor, fillRangeRowIds, flatRows, activeSheet, updateRows]);
 
   // ── Row CRUD ────────────────────────────────────────────────────────────
   const checkBlockingDraft = (): boolean => {
@@ -687,59 +601,20 @@ const SpreadsheetViewV4: React.FC = () => {
     // If clicking the cell currently being edited (append mode), let the input handle it.
     if (editingCell?.rowId === rowId && editingCell?.colId === colId) return;
 
-    if (fillJustApplied.current) { fillJustApplied.current = false; return; }
+    // Commit any pending overwrite value from the previous cell before moving focus.
+    flushPendingOverwrite();
 
-    // Clear column selection when clicking a cell
+    // Clear selection states
     setSelectedColId(null);
-
-    if (e.shiftKey && rangeAnchor) {
-      setRangeEnd({ rowId, colId });
-      setEditingCell(null);
-      return;
-    }
-
-    // Navigation and focus are now handled in handleCellMouseDown for better responsiveness.
-    // We just handle the clearing of selection states here if needed.
-    setRangeAnchor({ rowId, colId });
-    setRangeEnd(null);
     setSelectedRowIds(new Set());
+    setFocusedCell({ rowId, colId });
     setEditSource(null);
     setEditingCell(null);
   };
 
-  const handleCellMouseDown = (rowId: string, colId: string, e: React.MouseEvent) => {
-    if (e.button !== 0 || isFillDragging.current) return;
-    
-    // Commit any pending overwrite value from the previous cell before moving focus.
-    flushPendingOverwrite();
-    
-    isDragging.current = true;
-    setSelectedColId(null); // clear column selection when clicking a cell
-    setRangeAnchor({ rowId, colId });
-    setRangeEnd(null);
-    setFocusedCell({ rowId, colId });
-  };
+  // Selection management
 
-  const handleCellMouseEnter = (rowId: string, colId: string) => {
-    if (isFillDragging.current) return;
-    if (isDragging.current) setRangeEnd({ rowId, colId });
-  };
-
-  // Stable global mouseup — handles both range selection and fill drag
-  useEffect(() => {
-    const up = () => {
-      isDragging.current = false;
-      if (isFillDragging.current) {
-        applyFillRef.current();
-        isFillDragging.current = false;
-        fillJustApplied.current = true;
-        // Clear the flag after click events have had a chance to fire
-        setTimeout(() => { fillJustApplied.current = false; }, 100);
-      }
-    };
-    window.addEventListener('mouseup', up);
-    return () => window.removeEventListener('mouseup', up);
-  }, []);
+  // Global mouseup removed
 
   // ── Keyboard navigation ────────────────────────────────────────────────
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -846,19 +721,38 @@ const SpreadsheetViewV4: React.FC = () => {
       let nr = rIdx + dr, nc = cIdx + dc;
       if (e.key === 'Tab' && !e.shiftKey && nc >= columns.length) { nc = 0; nr++; }
       if (e.key === 'Tab' && e.shiftKey && nc < 0) { nc = columns.length - 1; nr--; }
-      const { nextRow, nextCol } = moveTo(nr, nc);
-      if (e.shiftKey && e.key !== 'Tab') setRangeEnd({ rowId: nextRow.row.id, colId: nextCol.id });
+      moveTo(nr, nc);
     };
-
-    if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key === ']') {
-      e.preventDefault();
-      handleIndentRow(focusedRowId);
-      return;
-    }
 
     if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key === '[') {
       e.preventDefault();
       handleOutdentRow(focusedRowId);
+      return;
+    }
+
+    // ── Clipboard Shortcuts ──────────────────────────────────────────────
+    if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+      e.preventDefault();
+      if (selectedRowIds.size > 0) handleCopy();
+      else if (selectedColId) handleCopyColumn(selectedColId);
+      else if (focusedCell) contextMenuCellCopy(focusedCell.rowId, focusedCell.colId, false);
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'x') {
+      e.preventDefault();
+      if (selectedRowIds.size > 0) handleCut();
+      else if (selectedColId) handleCutColumn(selectedColId);
+      else if (focusedCell) contextMenuCellCopy(focusedCell.rowId, focusedCell.colId, true);
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+      e.preventDefault();
+      if (clipboard?.length) {
+        handlePaste(focusedRowId);
+      } else if (cellClipboard) {
+        if (selectedColId) handlePasteColumn(selectedColId);
+        else if (focusedCell) handleCellPaste(focusedCell.rowId, focusedCell.colId);
+      }
       return;
     }
 
@@ -945,8 +839,10 @@ const SpreadsheetViewV4: React.FC = () => {
       case 'Delete':
       case 'Backspace':
         e.preventDefault();
-        if (rangeSet) {
-          clearCellsInRange();
+        if (selectedColId) {
+          handleClearColumn(selectedColId);
+        } else if (selectedRowIds.size > 0) {
+          handleDeleteRows(selectedRowIds);
         } else if (columns[cIdx]?.editable && !focusedFlatRow.isSummary) {
           handleUpdateCell(focusedRowId, columns[cIdx].id, null);
         }
@@ -1040,19 +936,6 @@ const SpreadsheetViewV4: React.FC = () => {
     let targetRowIds = explicitRowIds;
     let colIds = explicitColIds;
 
-    if (!targetRowIds || !colIds) {
-      if (rangeSet) {
-        targetRowIds = new Set(flatRows.slice(rangeSet.r0, rangeSet.r1 + 1).map(f => f.row.id));
-        colIds = new Set(columns.slice(rangeSet.c0, rangeSet.c1 + 1).map(c => c.id));
-      } else if (focusedCell) {
-        targetRowIds = new Set([focusedCell.rowId]);
-        colIds = new Set([focusedCell.colId]);
-      } else if (contextMenu?.type === 'cell' && contextMenu.rowId && contextMenu.colId) {
-        targetRowIds = new Set([contextMenu.rowId]);
-        colIds = new Set([contextMenu.colId]);
-      }
-    }
-
     if (!targetRowIds?.size || !colIds?.size) return;
 
     undoStack.current.push(JSON.parse(JSON.stringify(activeSheet.rows)));
@@ -1098,24 +981,15 @@ const SpreadsheetViewV4: React.FC = () => {
         return update(rows);
       });
     } else {
-      let targetRows: Set<string>;
-      let targetCols: Set<string>;
-      if (rangeSet) {
-        targetRows = new Set(flatRows.slice(rangeSet.r0, rangeSet.r1 + 1).map(f => f.row.id));
-        targetCols = new Set(columns.slice(rangeSet.c0, rangeSet.c1 + 1).map(c => c.id));
-      } else {
-        const rid = rId || focusedCell?.rowId;
-        const cid = cId || focusedCell?.colId;
-        if (!rid || !cid) return;
-        targetRows = new Set([rid]);
-        targetCols = new Set([cid]);
-      }
+      const rid = rId || focusedCell?.rowId;
+      const cid = cId || focusedCell?.colId;
+      if (!rid || !cid) return;
       updateRows(rows => {
         const update = (items: V3Row[]): V3Row[] => items.map(r => {
           let next = r;
-          if (targetRows.has(r.id)) {
+          if (r.id === rid) {
             const newCellStyles = { ...(r.cellStyles ?? {}) };
-            targetCols.forEach(cid => delete newCellStyles[cid]);
+            delete newCellStyles[cid];
             next = { ...r, cellStyles: newCellStyles };
           }
           if (next.children) next.children = update(next.children);
@@ -1177,8 +1051,6 @@ const SpreadsheetViewV4: React.FC = () => {
   const handleColumnHeaderClick = useCallback((colId: string) => {
     flushPendingOverwrite();
     setSelectedColId(prev => prev === colId ? null : colId);
-    setRangeAnchor(null);
-    setRangeEnd(null);
     setSelectedRowIds(new Set());
     setFocusedCell(null);
     setEditingCell(null);
@@ -1356,62 +1228,31 @@ const SpreadsheetViewV4: React.FC = () => {
 
   // ── Cell clipboard (range) ─────────────────────────────────────────────────
   const getCellsInRange = useCallback((): { grid: (CellValue | null)[][]; colIds: string[] } | null => {
-    if (rangeSet) {
-      const rowsSlice = flatRows.slice(rangeSet.r0, rangeSet.r1 + 1);
-      const colsSlice = columns.slice(rangeSet.c0, rangeSet.c1 + 1);
-      return { grid: rowsSlice.map(f => colsSlice.map(c => f.row.cells[c.id] ?? null)), colIds: colsSlice.map(c => c.id) };
-    }
     if (focusedCell) {
       const flat = flatRows.find(f => f.row.id === focusedCell.rowId);
       if (!flat) return null;
       return { grid: [[flat.row.cells[focusedCell.colId] ?? null]], colIds: [focusedCell.colId] };
     }
     return null;
-  }, [rangeSet, flatRows, columns, focusedCell]);
+  }, [flatRows, focusedCell]);
 
   const clearCellsInRange = useCallback(() => {
-    if (rangeSet) {
-      const rows = flatRows.slice(rangeSet.r0, rangeSet.r1 + 1).filter(f => !f.isSummary);
-      const cols = columns.slice(rangeSet.c0, rangeSet.c1 + 1).filter(c => c.editable && c.type !== 'formula');
-      if (!rows.length || !cols.length) return;
-      const rowIds = new Set(rows.map(f => f.row.id));
-      const colIds = new Set(cols.map(c => c.id));
-      if (activeSheet) { undoStack.current.push(JSON.parse(JSON.stringify(activeSheet.rows))); redoStack.current = []; }
-      updateRows(all => {
-        const clear = (items: V3Row[]): V3Row[] => items.map(r => {
-          let next = r;
-          if (rowIds.has(r.id)) {
-            const cells = { ...r.cells };
-            colIds.forEach((cid: string) => { cells[cid] = null; });
-            next = { ...r, cells };
-          }
-          if (next.children) next = { ...next, children: clear(next.children) };
-          return next;
-        });
-        return clear(all);
-      });
-    } else if (focusedCell) {
+    if (focusedCell) {
       const col = columns.find(c => c.id === focusedCell.colId);
       if (col?.editable && col.type !== 'formula') handleUpdateCell(focusedCell.rowId, focusedCell.colId, null);
     }
-  }, [rangeSet, flatRows, columns, focusedCell, activeSheet, updateRows, handleUpdateCell]);
+  }, [columns, focusedCell, handleUpdateCell]);
 
   const handleCellCopy = useCallback((cut = false) => {
     const data = getCellsInRange();
     if (!data) return;
     setCellClipboard(data);
-    if (cut) {
-      // Deferred cut: mark source without deleting yet; actual clear happens on paste
-      if (rangeSet) {
-        const rowIds = new Set(flatRows.slice(rangeSet.r0, rangeSet.r1 + 1).filter(f => !f.isSummary).map(f => f.row.id));
-        setCutSource({ type: 'cells', rowIds, colIds: new Set(data.colIds) });
-      } else if (focusedCell) {
-        setCutSource({ type: 'cells', rowIds: new Set([focusedCell.rowId]), colIds: new Set([focusedCell.colId]) });
-      }
+    if (cut && focusedCell) {
+      setCutSource({ type: 'cells', rowIds: new Set([focusedCell.rowId]), colIds: new Set([focusedCell.colId]) });
     } else {
       setCutSource(null);
     }
-  }, [getCellsInRange, rangeSet, flatRows, focusedCell]);
+  }, [getCellsInRange, focusedCell]);
 
   const handleCellPaste = useCallback((targetRowId?: string, targetColId?: string) => {
     if (!cellClipboard) return;
@@ -1700,7 +1541,6 @@ const SpreadsheetViewV4: React.FC = () => {
           flushPendingOverwrite();
         }
       }}
-      onMouseLeave={() => { isDragging.current = false; }}
     >
       {/* ── Toolbar (reuses shared SpreadsheetToolbar) ── */}
       <div className="flex items-center gap-2">
@@ -1725,7 +1565,8 @@ const SpreadsheetViewV4: React.FC = () => {
       {/* ── Table card ── */}
       <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden relative flex flex-col focus:outline-none max-h-full min-h-0 flex-grow">
 
-        {/* ── Formula bar ── */}
+        {/* ── Formula bar (Hidden in v4.0 as per user request) ── */}
+        {/*
         <FormulaBar
           selection={formulaBarSelection}
           rows={memoizedRows}
@@ -1735,6 +1576,7 @@ const SpreadsheetViewV4: React.FC = () => {
           onLiveChange={handleLiveCellEditChange}
           onCommit={handleFormulaBarCommit}
         />
+        */}
 
         {/* GUIDED CREATION WARNING */}
         {activeSheetId === 'sheet-schedule' && flatRows.some(f => 
@@ -1793,12 +1635,6 @@ const SpreadsheetViewV4: React.FC = () => {
                   isSummary={isSummary}
                   focusedCell={focusedCell}
                   editingCell={editingCell}
-                  inRangeSelection={isInRange(row.id)}
-                  rangeColIds={rangeColIds}
-                  isRangeTopRow={rangeMarkers?.startRowId === row.id}
-                  isRangeBottomRow={rangeMarkers?.endRowId === row.id}
-                  rangeStartColId={rangeMarkers?.startColId ?? null}
-                  rangeEndColId={rangeMarkers?.endColId ?? null}
                   selectedColId={selectedColId}
                   isScrolled={!scrollState.isAtStart}
                   isAtEnd={scrollState.isAtEnd}
@@ -1818,16 +1654,10 @@ const SpreadsheetViewV4: React.FC = () => {
                       return next;
                     });
                   }}
-                  fillAnchorCell={fillAnchor}
-                  fillRangeRowIds={fillRangeRowIds}
                   onCellClick={handleCellClick}
                   onCellDoubleClick={handleCellDoubleClick}
                   onUpdateCell={handleUpdateCell}
                   onContextMenu={(e, type, rowId, colId) => handleContextMenu(e, type, rowId, colId)}
-                  onCellMouseDown={handleCellMouseDown}
-                  onCellMouseEnter={handleCellMouseEnter}
-                  onFillHandleMouseDown={handleFillHandleMouseDown}
-                  onRowMouseEnter={handleFillRowEnter}
                   cutColId={cutSource?.type === 'column' ? cutSource.colId : null}
                   cutCellColIds={cutSource?.type === 'cells' && cutSource.rowIds.has(row.id) ? cutSource.colIds : emptySetRef.current}
                   liveEdit={liveCellEdit}

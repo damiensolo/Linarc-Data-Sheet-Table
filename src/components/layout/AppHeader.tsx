@@ -15,7 +15,7 @@ const AppHeader: React.FC = () => {
         if (activeViewMode === 'gantt') return 'Schedule';
         if (activeViewMode === 'lookahead') return 'Lookahead';
         if (activeViewMode === 'spreadsheetV3') return 'Advanced Spreadsheet (v3.1)';
-        if (activeViewMode === 'spreadsheetV4') return 'Experimental Spreadsheet (v4.0)';
+        if (activeViewMode === 'spreadsheetV4') return 'Spreadsheet +';
         return 'Budget';
     };
 
