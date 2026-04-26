@@ -113,6 +113,8 @@ function collectExpandableIdsFromRow(row: V3Row): string[] {
   return ids;
 }
 
+const getModKeyLabel = () => (typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform) ? '⌘' : 'Ctrl');
+
 // ─── Main component ──────────────────────────────────────────────────────────
 const SpreadsheetViewV4: React.FC = () => {
   const { activeView, updateView } = useProject();
@@ -479,20 +481,20 @@ const SpreadsheetViewV4: React.FC = () => {
   };
 
   const handleIndentRow = useCallback((rowId: string) => {
-    const rows = sheetsRef.current.find(s => s.id === activeSheetId)?.rows;
-    if (!rows) return;
-    const result = indentRowInTree(rows, rowId);
-    if (!result) return;
-    updateRows(() => result.rows);
-    setExpandedIds(prev => new Set([...prev, result.newParentId]));
-  }, [activeSheetId, updateRows]);
+    updateRows(prevRows => {
+      const result = indentRowInTree(prevRows, rowId);
+      if (!result) return prevRows;
+      setExpandedIds(prev => new Set([...prev, result.newParentId]));
+      return result.rows;
+    });
+  }, [updateRows]);
 
   const handleOutdentRow = useCallback((rowId: string) => {
-    const rows = sheetsRef.current.find(s => s.id === activeSheetId)?.rows;
-    if (!rows) return;
-    const newRows = outdentRowInTree(rows, rowId);
-    if (newRows) updateRows(() => newRows);
-  }, [activeSheetId, updateRows]);
+    updateRows(prevRows => {
+      const newRows = outdentRowInTree(prevRows, rowId);
+      return newRows || prevRows;
+    });
+  }, [updateRows]);
 
   const handleUpdateCell = useCallback((rowId: string, colId: string, value: CellValue, direction?: 'up' | 'down' | 'left' | 'right') => {
     // Snapshot for undo before applying change
@@ -723,6 +725,12 @@ const SpreadsheetViewV4: React.FC = () => {
       if (e.key === 'Tab' && e.shiftKey && nc < 0) { nc = columns.length - 1; nr--; }
       moveTo(nr, nc);
     };
+
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key === ']') {
+      e.preventDefault();
+      handleIndentRow(focusedRowId);
+      return;
+    }
 
     if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key === '[') {
       e.preventDefault();
@@ -1435,10 +1443,12 @@ const SpreadsheetViewV4: React.FC = () => {
         </div>
       );
 
+      const mod = getModKeyLabel();
+
       return [
-        { label: 'Cut',   icon: <ScissorsIcon className="w-4 h-4" />,   shortcut: '⌘X', onClick: () => contextMenuCellCopy(rowId, colId, true) },
-        { label: 'Copy',  icon: <CopyIcon className="w-4 h-4" />,        shortcut: '⌘C', onClick: () => contextMenuCellCopy(rowId, colId, false) },
-        { label: 'Paste', icon: <ClipboardIcon className="w-4 h-4" />,  shortcut: '⌘V', disabled: !cellClipboard, onClick: () => handleCellPaste(rowId, colId) },
+        { label: 'Cut',   icon: <ScissorsIcon className="w-4 h-4" />,   shortcut: `${mod}X`, onClick: () => contextMenuCellCopy(rowId, colId, true) },
+        { label: 'Copy',  icon: <CopyIcon className="w-4 h-4" />,        shortcut: `${mod}C`, onClick: () => contextMenuCellCopy(rowId, colId, false) },
+        { label: 'Paste', icon: <ClipboardIcon className="w-4 h-4" />,  shortcut: `${mod}V`, disabled: !cellClipboard, onClick: () => handleCellPaste(rowId, colId) },
         { separator: true } as any,
         { label: 'Clear cell', icon: <XIcon className="w-4 h-4" />, onClick: () => handleUpdateCell(rowId, colId, null) },
         { separator: true } as any,
@@ -1447,8 +1457,8 @@ const SpreadsheetViewV4: React.FC = () => {
         { label: 'Add child row',    icon: <PlusIcon className="w-4 h-4" />,      disabled: isRowCreationBlocked, onClick: () => handleAddSubRow(rowId) },
         ...(friendlyHint ? [{ label: '', hint: friendlyHint, onClick: () => {} } as any] : []),
         { separator: true } as any,
-        { label: 'Indent row',  shortcut: '⌘]',  icon: <IndentIcon className="w-4 h-4" />,  onClick: () => handleIndentRow(rowId) },
-        { label: 'Outdent row', shortcut: '⌘[', icon: <OutdentIcon className="w-4 h-4" />, onClick: () => handleOutdentRow(rowId) },
+        { label: 'Indent row',  shortcut: `${mod}]`,  icon: <IndentIcon className="w-4 h-4" />,  onClick: () => handleIndentRow(rowId) },
+        { label: 'Outdent row', shortcut: `${mod}[`, icon: <OutdentIcon className="w-4 h-4" />, onClick: () => handleOutdentRow(rowId) },
         { separator: true } as any,
         { label: 'Cell Background', render: (close) => renderColorRow('Cell Background', <FillColorIcon className="w-4 h-4" />, 'bg', close) } as any,
         { label: 'Cell Text Color', render: (close) => renderColorRow('Cell Text Color', <TextColorIcon className="w-4 h-4" />, 'text', close) } as any,
