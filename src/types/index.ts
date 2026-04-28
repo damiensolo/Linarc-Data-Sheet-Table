@@ -173,6 +173,7 @@ export interface View {
   columns: Column[];
   displayDensity: DisplayDensity;
   showGridLines: boolean;
+  showColoredRows?: boolean;
 
   spreadsheetData?: BudgetLineItem[];
   spreadsheetColumns?: SpreadsheetColumn[];

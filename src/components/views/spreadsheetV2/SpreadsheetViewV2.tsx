@@ -970,7 +970,7 @@ const SpreadsheetViewV2: React.FC = () => {
                         onContextMenu={handleContextMenu}
                         filters={activeView.filters}
                         highlights={displayHighlights}
-
+                        showColoredRows={activeView.showColoredRows ?? true}
                     />
                 ))}
                 </tbody>
